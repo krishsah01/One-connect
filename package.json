@@ -1,0 +1,38 @@
+{
+  "name": "one-connect",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first control center that runs a team of AI coding agents on the subscriptions you already pay for.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "acc": "node packages/daemon/src/cli.ts",
+    "daemon": "node packages/daemon/src/cli.ts daemon",
+    "dev:web": "pnpm --filter @acc/web dev",
+    "build": "pnpm --filter @acc/web build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo": "node scripts/demo.mjs",
+    "demo:open": "node packages/daemon/src/cli.ts open",
+    "spdx:check": "node scripts/check-spdx.mjs",
+    "license:check": "node scripts/licenses.mjs --check",
+    "license:notices": "node scripts/licenses.mjs --write",
+    "license:switch": "node scripts/set-license.mjs",
+    "dco:check": "node scripts/check-dco.mjs",
+    "desktop:prepare": "pnpm build && node scripts/desktop-prepare.mjs",
+    "desktop:dev": "cd packages/desktop && tauri dev",
+    "desktop:build": "pnpm desktop:prepare && cd packages/desktop && tauri build",
+    "desktop:check": "cargo check --manifest-path packages/desktop/src-tauri/Cargo.toml --locked"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1",
+    "@types/node": "^26.6.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

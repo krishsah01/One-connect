@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: Apache-2.0
+// Network egress guard. The control center itself contacts ONLY the hosts of connections the user
+// configured (their tracker, their model providers, their local model servers). There is no
+// telemetry, no update check and no project server: nothing about your work leaves your machine
+// except to the providers you chose. Every outbound request from the daemon goes through here.
+//
+// (Vendor CLIs the user runs, e.g. `claude` or `codex`, talk to their own vendor; that is the
+// connection the user chose.)
+import type { ControlCenterConfig } from '@acc/core';
+
+export class EgressDenied extends Error {}
+
+export const PROVIDER_HOSTS: Record<string, (base?: string) => string[]> = {
+  'anthropic-api': () => ['api.anthropic.com'],
+  'openai-api': () => ['api.openai.com'],
+  openrouter: () => ['openrouter.ai'],
+  ollama: (base) => [hostOf(base ?? 'http://127.0.0.1:11434')],
+  lmstudio: (base) => [hostOf(base ?? 'http://127.0.0.1:1234')],
+};
+
+function hostOf(url: string): string {
+  return new URL(url).host;
+}
+
+/** Hosts the daemon may contact, derived only from configuration. */
+export function allowedHosts(cfg: ControlCenterConfig): string[] {
+  const hosts = new Set<string>(['127.0.0.1', 'localhost']); // its own server / MCP bridge
+  if (cfg.tracker.type === 'linear') hosts.add(hostOf(cfg.tracker.api_url));
+  for (const a of cfg.agents) {
+    const h = PROVIDER_HOSTS[a.provider];
+    if (h) for (const x of h(a.base_url)) hosts.add(x);
+  }
+  if (cfg.import_sources.some(s => s.type === 'linear' && s.enabled)) hosts.add('api.linear.app');
+  return [...hosts];
+}
+
+export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
+
+export interface Egress {
+  fetch: Fetch;
+  allowed: string[];
+  /** Every request made, for the audit view and tests. */
+  log: { at: string; host: string; method: string; purpose: string; allowed: boolean }[];
+}
+
+export function createEgress(cfg: ControlCenterConfig, underlying: Fetch = globalThis.fetch): Egress {
+  const allowed = allowedHosts(cfg);
+  const log: Egress['log'] = [];
+  const isAllowed = (u: URL) => allowed.includes(u.host) || allowed.includes(u.hostname);
+  const guarded = (async (url: string, init?: RequestInit & { purpose?: string }) => {
+    const u = new URL(url);
+    const ok = isAllowed(u);
+    log.push({ at: new Date().toISOString(), host: u.host, method: init?.method ?? 'GET', purpose: init?.purpose ?? '', allowed: ok });
+    if (log.length > 500) log.splice(0, log.length - 500);
+    if (!ok) throw new EgressDenied(`blocked outbound request to ${u.host}: not a configured connection`);
+    // A configured host cannot redirect a request (or credentials) to another host.
+    return underlying(url, { ...init, redirect: 'error' });
+  }) as Fetch;
+  return { fetch: guarded, allowed, log };
+}

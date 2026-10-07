@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+# Local daemon state never belongs in the repo; it lives in the app data dir.
+.acc/
+packages/web/dist/
+
+# Native build and packaged runtime
+packages/desktop/src-tauri/target/
+packages/desktop/src-tauri/resources/
+.pnpm-store/
+.desktop-cache/

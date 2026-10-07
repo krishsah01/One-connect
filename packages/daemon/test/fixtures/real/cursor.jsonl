@@ -1,0 +1,4 @@
+{"type": "system", "subtype": "init", "apiKeySource": "login", "cwd": "/work/smoke", "session_id": "00000000-0000-4000-8000-0000000c0450", "model": "Claude Opus 5.5 300K High", "permissionMode": "default"}
+{"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": "Reply with exactly the word OK and nothing else."}]}, "session_id": "00000000-0000-4000-8000-0000000c0450"}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "OK"}]}, "session_id": "00000000-0000-4000-8000-0000000c0450"}
+{"type": "result", "subtype": "success", "duration_ms": 7743, "duration_api_ms": 7743, "is_error": false, "result": "OK", "session_id": "00000000-0000-4000-8000-0000000c0450", "request_id": "00000000-0000-4000-8000-000000000001", "usage": {"inputTokens": 4, "outputTokens": 4, "cacheReadTokens": 0, "cacheWriteTokens": 40385}}

@@ -1,0 +1,1242 @@
+diff --git a/HANDOFF.md b/HANDOFF.md
+new file mode 100644
+index 0000000..58cf4f2
+--- /dev/null
++++ b/HANDOFF.md
+@@ -0,0 +1,97 @@
++# HANDOFF — projects-docker worker
++
++Isolated workspace: `/private/tmp/one-connect-cursor-Bu9W8J/projects-docker` (branch `codex/projects-docker`). No commit created.
++
++## What shipped
++
++### 1. Durable project registry and Mac-first project UI
++- **`packages/desktop/src-tauri/src/projects.rs`**: `projects.json` registry (0600, atomic write, corrupt-file quarantine, `selected-config` migration), one-repo↔one-project, running-set for restart recovery, digest-bound single-use approval gate (120s) for clone/git-init.
++- **`packages/desktop/src-tauri/src/main.rs`**: one engine per project (`HashMap` of `Connection` + child), `desktop_bootstrap` / `daemon_request(project, …)` routing, folder picker + `acc project` CLI bridge, add/activate/start/stop/remove/kill-all/clone/init commands, background restore of engines that were running at quit, stale-daemon cleanup by verified command line, no refusal to switch while other projects have active runs.
++- **`packages/daemon/src/projects/*`**: `inspect` (frameworks/checks/compose/dockerfiles/git state, safe paths), `prepare` (generated config outside repo), `clone`/`git-init` plan+execute with digest re-plan, `command.ts` CLI JSON contract.
++- **`packages/web/src/pages/Projects.tsx`**, **`App.tsx`** sidebar switcher, **`lib/desktop.ts`** project-bound IPC, **`lib/store.ts`** generation guard + `openProject()`.
++
++### 2. Concurrent projects, bound IPC, terminals
++- Switching projects changes the active WebSocket only; other engines keep running and reattach detached runs on return.
++- Every `daemon_request` and terminal invoke carries `project`; stale responses after switch throw `ProjectSwitched`.
++- **`terminal.rs`**: sessions tagged by project; write/resize/close refused cross-project; scrollback (256 KiB) + `terminal_list` / `terminal_attach` for reattach after switch.
++
++### 3. Docker workbench + local database wizard
++- **`packages/daemon/src/environment/compose.ts`**: declarative compose parse (ports, healthcheck, named volumes).
++- **`packages/daemon/src/environment/database.ts`**: Postgres/SQLite wizard files (0600 secrets, `127.0.0.1` bind, refuses `prod` names).
++- **`packages/daemon/src/environment/workbench.ts`**: availability, bound vs foreign containers, readiness from `State.Health`, port/image conflicts, gated compose actions, DB plan/create.
++- **`packages/daemon/src/server/project-routes.ts`**: `/api/project/onboarding`, `/api/environment*`, database plan/create.
++- **`packages/web/src/components/DockerWorkbench.tsx`**, **`Workspace.tsx`** terminal + workbench.
++
++### 4. Content-bound Docker approvals (coordinator fix)
++Approvals previously hashed only `argv` (paths unchanged when image/command/mount edits). Now:
++- Digest covers project, repo, action, services, **SHA-256 of each Compose file**, **scoped service YAML**, and **Dockerfiles** for build services in scope.
++- On approve: binding is **re-read**; mismatch → `409 Compose content changed`.
++- Execution uses an **immutable snapshot** under `<data>/environment/approval-snapshots/<decisionId>/` (verified bytes, private 0600 files); snapshot removed after the job finishes.
++- Regression: `environment.test.ts` — evil image + host mount with unchanged `compose.yaml` path refuses before `docker compose` runs.
++
++## Files (new / materially changed)
++
++| Area | Paths |
++|------|-------|
++| Daemon projects | `packages/daemon/src/projects/{safe-git,inspect,prepare,clone,command}.ts` |
++| Daemon environment | `packages/daemon/src/environment/{compose,database,workbench}.ts` |
++| Daemon server | `packages/daemon/src/server/project-routes.ts`; one-line hooks in `http.ts`, `daemon.ts`, `cli.ts` |
++| Daemon tests | `packages/daemon/test/{projects,environment,docker-smoke}.test.ts` |
++| Rust shell | `packages/desktop/src-tauri/src/{projects,main,terminal}.rs` |
++| Web | `packages/web/src/{lib/desktop,lib/store,App,pages/Projects,pages/Workspace,components/DockerWorkbench,components/NativeTerminal}.tsx` |
++| Web tests | `packages/web/test/{projects,workbench}.test.tsx` |
++| Docs | `docs/desktop.md`, `docs/one-answer.md` |
++
++## Commands run (this session, `set -o pipefail`)
++
++```sh
++pnpm typecheck
++# Scope: 3 packages — all Done
++
++npx vitest run --project daemon packages/daemon/test/environment.test.ts
++# 9 passed (includes new Compose-content regression)
++
++npx vitest run
++# Test Files  20 passed | 1 skipped (21)
++# Tests       160 passed | 1 skipped (161)
++
++DEVELOPER_DIR=/Library/Developer/CommandLineTools \
++CARGO_TARGET_DIR=/private/tmp/one-connect-cursor-Bu9W8J/cargo-target \
++TAURI_CONFIG='{"build":{"frontendDist":"/private/tmp/one-connect-cursor-Bu9W8J/cargo-dist"},"bundle":{"resources":[]}}' \
++cargo test --offline --locked --manifest-path packages/desktop/src-tauri/Cargo.toml
++# 14 passed (registry, gate, IPC, PTY, scrollback, project-bound terminals)
++
++pnpm build
++# web dist built successfully
++```
++
++Skipped unless opted in: `ONE_CONNECT_DOCKER_SMOKE=1` real-docker smoke (`packages/daemon/test/docker-smoke.test.ts`) — requires local `postgres:16-alpine`, disposable `ocsmoke*` project, cleaned with `down -v`.
++
++## Shared-file integration points (for other workers)
++
++| File | Touch |
++|------|-------|
++| `packages/daemon/src/server/http.ts` | `await registerProjectRoutes(app, d);` before imports routes |
++| `packages/daemon/src/daemon.ts` | `readonly environment: ProjectEnvironment`; `await this.environment.close()` in shutdown |
++| `packages/daemon/src/cli.ts` | `case 'project':` dynamic import + JSON stdout |
++| `packages/desktop/src-tauri/src/main.rs` | multi-engine, registry commands, `mod projects` |
++| `packages/web/src/App.tsx` | Projects route, switcher, project-keyed Suspense |
++| `packages/web/src/lib/desktop.ts` | all Tauri invoke wrappers take/return project identity |
++
++Preserved: One Answer pipeline, Designer, tracker adapters, custom agents, `dev.agentcontrolcenter.desktop` identifier, existing `/api/docker*` container-ID routes.
++
++## Remaining gaps / follow-ups
++
++1. **Coordinator items not in this worker scope** (see `REVIEW_NOTES.md`): mock navigation egress, design capture race, stable vault namespace by registry id, subscription overage attestation, workflow-review Docker checks / hook gating.
++2. **`build` TOCTOU on Dockerfile**: digest includes Dockerfile hash and re-checks at approve; execution still reads Dockerfile from repo at build time (compose snapshot does not relocate build context). A hostile swap in the narrow window after verify could still affect `build` only — tighter fix would snapshot build context or copy Dockerfile into snapshot context.
++3. **macOS-only** folder/config pickers; Windows/Linux need alternate UI.
++4. **Packaged engine path** assumes `pnpm desktop:prepare` or bundled `resources/engine.tar.gz`.
++5. **Real Docker smoke** not run in this handoff session (opt-in only).
++6. **Full license CI / Node 24 strip-only CLI import** — coordinator collecting separately.
++
++## Safety notes
++
++- Clone/git-init gated through native `Gate` + daemon digest re-plan; tests use local bare repos / `file://`.
++- Docker mutations refused on non-local endpoints; `up --pull never`; no automatic image pulls.
++- Database passwords in 0600 secret files only; redacted in logs/events/UI.
++- No commits, pushes, package installs, or live tracker/API usage in this work.
+diff --git a/docs/desktop.md b/docs/desktop.md
+index f6f7afe..34ea525 100644
+--- a/docs/desktop.md
++++ b/docs/desktop.md
+@@ -62,7 +62,13 @@ Agent Console contains messages, commands, edits, tests, questions, approvals, d
+ 
+ Workspace contains a project/worktree shell and official vendor-login terminals. The terminal is an interactive shell running as the user, not an agent sandbox. Each terminal belongs to one project and starts only in that project's repository or one of its own agent worktrees; calls naming another project are refused. Terminals keep running when you switch projects and reattach with up to 256 KiB of in-memory scrollback; stopping a project closes them. Terminal output and keystrokes are never written to disk, especially during login. Structured agent-run logs remain durable and redacted. The vendor’s browser OAuth flow may open a browser during sign-in.
+ 
+-**Project Docker** works only on the project's Compose binding: `docker compose --project-name <docker_project or name> --project-directory <repo> -f <repo compose file> [-f <generated database file>]`. A container is controlled only if both its Compose project label and its working directory match this repository; others with the same name are listed as not controlled. Set `project.docker_project` if it differs from `project.name`. The workbench reports whether Docker is installed, running and local, and reports readiness from real healthchecks (`ready`, `starting`, `unhealthy`, `running · no healthcheck`, `stopped`, `not created`). It also shows missing images, host-port conflicts with other containers or processes, and the latest 300 log lines (at most 128 KiB, redacted). Start (`up --no-build --pull never`), stop, restart, build, pull and down (volumes kept) each show their exact command and run once after a two-minute approval bound to the Compose and Dockerfile bytes (not only `-f` paths), with an audit event. If a Compose file changes image, command, mounts or other service settings after the request, the approval is refused; execution uses an immutable snapshot of the verified bytes. Pull and build are marked as network actions; start never pulls. Actions are refused when Docker points at a non-local endpoint. Any command can be typed into the project terminal for review instead.
++**Project Docker** works only on the project's Compose binding: `docker compose --project-name <docker_project or name> --project-directory <repo> -f <repo compose file> [-f <generated database file>]`. A container is controlled only if both its Compose project label and its working directory match this repository; others with the same name are listed as not controlled. Set `project.docker_project` if it differs from `project.name`. The workbench reports whether Docker is installed, running and local, and reports readiness from real healthchecks (`ready`, `starting`, `unhealthy`, `running · no healthcheck`, `stopped`, `not created`). It also shows missing images, host-port conflicts with other containers or processes, and the latest 300 log lines (at most 128 KiB, redacted). Start (`up --no-deps --no-build --pull never`), stop, restart, build, pull and down (volumes kept) each run once after a two-minute approval, with an audit event. The approval binds the Compose bytes, scoped service settings, Dockerfile, context paths, context entry hashes and executable bits, and explicit env/config/secret file bytes. Changing an image, command, mount, port, Dockerfile, context or env file invalidates the request before execution. The binding is checked again after the local-engine check; execution uses only the captured buffers in a private read-only snapshot outside the repository. Repository changes in the subsequent build window cannot change those inputs. Pull and build explicitly require network approval; start never builds or pulls. Actions are refused when Docker points at a non-local endpoint. Any command can be typed into the project terminal for review instead.
++
++The workbench supports a conservative Compose subset. Build contexts and Dockerfiles must be local, within the repository and context respectively, with no included symlinks, hard links or special files. Across the context and auxiliary inputs, limits are 2,000 entries and 64 MiB; traversal stops at 20,000 entries; individual context files are at most 8 MiB and Compose/Dockerfile/env/config/secret files at most 256 KiB. Empty directories and executable bits are retained. `.dockerignore` supports root-relative literals, `*`, `?`, `**` and ordered `!` rules; character classes and backslash patterns are refused. Dockerfile-specific ignore files take precedence. Included credential/env files, private folders, key/database files and detected secret content are refused; exclude them explicitly or use a narrower context. Secret scanning is conservative, not a guarantee that arbitrary source files contain no sensitive data.
++
++Only the selected services and their used resource declarations enter the executable snapshot. Actions without an explicit service list retain the default inactive-profile behavior; host `COMPOSE_PROFILES` cannot expand the scope. Dependencies must be selected explicitly; start/restart never add them implicitly. Relative build, bind and env-file paths resolve against the original repository directory. Env/config files are copied into the private snapshot; repository bind mounts retain their original live paths and read/write mode, while named volumes retain the project namespace. Bind paths must exist within the repository, without symlink ancestors or nested symlinks/special files, with traversal bounded to 20,000 entries; host roots, sockets, private paths, external volumes, volume drivers, host namespaces, devices, additional capabilities and privileged services/builds are refused. Remote/additional build contexts, SSH/secret forwarding, cache exporters, includes and extends are also refused. Compose interpolation and inherited environment/build arguments are refused: use literal values and explicit env files. An empty explicit CLI env file and a restricted Docker subprocess environment prevent implicit repository `.env` and host Compose overrides from changing execution. Escaped container variables (`$$VAR`) remain supported.
++
++Snapshots are removed on completion, failure, timeout and shutdown. Restart removes abandoned snapshots and durably marks previously running jobs `interrupted`, with an unknown exit code and an instruction to check service status; actions are never replayed. Stopping the Docker client cannot attest that the engine stopped work, so interruption never claims container/build success.
+ 
+ **Local databases** generates a project-owned Postgres service (or a SQLite file) in the project's private data folder: a Compose file, a random password file (mode 0600, passed via Docker secrets) and a named volume, so data survives restarts and `down`. The plan preview lists the files, the pull and start commands and connection details. Nothing is written before **Create these files**, and nothing is pulled or started before each step's approval. The password is never displayed, logged, put into prompts or sent to the tracker; connection info shows `<password>` and the password file path. Database names containing “prod” are refused, and the port binds to `127.0.0.1` only.
+ 
+diff --git a/packages/daemon/src/environment/compose.ts b/packages/daemon/src/environment/compose.ts
+index 99ca996..1bbf740 100644
+--- a/packages/daemon/src/environment/compose.ts
++++ b/packages/daemon/src/environment/compose.ts
+@@ -29,9 +29,7 @@ export function normalizeComposeProject(name: string): string {
+ /** Read a small regular file. Symlinks and oversized files are refused so intake cannot escape the folder. */
+ export function readBounded(file: string, max = MAX_COMPOSE_BYTES): string | null {
+   try {
+-    const st = fs.lstatSync(file);
+-    if (!st.isFile() || st.size > max) return null;
+-    return fs.readFileSync(file, 'utf8');
++    return readScopedBytes(path.dirname(path.resolve(file)), path.resolve(file), max).toString('utf8');
+   } catch {
+     return null;
+   }
+@@ -98,3 +96,87 @@ export function parseCompose(file: string, fallbackName: string): ComposeFile {
+   if (!services.length) warnings.push(`${path.basename(file)} declares no services.`);
+   return { file, project, services, volumes: Object.keys((doc.volumes ?? {}) as object), warnings };
+ }
++
++/** Resolve only repository-owned paths, checking every ancestor rather than just the leaf. */
++export function scopedPath(root: string, file: string): string {
++  root = path.resolve(root);
++  const dest = path.resolve(root, file);
++  const relative = path.relative(root, dest);
++  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('Path escapes the approved project scope');
++  const parts = relative ? relative.split(path.sep) : [];
++  let current = root;
++  for (const part of ['', ...parts]) {
++    if (part) current = path.join(current, part);
++    const st = fs.lstatSync(current);
++    if (st.isSymbolicLink()) throw new Error('Symlinks are not approved inputs or mounts');
++  }
++  return dest;
++}
++
++/** Capture bytes from a pinned descriptor; detect replacements, ancestor swaps and writes. */
++export function readScopedBytes(root: string, file: string, max: number): Buffer {
++  root = path.resolve(root);
++  const dest = scopedPath(root, file);
++  const chain: { file: string; stat: fs.Stats }[] = [];
++  for (let current = dest; ; current = path.dirname(current)) {
++    chain.push({ file: current, stat: fs.lstatSync(current) });
++    if (current === root) break;
++  }
++  const before = chain[0].stat;
++  if (!before.isFile() || before.nlink !== 1 || before.size > max) throw new Error('Input must be a bounded regular file with no hard links');
++  const fd = fs.openSync(dest, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
++  const same = (a: fs.Stats, b: fs.Stats) => a.dev === b.dev && a.ino === b.ino && a.size === b.size && a.mtimeMs === b.mtimeMs && a.ctimeMs === b.ctimeMs;
++  try {
++    if (!same(before, fs.fstatSync(fd))) throw new Error('Input changed while being captured');
++    const bytes = Buffer.alloc(before.size + 1);
++    let count = 0;
++    while (count < bytes.length) {
++      const n = fs.readSync(fd, bytes, count, bytes.length - count, count);
++      if (!n) break;
++      count += n;
++    }
++    if (count !== before.size || !same(before, fs.fstatSync(fd))) throw new Error('Input changed while being captured');
++    for (const entry of chain) {
++      const after = fs.lstatSync(entry.file);
++      if (after.isSymbolicLink() || after.dev !== entry.stat.dev || after.ino !== entry.stat.ino) throw new Error('Input path changed while being captured');
++    }
++    if (!same(before, fs.lstatSync(dest))) throw new Error('Input changed while being captured');
++    return bytes.subarray(0, count);
++  } finally { fs.closeSync(fd); }
++}
++
++/** A deliberately bounded .dockerignore subset. Unsupported syntax fails closed, never guesses.
++ * Root-relative literals, *, ?, ** and ordered ! rules are supported. We walk ignored directories
++ * too, so an explicit re-inclusion cannot hide a secret. Docker still receives the original file.
++ */
++export function dockerIgnore(text: string): (file: string) => boolean {
++  const rules = text.split(/\r?\n/).filter(line => line && !line.startsWith('#')).map(line => {
++    let pattern = line.trim();
++    const include = pattern.startsWith('!');
++    if (include) pattern = pattern.slice(1);
++    if (/[\[\]\\]/.test(pattern) || pattern.split('/').includes('..') || !pattern) throw new Error('Unsupported .dockerignore pattern; use root-relative literals, *, ?, ** and !');
++    pattern = pattern.replace(/^\/+|\/+$/g, '');
++    if (pattern === '.') return null;
++    let source = '';
++    for (let i = 0; i < pattern.length; i++) {
++      const c = pattern[i];
++      if (c === '*' && pattern[i + 1] === '*') {
++        i++;
++        if (pattern[i + 1] === '/') { i++; source += '(?:.*/)?'; } else source += '.*';
++      } else if (c === '*') source += '[^/]*';
++      else if (c === '?') source += '[^/]';
++      else source += c.replace(/[.*+?^${}()|\[\]\\]/g, '\\$&');
++    }
++    return { include, regex: new RegExp(`^${source}(?:/.*)?$`) };
++  }).filter((r): r is { include: boolean; regex: RegExp } => r !== null);
++  return file => {
++    let ignored = false;
++    for (const rule of rules) if (rule.regex.test(file)) ignored = !rule.include;
++    return ignored;
++  };
++}
++
++export function privateBuildPath(file: string): boolean {
++  return file.split('/').some(part => /^(?:\.git|\.env(?:\..*)?|\.ssh|\.aws|\.azure|\.kube|\.gnupg|\.git-credentials|\.config|\.codex|\.agents|secrets?|credentials?(?:\..*)?|id_(?:rsa|ed25519)|\.npmrc|\.netrc|\.pypirc|\.docker)$/i.test(part))
++    || /(?:\.(?:pem|key|p12|pfx|sqlite(?:3)?|db)|(?:^|[-_.])(?:password|token|credential|secret)(?:[-_.]|$))/i.test(path.basename(file));
++}
+diff --git a/packages/daemon/src/environment/workbench.ts b/packages/daemon/src/environment/workbench.ts
+index 2e4dff1..aacdacd 100644
+--- a/packages/daemon/src/environment/workbench.ts
++++ b/packages/daemon/src/environment/workbench.ts
+@@ -14,8 +14,7 @@ import YAML from 'yaml';
+ import { HUMAN, newId, type Decision } from '@acc/core';
+ import { run, type ExecOptions, type ExecResult } from '../exec.ts';
+ import type { Daemon } from '../daemon.ts';
+-import { writePrivate } from '../paths.ts';
+-import { findComposeFile, normalizeComposeProject, parseCompose, readBounded, type ComposeFile, type ComposeService } from './compose.ts';
++import { dockerIgnore, privateBuildPath, readScopedBytes, scopedPath, findComposeFile, normalizeComposeProject, parseCompose, type ComposeFile, type ComposeService } from './compose.ts';
+ import { DatabaseFiles, DatabaseSpecError, parseDatabaseSpec, postgresImage, volumeName, type DatabaseRecord, type PostgresSpec } from './database.ts';
+ 
+ export type DockerExec = (args: string[], o?: Pick<ExecOptions, 'timeoutMs' | 'maxBytes' | 'signal'>) => Promise<ExecResult>;
+@@ -48,13 +47,21 @@ interface ComposeBinding {
+   action: ComposeAction;
+   services: string[];
+   files: { path: string; sha256: string; content: string }[];
+-  dockerfiles: { path: string; sha256: string }[];
+-  serviceSettings: Record<string, unknown>;
++  inputs: { path: string; bytes: Buffer; mode: number }[];
++  builds: { service: string; context: string; dockerfile: string; entries: { relative: string; bytes: Buffer; mode: number; directory?: boolean }[] }[];
++  document: Settings;
++  scope: string[];
+ }
+ interface PendingAction { argv: string[]; digest: string; action: ComposeAction; services: string[]; expires: number; consumed: boolean; network: boolean; snapshotDir?: string }
+ interface Inspected { Id: string; Name: string; Config: { Image: string; Labels: Record<string, string> | null }; State: { Status: string; StartedAt?: string; Health?: { Status: string; Log?: { Output: string }[] } } }
+ 
+-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
++type Settings = Record<string, any>;
++const MAX_INPUT_BYTES = 64 * 1024 * 1024;
++const MAX_FILE_BYTES = 8 * 1024 * 1024;
++const MAX_FILES = 2000;
++const SERVICE_KEYS = new Set('image build command entrypoint environment env_file ports volumes healthcheck depends_on restart profiles labels working_dir user init tty stdin_open hostname stop_signal stop_grace_period expose networks secrets configs mem_limit cpus read_only tmpfs shm_size cap_drop security_opt'.split(' '));
++const BUILD_KEYS = new Set('context dockerfile args target platforms network pull no_cache labels'.split(' '));
++const sha = (s: string | Buffer) => createHash('sha256').update(s).digest('hex');
+ 
+ export function portInUse(port: number, host = '127.0.0.1'): Promise<boolean> {
+   return new Promise(resolve => {
+@@ -77,17 +84,26 @@ export class ProjectEnvironment {
+   private readonly clock: () => number;
+   private jobs: EnvironmentJob[];
+   private controllers = new Set<AbortController>();
++  private tasks = new Set<Promise<void>>();
++  private resolving = new Set<string>();
++  private closing = false;
+   private availabilityCache: { at: number; value: DockerAvailability } | null = null;
+ 
+   constructor(d: Daemon, o: { exec?: DockerExec; portProbe?: (port: number) => Promise<boolean>; now?: () => number } = {}) {
+     this.d = d;
+-    this.exec = o.exec ?? ((args, x) => run('docker', args, { timeoutMs: x?.timeoutMs ?? 20_000, maxBytes: x?.maxBytes ?? 512 * 1024, signal: x?.signal, env: { ...process.env, DOCKER_CLI_HINTS: 'false' } }));
++    this.exec = o.exec ?? ((args, x) => {
++      // Compose must not discover override files, implicit .env files, profiles or inherited values.
++      const env = Object.fromEntries(Object.entries(this.d.baseEnv()).filter(([key]) => ['PATH', 'HOME', 'TMPDIR', 'DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_CONFIG', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH', 'SSH_AUTH_SOCK'].includes(key)));
++      return run('docker', args, { cwd: this.repo, timeoutMs: x?.timeoutMs ?? 20_000, maxBytes: x?.maxBytes ?? 512 * 1024, signal: x?.signal, env: { ...env, DOCKER_CLI_HINTS: 'false', COMPOSE_DISABLE_ENV_FILE: 'true' } });
++    });
+     this.portProbe = o.portProbe ?? (p => portInUse(p));
+     this.clock = o.now ?? Date.now;
+     this.files = new DatabaseFiles(d.paths.root);
+     const saved = JSON.parse(d.store.kvGet('environment:jobs') ?? '[]') as EnvironmentJob[];
+     // A job cannot survive the daemon that awaited it; report it honestly instead of guessing.
+     this.jobs = saved.map(j => j.state === 'running' ? { ...j, state: 'interrupted', output: `${j.output}\n[daemon restarted before this action reported a result; check service status]`, endedAt: j.endedAt ?? d.nowIso() } : j);
++    this.saveJobs();
++    this.cleanupSnapshots();
+     for (const r of this.databases()) if (r.spec.kind === 'postgres') { const p = this.files.readSecret(r.spec.service); if (p) d.addSecret(p); }
+   }
+ 
+@@ -134,7 +150,8 @@ export class ProjectEnvironment {
+     out.composeVersion = out.compose ? c.stdout.trim() : null;
+     const ctx = await this.exec(['context', 'inspect', '--format', '{{json .Endpoints.docker.Host}}'], { timeoutMs: 8000 });
+     const envHost = this.d.baseEnv().DOCKER_HOST;
+-    let endpoint: string | null = envHost ?? null;
++    // DOCKER_CONTEXT takes precedence over DOCKER_HOST in the CLI itself.
++    let endpoint: string | null = this.d.baseEnv().DOCKER_CONTEXT ? null : envHost ?? null;
+     if (!endpoint && ctx.code === 0) { try { endpoint = JSON.parse(ctx.stdout.trim()); } catch { endpoint = null; } }
+     out.endpoint = endpoint;
+     out.local = endpoint !== null && /^(unix|npipe):\/\//.test(endpoint);
+@@ -246,75 +263,275 @@ export class ProjectEnvironment {
+ 
+   // ---- gated actions -----------------------------------------------------------------------
+ 
+-  private bindingScope(services: string[]): string[] {
+-    const known = this.declaredServices();
+-    return services.length ? services : known;
+-  }
+-
+-  /** One read of every Compose file and scoped Dockerfile; used for digesting and snapshotting. */
++  /** Captured buffers are the sole source for both the approval digest and executable inputs. */
+   private readComposeBinding(action: ComposeAction, serviceNames: string[]): ComposeBinding {
+-    const repo = fs.realpathSync(this.repo);
+-    const { project, generated } = this.composeFiles();
+-    const files: ComposeBinding['files'] = [];
+-    for (const cf of [project, generated]) {
+-      if (!cf) continue;
+-      const content = readBounded(cf.file);
+-      if (content === null) throw new EnvironmentError(`${path.basename(cf.file)} is missing, a symlink or larger than 256 KiB`, 409);
+-      files.push({ path: cf.file, sha256: sha(content), content });
+-    }
+-    const scope = this.bindingScope(serviceNames);
+-    const dockerfiles: ComposeBinding['dockerfiles'] = [];
+-    const seenDockerfiles = new Set<string>();
+-    const serviceSettings: Record<string, unknown> = {};
+-    for (const cf of [project, generated]) {
+-      if (!cf) continue;
+-      const doc = YAML.parse(files.find(f => f.path === cf.file)!.content, { maxAliasCount: 50 }) as { services?: Record<string, unknown> } | null;
++    try {
++      const repo = fs.realpathSync(this.repo);
++      const files: ComposeBinding['files'] = [];
++      const inputs: ComposeBinding['inputs'] = [];
++      const builds: ComposeBinding['builds'] = [];
++      const document: Settings = { services: {} };
++      let inputBytes = 0, inputEntries = 0;
++      const account = (bytes: number) => {
++        inputBytes += bytes; inputEntries++;
++        if (inputEntries > MAX_FILES || inputBytes > MAX_INPUT_BYTES) throw new Error('Approved inputs exceed 2000 entries or 64 MiB');
++      };
++      const source = new Map<string, string>();
++      const projectFile = findComposeFile(repo);
++      const candidates = [projectFile, fs.existsSync(this.files.composeFile) ? this.files.composeFile : null].filter((f): f is string => Boolean(f));
++      if (!candidates.length) throw new Error('No Compose files');
++      for (const file of candidates) {
++        const root = file === projectFile ? repo : this.files.dir;
++        const content = readScopedBytes(root, file, 256 * 1024).toString('utf8');
++        files.push({ path: file, sha256: sha(content), content });
++        const doc = YAML.parse(content, { maxAliasCount: 50 }) as Settings;
++        if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw new Error('Compose must be a mapping');
++        for (const key of Object.keys(doc)) {
++          if (!['name', 'services', 'volumes', 'networks', 'secrets', 'configs'].includes(key) && !key.startsWith('x-')) throw new Error(`Unsupported Compose field ${key}`);
++        }
++        for (const [name, svc] of Object.entries(doc.services ?? {})) {
++          if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(name) || document.services[name]) throw new Error('Invalid or duplicate Compose service');
++          document.services[name] = svc;
++          source.set(name, file);
++        }
++        for (const key of ['volumes', 'networks', 'secrets', 'configs']) {
++          for (const [name, value] of Object.entries(doc[key] ?? {})) {
++            document[key] ??= {};
++            if (name in document[key]) throw new Error(`Duplicate ${key} definition`);
++            document[key][name] = value;
++          }
++        }
++      }
++      const scope = serviceNames.length ? [...serviceNames] : Object.keys(document.services).filter(name => !document.services[name]?.profiles?.length);
++      if (!scope.length || scope.some(s => !source.has(s))) throw new Error('Service scope changed');
++      document.services = Object.fromEntries(scope.map(name => [name, document.services[name]]));
++      const used: Record<string, Set<string>> = Object.fromEntries(['volumes', 'networks', 'secrets', 'configs'].map(k => [k, new Set<string>()]));
++      const capture = (root: string, file: string) => {
++        const dest = scopedPath(root, file);
++        if (!inputs.some(i => i.path === dest)) {
++          const bytes = readScopedBytes(root, dest, 256 * 1024);
++          account(bytes.length);
++          inputs.push({ path: dest, bytes, mode: 0o400 });
++        }
++        return dest;
++      };
++      const literals = (value: unknown) => {
++        if (typeof value === 'string' && /\$(?:\{|[A-Za-z_])/.test(value.replace(/\$\$/g, ''))) throw new Error('Compose interpolation and inherited environment are not sealed; use literal settings and explicit env_file values');
++        if (Array.isArray(value)) value.forEach(literals);
++        else if (value && typeof value === 'object') Object.values(value).forEach(literals);
++      };
+       for (const name of scope) {
+-        const svc = doc?.services?.[name];
+-        if (svc !== undefined) serviceSettings[name] = svc;
+-        const raw = svc as Record<string, unknown> | undefined;
+-        if (!raw?.build) continue;
+-        const ctx = typeof raw.build === 'string' ? raw.build : String((raw.build as { context?: string }).context ?? '.');
+-        const df = typeof raw.build === 'object' && raw.build && typeof (raw.build as { dockerfile?: string }).dockerfile === 'string'
+-          ? (raw.build as { dockerfile: string }).dockerfile : 'Dockerfile';
+-        const dockerfile = path.resolve(repo, ctx, df);
+-        if (seenDockerfiles.has(dockerfile)) continue;
+-        seenDockerfiles.add(dockerfile);
+-        const text = readBounded(dockerfile);
+-        if (text === null) throw new EnvironmentError(`Dockerfile ${path.relative(repo, dockerfile)} is missing, a symlink or larger than 256 KiB`, 409);
+-        dockerfiles.push({ path: dockerfile, sha256: sha(text) });
++        const svc = document.services[name] as Settings;
++        if (!svc || typeof svc !== 'object' || Array.isArray(svc)) throw new Error('Service must be a mapping');
++        for (const key of Object.keys(svc)) if (!SERVICE_KEYS.has(key) && !key.startsWith('x-')) throw new Error(`Unsupported or unsafe service field ${name}.${key}`);
++        literals(svc);
++        if (svc.security_opt && (!Array.isArray(svc.security_opt) || svc.security_opt.some((s: unknown) => s !== 'no-new-privileges:true'))) throw new Error('Only no-new-privileges:true is allowed');
++        const deps = Array.isArray(svc.depends_on) ? svc.depends_on : Object.keys(svc.depends_on ?? {});
++        if (deps.some((dep: string) => !scope.includes(dep))) throw new Error('Dependencies must be explicitly included in the approved service scope');
++        if (Array.isArray(svc.environment)) {
++          if (svc.environment.some((e: unknown) => typeof e !== 'string' || !e.includes('='))) throw new Error('Inherited environment is not approved; supply explicit values');
++        } else if (svc.environment && Object.values(svc.environment).some(v => v === null)) throw new Error('Inherited environment is not approved; supply explicit values');
++        if (svc.env_file) {
++          svc.env_file = (Array.isArray(svc.env_file) ? svc.env_file : [svc.env_file]).map((entry: unknown) => {
++            const raw = typeof entry === 'string' ? { path: entry } : entry as Settings;
++            if (!raw || typeof raw.path !== 'string' || Object.keys(raw).some(k => !['path', 'required', 'format'].includes(k))) throw new Error('Unsupported env_file');
++            const dest = path.resolve(repo, raw.path);
++            if (raw.required === false && !fs.existsSync(dest)) throw new Error('Optional missing env files cannot be sealed');
++            const file = capture(repo, dest);
++            // Keep Compose env-file parsing, but never let it read the host interpolation environment.
++            if (raw.format !== 'raw') literals(inputs.find(i => i.path === file)!.bytes.toString('utf8'));
++            return { ...raw, path: file };
++          });
++        }
++        svc.volumes = (svc.volumes ?? []).map((entry: unknown) => {
++          const raw: Settings = typeof entry === 'string' ? (() => {
++            const parts = entry.split(':');
++            if (parts.length > 3) throw new Error('Unsupported volume syntax');
++            if (parts.length === 1) return { type: 'volume', target: parts[0] };
++            const [src, target, options] = parts;
++            if (options && !['ro', 'rw'].includes(options)) throw new Error('Unsupported volume options');
++            return { type: src.startsWith('.') || path.isAbsolute(src) ? 'bind' : 'volume', source: src, target, read_only: options === 'ro' };
++          })() : entry as Settings;
++          if (!raw || Object.keys(raw).some(k => !['type', 'source', 'target', 'read_only', 'bind', 'volume'].includes(k))) throw new Error('Unsupported volume');
++          if (raw.type === 'bind') {
++            if (typeof raw.source !== 'string' || raw.bind && Object.keys(raw.bind).some(k => k !== 'create_host_path')) throw new Error('Unsupported bind mount');
++            const dest = scopedPath(repo, raw.source);
++            if (privateBuildPath(path.relative(repo, dest).split(path.sep).join('/')) || /(?:^|\/)docker\.sock$/.test(dest) || ![true, false, undefined].includes(raw.read_only)) throw new Error('Private paths and Docker sockets cannot be mounted');
++            let visited = 0;
++            const checkMount = (file: string) => {
++              if (++visited > 20_000) throw new Error('Bind mount traversal exceeds 20000 entries');
++              scopedPath(repo, file);
++              const stat = fs.lstatSync(file);
++              if (stat.isDirectory()) for (const child of fs.readdirSync(file)) checkMount(path.join(file, child));
++              else if (!stat.isFile() || stat.nlink !== 1) throw new Error('Bind mounts cannot include sockets, special files or hard links');
++            };
++            checkMount(dest);
++            return { ...raw, source: dest, bind: { create_host_path: false } };
++          }
++          if (raw.type !== 'volume') throw new Error('Only project binds and named volumes are supported');
++          if (raw.volume && Object.keys(raw.volume).some(k => k !== 'nocopy')) throw new Error('Volume subpaths and driver options are refused');
++          if (raw.source) used.volumes.add(raw.source);
++          return raw;
++        });
++        for (const key of ['networks', 'secrets', 'configs']) {
++          for (const ref of Array.isArray(svc[key]) ? svc[key] : Object.keys(svc[key] ?? {})) used[key].add(typeof ref === 'string' ? ref : ref.source);
++        }
++        if (svc.build !== undefined) {
++          const raw: Settings = typeof svc.build === 'string' ? { context: svc.build } : svc.build;
++          if (!raw || typeof raw !== 'object' || Object.keys(raw).some(k => !BUILD_KEYS.has(k))) throw new Error('Unsupported build inputs (remote contexts, SSH, secrets, extra contexts, caches and entitlements are refused)');
++          if (raw.network && !['default', 'none'].includes(raw.network)) throw new Error('Host build networking is refused');
++          if (raw.args && this.d.denylist().some(secret => secret.length >= 6 && JSON.stringify(raw.args).includes(secret))) throw new Error('Secret build arguments are refused');
++          if (raw.args && (Array.isArray(raw.args) ? raw.args.some((a: unknown) => typeof a !== 'string' || !a.includes('=')) : Object.values(raw.args).some(v => v === null))) throw new Error('Inherited build arguments are refused');
++          const ctx = raw.context ?? '.';
++          const df = raw.dockerfile ?? 'Dockerfile';
++          if (typeof ctx !== 'string' || typeof df !== 'string' || /^(?:[a-z]+:\/\/|git@|~)/i.test(ctx)) throw new Error('Only local scoped build contexts are supported');
++          const context = scopedPath(repo, ctx);
++          if (!fs.lstatSync(context).isDirectory()) throw new Error('Build context must be a directory');
++          if (privateBuildPath(path.relative(repo, context).split(path.sep).join('/'))) throw new Error('Private directories cannot be build contexts');
++          const dockerfile = scopedPath(context, df);
++          const dockerfileBytes = readScopedBytes(context, dockerfile, 256 * 1024);
++          if (/--(?:network=host|security=insecure)(?:\s|$)/i.test(dockerfileBytes.toString('utf8'))) throw new Error('Privileged Dockerfile instructions are refused');
++          const specificIgnore = `${dockerfile}.dockerignore`;
++          const ignoreFile = fs.existsSync(specificIgnore) ? specificIgnore : path.join(context, '.dockerignore');
++          const ignoreBytes = fs.existsSync(ignoreFile) ? readScopedBytes(context, ignoreFile, 256 * 1024) : Buffer.alloc(0);
++          const ignored = dockerIgnore(ignoreBytes.toString('utf8'));
++          const entries: ComposeBinding['builds'][number]['entries'] = [];
++          let visited = 0;
++          const walk = (dir: string) => {
++            scopedPath(context, dir);
++            const before = fs.lstatSync(dir);
++            for (const child of fs.readdirSync(dir).sort()) {
++              if (++visited > 20_000) throw new Error('Build context traversal exceeds 20000 entries');
++              const file = path.join(dir, child), relative = path.relative(context, file).split(path.sep).join('/');
++              const st = fs.lstatSync(file);
++              // Ignore rules are evaluated before reads; ignored symlinks/credentials are never followed.
++              if (st.isDirectory()) {
++                if (!ignored(relative)) {
++                  if (privateBuildPath(relative)) throw new Error('Build context includes private/secret files; exclude them explicitly with .dockerignore');
++                  account(0);
++                  entries.push({ relative, bytes: Buffer.alloc(0), mode: 0o555, directory: true });
++                }
++                walk(file); continue;
++              }
++              const forced = file === dockerfile || file === ignoreFile;
++              if (ignored(relative) && !forced) continue;
++              if (privateBuildPath(relative)) throw new Error('Build context includes private/secret files; exclude them explicitly with .dockerignore');
++              const bytes = file === dockerfile ? dockerfileBytes : file === ignoreFile ? ignoreBytes : readScopedBytes(context, file, MAX_FILE_BYTES);
++              if (this.d.denylist().some(secret => secret.length >= 6 && bytes.includes(Buffer.from(secret))) || /-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:AWS_SECRET_ACCESS_KEY|(?:PASSWORD|TOKEN|SECRET|API_KEY))\s*[:=]\s*["']?[A-Za-z0-9+/=_-]{8,}/i.test(bytes.toString('utf8'))) throw new Error('Build context includes secret content');
++              account(bytes.length);
++              entries.push({ relative, bytes, mode: 0o444 | (st.mode & 0o111) });
++            }
++            const after = fs.lstatSync(dir);
++            if (before.ino !== after.ino || before.dev !== after.dev || before.mtimeMs !== after.mtimeMs) throw new Error('Build context changed while being captured');
++          };
++          walk(context);
++          builds.push({ service: name, context, dockerfile, entries });
++          svc.build = { ...raw, context, dockerfile: path.relative(context, dockerfile) };
++        }
+       }
+-    }
+-    return { project: this.project, repo, action, services: [...serviceNames], files, dockerfiles, serviceSettings };
++      if (document.networks?.default && Object.values(document.services).some(svc => !(svc as Settings).networks)) used.networks.add('default');
++      for (const key of Object.keys(used)) {
++        const definitions: Settings = {};
++        for (const name of [...used[key]].sort()) {
++          const value = document[key]?.[name];
++          if (value === undefined) throw new Error(`Missing ${key} definition`);
++          const def = value ?? {};
++          literals(def);
++          if (key === 'volumes' && Object.keys(def).some(k => k !== 'labels')) throw new Error('External volumes and volume drivers are refused');
++          if (key === 'networks' && Object.keys(def).some(k => !['driver', 'internal', 'labels', 'enable_ipv6'].includes(k)) || key === 'networks' && def.driver && def.driver !== 'bridge') throw new Error('External or host networks are refused');
++          if (key === 'configs' || key === 'secrets') {
++            if (typeof def.file !== 'string' || Object.keys(def).some(k => k !== 'file')) throw new Error('Only scoped file configs/secrets are supported');
++            const root = key === 'secrets' && this.databases().some(r => r.spec.kind === 'postgres' && def.file === this.files.secretFile(r.spec.service)) ? this.files.dir : repo;
++            def.file = capture(root, def.file);
++          }
++          definitions[name] = def;
++        }
++        if (Object.keys(definitions).length) document[key] = definitions;
++        else delete document[key];
++      }
++      return { project: this.project, repo, action, services: [...serviceNames], files, inputs, builds, document, scope };
++    } catch (e) { throw new EnvironmentError(`Cannot seal Compose content: ${(e as Error).message}`, 409); }
+   }
+ 
+   private digestOf(binding: ComposeBinding): string {
+     return sha(JSON.stringify({
+-      project: binding.project,
+-      repo: binding.repo,
+-      action: binding.action,
+-      services: binding.services,
++      project: binding.project, repo: binding.repo, action: binding.action, services: binding.services,
+       files: binding.files.map(f => ({ path: f.path, sha256: f.sha256 })),
+-      dockerfiles: binding.dockerfiles,
+-      serviceSettings: binding.serviceSettings,
++      inputs: binding.inputs.map(i => ({ path: i.path, sha256: sha(i.bytes), mode: i.mode })),
++      builds: binding.builds.map(b => ({ service: b.service, context: b.context, dockerfile: b.dockerfile, entries: b.entries.map(e => ({ path: e.relative, sha256: sha(e.bytes), mode: e.mode, directory: e.directory ?? false })) })),
++      document: binding.document,
+     }));
+   }
+ 
+-  /** Write verified Compose bytes to a private snapshot directory; returned paths feed `-f`. */
+-  private materializeSnapshot(binding: ComposeBinding, decisionId: string): { dir: string; composeFiles: string[] } {
+-    const dir = path.join(this.files.dir, 'approval-snapshots', decisionId);
+-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+-    const composeFiles = binding.files.map((f, i) => {
+-      const dest = path.join(dir, `${i}-${path.basename(f.path)}`);
+-      writePrivate(dest, f.content);
+-      return dest;
+-    });
+-    return { dir, composeFiles };
++  private removeSnapshot(dir: string) {
++    if (path.dirname(dir) !== path.join(this.files.dir, 'approval-snapshots')) return;
++    scopedPath(this.files.dir, path.dirname(dir));
++    const thaw = (current: string) => {
++      const stat = fs.lstatSync(current);
++      if (!stat.isDirectory() || stat.isSymbolicLink()) return;
++      fs.chmodSync(current, 0o700);
++      for (const child of fs.readdirSync(current)) thaw(path.join(current, child));
++    };
++    if (fs.existsSync(dir)) { thaw(dir); fs.rmSync(dir, { recursive: true, force: true }); }
++  }
++
++  private cleanupSnapshots() {
++    const root = path.join(this.files.dir, 'approval-snapshots');
++    if (!fs.existsSync(root)) return;
++    scopedPath(this.files.dir, root);
++    for (const name of fs.readdirSync(root)) this.removeSnapshot(path.join(root, name));
++  }
++
++  /** Relocate only immutable build/env/config inputs. Binds still resolve against the repo;
++   * --project-directory stays there to retain Compose identity and project-owned volumes. */
++  private materializeSnapshot(binding: ComposeBinding, decisionId: string): { dir: string; composeFiles: string[]; envFile: string } {
++    const root = path.join(this.files.dir, 'approval-snapshots');
++    fs.mkdirSync(root, { recursive: true, mode: 0o700 });
++    scopedPath(this.files.dir, root);
++    const dir = fs.mkdtempSync(path.join(root, `${decisionId}-`));
++    try {
++      const document = structuredClone(binding.document);
++      const locations = new Map<string, string>();
++      const write = (file: string, bytes: Buffer, mode = 0o400) => {
++        fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
++        fs.writeFileSync(file, bytes, { flag: 'wx', mode });
++        fs.chmodSync(file, mode);
++      };
++      for (const [i, input] of binding.inputs.entries()) {
++        const dest = path.join(dir, 'inputs', String(i));
++        write(dest, input.bytes);
++        locations.set(input.path, dest);
++      }
++      for (const [i, build] of binding.builds.entries()) {
++        const context = path.join(dir, 'builds', String(i));
++        fs.mkdirSync(context, { recursive: true, mode: 0o700 });
++        for (const entry of build.entries) {
++          if (entry.directory) fs.mkdirSync(path.join(context, entry.relative), { recursive: true, mode: 0o700 });
++          else write(path.join(context, entry.relative), entry.bytes, entry.mode);
++        }
++        document.services[build.service].build.context = context;
++      }
++      for (const svc of Object.values(document.services) as Settings[]) {
++        if (svc.env_file) for (const entry of svc.env_file) entry.path = locations.get(entry.path);
++      }
++      for (const key of ['secrets', 'configs']) for (const def of Object.values(document[key] ?? {}) as Settings[]) def.file = locations.get(def.file);
++      const composeFile = path.join(dir, 'compose.yaml');
++      const envFile = path.join(dir, 'empty.env');
++      write(composeFile, Buffer.from(YAML.stringify(document)));
++      write(envFile, Buffer.alloc(0));
++      const seal = (current: string) => {
++        if (!fs.statSync(current).isDirectory()) return;
++        for (const child of fs.readdirSync(current)) seal(path.join(current, child));
++        fs.chmodSync(current, 0o500);
++      };
++      seal(dir);
++      return { dir, composeFiles: [composeFile], envFile };
++    } catch (e) { this.removeSnapshot(dir); throw e; }
+   }
+ 
+-  private argvForSnapshot(composeFiles: string[], action: ComposeAction, services: string[]): string[] {
+-    const tail: Record<ComposeAction, string[]> = { up: ['up', '--detach', '--no-build', '--pull', 'never'], stop: ['stop'], restart: ['restart'], build: ['build'], pull: ['pull'], down: ['down'] };
+-    return ['docker', 'compose', '--project-name', this.project, '--project-directory', fs.realpathSync(this.repo), ...composeFiles.flatMap(f => ['-f', f]), ...tail[action], ...services];
++  private argvForSnapshot(composeFiles: string[], envFile: string, action: ComposeAction, services: string[]): string[] {
++    const tail: Record<ComposeAction, string[]> = { up: ['up', '--detach', '--no-deps', '--no-build', '--pull', 'never'], stop: ['stop'], restart: ['restart', '--no-deps'], build: ['build'], pull: ['pull'], down: ['down'] };
++    return ['docker', 'compose', '--project-name', this.project, '--project-directory', fs.realpathSync(this.repo), '--env-file', envFile, ...composeFiles.flatMap(f => ['-f', f]), ...tail[action], ...services];
+   }
+ 
+   commandFor(action: ComposeAction, services: string[]): string[] {
+@@ -322,7 +539,7 @@ export class ProjectEnvironment {
+     const known = this.declaredServices();
+     for (const s of services) if (!known.includes(s)) throw new EnvironmentError(`Service ${s} is not declared in this project`, 404);
+     if (action === 'down' && services.length) throw new EnvironmentError('Down applies to the whole project; volumes are kept.');
+-    const tail: Record<ComposeAction, string[]> = { up: ['up', '--detach', '--no-build', '--pull', 'never'], stop: ['stop'], restart: ['restart'], build: ['build'], pull: ['pull'], down: ['down'] };
++    const tail: Record<ComposeAction, string[]> = { up: ['up', '--detach', '--no-deps', '--no-build', '--pull', 'never'], stop: ['stop'], restart: ['restart', '--no-deps'], build: ['build'], pull: ['pull'], down: ['down'] };
+     return ['docker', ...this.baseArgs(), ...tail[action], ...services];
+   }
+ 
+@@ -340,58 +557,83 @@ export class ProjectEnvironment {
+   }
+ 
+   async request(actionInput: string, servicesInput: unknown = []) {
++    if (this.closing) throw new EnvironmentError('Environment is shutting down', 409);
+     const action = actionInput as ComposeAction;
+     const services = Array.isArray(servicesInput) ? [...new Set(servicesInput.map(String))] : [];
+     const argv = this.commandFor(action, services);
+-    const blockers = await this.blockers(action, services);
++    const binding = this.readComposeBinding(action, services);
++    const blockers = await this.blockers(action, binding.scope);
+     if (blockers.length) return { decision: null, argv, blockers };
+     const network = NETWORK_ACTIONS.includes(action);
+-    const digest = this.digestOf(this.readComposeBinding(action, services));
+-    const decision: Decision = { id: newId('decision'), question: `Run ${argv.join(' ')}?`, options: ['approve', 'deny'], recommendation: null, evidenceLinks: [], urgency: 'normal', irreversible: action === 'down', answer: null, answeredAt: null, channel: null, createdAt: this.d.nowIso() };
++    const digest = this.digestOf(binding);
++    const decision: Decision = { id: newId('decision'), question: `Run ${argv.join(' ')}?${network ? ' This explicitly permits network access for this build/pull only.' : ''}`, options: ['approve', 'deny'], recommendation: null, evidenceLinks: [], urgency: 'normal', irreversible: action === 'down', answer: null, answeredAt: null, channel: null, createdAt: this.d.nowIso() };
+     const pending: PendingAction = { argv, digest, action, services, expires: this.clock() + APPROVAL_MS, consumed: false, network };
+     this.d.commit([{ type: 'decision.created', actor: HUMAN, data: { decision } }], [], () => this.d.store.kvSet(`env-action:${decision.id}`, JSON.stringify(pending)));
+     return { decision, argv, digest, network, expiresAt: new Date(pending.expires).toISOString(), blockers: [] };
+   }
+ 
+   async resolve(decisionId: string, answer: string, digest: string) {
+-    const raw = this.d.store.kvGet(`env-action:${decisionId}`);
+-    const decision = this.d.state.decisions[decisionId];
+-    if (!raw || !decision || decision.answeredAt) throw new EnvironmentError('Approval missing or already used', 409);
+-    const p = JSON.parse(raw) as PendingAction;
+-    if (!['approve', 'deny'].includes(answer)) throw new EnvironmentError('Choose approve or deny');
+-    if (p.consumed || p.expires < this.clock()) throw new EnvironmentError('Approval expired or already used. Request the action again.', 409);
+-    if (answer === 'approve' && digest !== p.digest) throw new EnvironmentError('This approval is for a different command. Review the current command and approve again.', 409);
+-    let exec = p;
+-    if (answer === 'approve') {
+-      const binding = this.readComposeBinding(p.action, p.services);
+-      if (this.digestOf(binding) !== p.digest) throw new EnvironmentError('The project Compose content changed after this request. Review the files and request the action again.', 409);
+-      const snap = this.materializeSnapshot(binding, decisionId);
+-      exec = { ...p, argv: this.argvForSnapshot(snap.composeFiles, p.action, p.services), snapshotDir: snap.dir };
++    if (this.closing || this.resolving.has(decisionId)) throw new EnvironmentError('Approval already being resolved or environment shutting down', 409);
++    this.resolving.add(decisionId);
++    let snapshotDir: string | undefined;
++    try {
++      const raw = this.d.store.kvGet(`env-action:${decisionId}`);
++      const decision = this.d.state.decisions[decisionId];
++      if (!raw || !decision || decision.answeredAt) throw new EnvironmentError('Approval missing or already used', 409);
++      const p = JSON.parse(raw) as PendingAction;
++      if (!['approve', 'deny'].includes(answer)) throw new EnvironmentError('Choose approve or deny');
++      if (p.consumed || p.expires <= this.clock()) throw new EnvironmentError('Approval expired or already used. Request the action again.', 409);
++      if (answer === 'approve' && digest !== p.digest) throw new EnvironmentError('This approval is for a different command. Review the current command and approve again.', 409);
++      let execution = p;
++      if (answer === 'approve') {
++        // Verify before any Docker call, and again after the asynchronous local-engine check.
++        const unchanged = () => {
++          const binding = this.readComposeBinding(p.action, p.services);
++          if (this.digestOf(binding) !== p.digest) throw new EnvironmentError('The project Compose content changed after this request. Review the files and request the action again.', 409);
++          return binding;
++        };
++        unchanged();
++        const a = await this.availability(true);
++        if (!a.local || !a.engine || !a.compose) throw new EnvironmentError(a.error ?? 'Docker unavailable', 409);
++        if (this.closing || this.d.closed || p.expires <= this.clock()) throw new EnvironmentError('Approval expired or environment shutting down', 409);
++        const binding = unchanged();
++        const snap = this.materializeSnapshot(binding, decisionId);
++        snapshotDir = snap.dir;
++        execution = { ...p, argv: this.argvForSnapshot(snap.composeFiles, snap.envFile, p.action, p.action === 'down' ? [] : binding.scope), snapshotDir: snap.dir };
++      }
++      this.d.commit([{ type: 'decision.answered', actor: HUMAN, data: { decisionId, answer, channel: 'dashboard' } }], [], () => this.d.store.kvSet(`env-action:${decisionId}`, JSON.stringify({ ...execution, consumed: true })));
++      if (answer === 'deny') return { executed: false, job: null };
++      const job: EnvironmentJob = { id: newId('job'), decisionId, action: execution.action, services: execution.services, argv: execution.argv, state: 'running', exitCode: null, output: '', startedAt: this.d.nowIso(), endedAt: null };
++      this.jobs.push(job);
++      this.saveJobs();
++      const task = this.runJob(job, execution);
++      this.tasks.add(task);
++      void task.then(() => this.tasks.delete(task), () => this.tasks.delete(task));
++      snapshotDir = undefined; // The job owns cleanup from here, including failure/abort.
++      return { executed: true, job };
++    } finally {
++      if (snapshotDir) this.removeSnapshot(snapshotDir);
++      this.resolving.delete(decisionId);
+     }
+-    if (answer === 'approve') { const a = await this.availability(true); if (!a.local || !a.engine) throw new EnvironmentError(a.error ?? 'Docker unavailable', 409); }
+-    if (this.d.state.decisions[decisionId].answeredAt) throw new EnvironmentError('Approval already used', 409);
+-    this.d.commit([{ type: 'decision.answered', actor: HUMAN, data: { decisionId, answer, channel: 'dashboard' } }], [], () => this.d.store.kvSet(`env-action:${decisionId}`, JSON.stringify({ ...exec, consumed: true })));
+-    if (answer === 'deny') return { executed: false, job: null };
+-    const job: EnvironmentJob = { id: newId('job'), decisionId, action: exec.action, services: exec.services, argv: exec.argv, state: 'running', exitCode: null, output: '', startedAt: this.d.nowIso(), endedAt: null };
+-    this.jobs.push(job);
+-    this.saveJobs();
+-    void this.runJob(job, exec);
+-    return { executed: true, job };
+   }
+ 
+   private async runJob(job: EnvironmentJob, p: PendingAction) {
+     const controller = new AbortController();
+     this.controllers.add(controller);
+     try {
+-      const r = await this.exec(p.argv.slice(1), { timeoutMs: TIMEOUTS[p.action], maxBytes: 2 * LOG_LIMIT, signal: controller.signal });
+-      const output = this.d.redactText(`${r.stdout}${r.stderr}${r.error ? `\n${r.error}` : ''}`).slice(-16 * 1024);
+-      Object.assign(job, { state: r.code === 0 ? 'succeeded' : controller.signal.aborted ? 'interrupted' : 'failed', exitCode: r.code, output: r.timedOut ? `${output}\n[timed out]` : output, endedAt: this.d.nowIso() });
++      let r: ExecResult;
++      try { r = await this.exec(p.argv.slice(1), { timeoutMs: TIMEOUTS[p.action], maxBytes: 2 * LOG_LIMIT, signal: controller.signal }); }
++      catch (e) { r = { code: null, stdout: '', stderr: '', error: (e as Error).message, timedOut: false }; }
++      const exitCode = controller.signal.aborted ? null : r.code;
++      const output = this.d.redactText(`${r.stdout}${r.stderr}${r.error ? `\n${r.error}` : ''}${controller.signal.aborted ? '\n[action client interrupted; check service status]' : r.timedOut ? '\n[timed out; check service status]' : ''}`).slice(-16 * 1024);
++      Object.assign(job, { state: controller.signal.aborted ? 'interrupted' : !r.timedOut && r.code === 0 ? 'succeeded' : 'failed', exitCode, output, endedAt: this.d.nowIso() });
+       this.availabilityCache = null;
+-      if (this.d.closed) return;
+-      this.saveJobs();
+-      this.d.commit([{ type: 'docker.action', actor: HUMAN, data: { decisionId: job.decisionId, command: p.argv, exitCode: r.code, output } }]);
++      if (!this.d.closed) {
++        this.saveJobs();
++        this.d.commit([{ type: 'docker.action', actor: HUMAN, data: { decisionId: job.decisionId, command: p.argv, exitCode, output } }]);
++      }
+     } finally {
+-      if (p.snapshotDir) fs.rmSync(p.snapshotDir, { recursive: true, force: true });
++      if (p.snapshotDir) this.removeSnapshot(p.snapshotDir);
+       this.controllers.delete(controller);
+     }
+   }
+@@ -403,7 +645,9 @@ export class ProjectEnvironment {
+   }
+ 
+   async close() {
++    this.closing = true;
+     for (const c of this.controllers) c.abort();
++    await Promise.allSettled([...this.tasks]);
+     this.controllers.clear();
+   }
+ 
+@@ -440,7 +684,7 @@ export class ProjectEnvironment {
+       ],
+       steps: [
+         { id: 'image', title: present ? `Image ${image} is present locally` : `Pull ${image}`, network: !present, argv: [...base, 'pull', spec.service], needed: present === false, action: 'pull' as const },
+-        { id: 'up', title: `Start ${spec.service} with healthcheck`, network: false, argv: [...base, 'up', '--detach', '--no-build', '--pull', 'never', spec.service], needed: true, action: 'up' as const },
++        { id: 'up', title: `Start ${spec.service} with healthcheck`, network: false, argv: [...base, 'up', '--detach', '--no-deps', '--no-build', '--pull', 'never', spec.service], needed: true, action: 'up' as const },
+       ],
+       connection: this.connection(spec),
+       volume: `${this.project}_${volumeName(spec)}`,
+diff --git a/packages/daemon/test/environment.test.ts b/packages/daemon/test/environment.test.ts
+index 5b75ef5..18be5e5 100644
+--- a/packages/daemon/test/environment.test.ts
++++ b/packages/daemon/test/environment.test.ts
+@@ -3,14 +3,18 @@
+ // shapes the workbench uses. No real engine, image or container is involved.
+ import fs from 'node:fs';
+ import path from 'node:path';
+-import { afterEach, describe, expect, it } from 'vitest';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import YAML from 'yaml';
++import { dockerIgnore, readScopedBytes } from '../src/environment/compose.ts';
+ import type { ExecResult } from '../src/exec.ts';
++import * as execution from '../src/exec.ts';
+ import { ProjectEnvironment, type DockerExec } from '../src/environment/workbench.ts';
+ import { parseDatabaseSpec } from '../src/environment/database.ts';
+ import { git, makeConfig, startDaemon, tmpDir, type Harness } from './helpers.ts';
+ 
+ let h: Harness | undefined;
+-afterEach(async () => { await h?.close(); h = undefined; });
++const environments: ProjectEnvironment[] = [];
++afterEach(async () => { vi.restoreAllMocks(); for (const env of environments.splice(0)) await env.close(); await h?.close(); h = undefined; });
+ 
+ interface FakeContainer { id: string; name: string; project: string; service: string; workingDir: string; status: string; health?: string; healthLog?: string; image: string; ports?: string }
+ class FakeDocker {
+@@ -22,10 +26,14 @@ class FakeDocker {
+   endpoint = 'unix:///var/run/docker.sock';
+   logs = '';
+   hold: Promise<void> | null = null;
++  beforeMutation: ((args: string[]) => void) | null = null;
++  beforeAvailability: (() => void) | null = null;
++  failure: 'throw' | 'timeout' | null = null;
+   exec: DockerExec = async (args, o) => {
+     this.calls.push(args);
+     const ok = (stdout = ''): ExecResult => ({ code: 0, stdout, stderr: '', timedOut: false });
+     if (!this.installed) return { code: null, stdout: '', stderr: '', timedOut: false, error: 'spawn docker ENOENT' };
++    if (args[0] === 'version') this.beforeAvailability?.();
+     if (args[0] === 'version') return this.engine ? ok(JSON.stringify({ Client: { Version: '29.0.0' }, Server: { Version: '29.0.0' } })) : { code: 1, stdout: JSON.stringify({ Client: { Version: '29.0.0' }, Server: null }), stderr: 'Cannot connect', timedOut: false };
+     if (args[0] === 'context') return ok(JSON.stringify(this.endpoint));
+     if (args[0] === 'compose' && args[1] === 'version') return ok('2.40.0\n');
+@@ -37,6 +45,9 @@ class FakeDocker {
+     if (args[0] === 'inspect') return ok(JSON.stringify(args.slice(3).map(id => this.containers.find(c => c.id === id)!).map(c => ({ Id: c.id, Name: `/${c.name}`, Config: { Image: c.image, Labels: { 'com.docker.compose.project': c.project, 'com.docker.compose.service': c.service, 'com.docker.compose.project.working_dir': c.workingDir } }, State: { Status: c.status, StartedAt: '2026-10-06T00:00:00Z', ...(c.health ? { Health: { Status: c.health, Log: [{ Output: c.healthLog ?? '' }] } } : {}) } }))));
+     if (args[0] === 'image') return this.images.has(args.at(-1)!) ? ok('sha256:abc') : { code: 1, stdout: '', stderr: 'No such image', timedOut: false };
+     if (args[0] === 'compose' && args.includes('logs')) return ok(this.logs);
++    this.beforeMutation?.(args);
++    if (this.failure === 'throw') throw new Error('fixture spawn error');
++    if (this.failure === 'timeout') return { code: null, stdout: '', stderr: '', timedOut: true };
+     if (this.hold) { await new Promise<void>(resolve => { o?.signal?.addEventListener('abort', () => resolve()); void this.hold!.then(resolve); }); return { code: o?.signal?.aborted ? null : 0, stdout: '', stderr: '', timedOut: false, error: o?.signal?.aborted ? 'aborted' : undefined }; }
+     return ok('done');
+   };
+@@ -52,6 +63,8 @@ function composeRepo(): string {
+     'volumes: { pgdata: {} }',
+     '',
+   ].join('\n'));
++  fs.writeFileSync(path.join(dir, 'Dockerfile'), 'FROM scratch\nCOPY . /app\n');
++  fs.writeFileSync(path.join(dir, '.dockerignore'), '.git\n');
+   git(dir, 'init', '-q', '-b', 'main');
+   git(dir, 'add', '-A');
+   git(dir, 'commit', '-q', '-m', 'compose');
+@@ -61,10 +74,11 @@ function composeRepo(): string {
+ 
+ async function setup(o: { repo?: string; dataDir?: string; busyPorts?: number[] } = {}) {
+   const repo = o.repo ?? composeRepo();
+-  h = await startDaemon(makeConfig(repo, { project: { name: 'Shop', repo, docker_project: 'shop', integration_branch: 'integration', protected_branches: ['main'] } }), { probe: false, dataDir: o.dataDir });
++  h = await startDaemon(makeConfig(repo, { project: { name: 'Shop', repo, docker_project: 'shop', integration_branch: 'integration', protected_branches: ['main'] } }), { probe: false, server: false, dataDir: o.dataDir ?? tmpDir('data') });
+   const docker = new FakeDocker();
+   let now = 1_000_000;
+   const env = new ProjectEnvironment(h.d, { exec: docker.exec, portProbe: async p => (o.busyPorts ?? []).includes(p), now: () => now });
++  environments.push(env);
+   return { repo, docker, env, advance: (ms: number) => { now += ms; } };
+ }
+ 
+@@ -114,9 +128,9 @@ describe('Docker workbench', () => {
+     expect(blocked.decision).toBeNull();
+     expect(blocked.blockers.join(' ')).toMatch(/acme\/worker:missing is not present locally/);
+     const req = await env.request('restart', ['db']);
+-    expect(req.argv).toEqual(['docker', 'compose', '--project-name', 'shop', '--project-directory', repo, '-f', path.join(repo, 'compose.yaml'), 'restart', 'db']);
++    expect(req.argv).toEqual(['docker', 'compose', '--project-name', 'shop', '--project-directory', repo, '-f', path.join(repo, 'compose.yaml'), 'restart', '--no-deps', 'db']);
+     const up = await env.request('up', ['db']);
+-    expect(up.argv.slice(-6)).toEqual(['up', '--detach', '--no-build', '--pull', 'never', 'db']);
++    expect(up.argv.slice(-7)).toEqual(['up', '--detach', '--no-deps', '--no-build', '--pull', 'never', 'db']);
+     expect((await env.request('pull', ['worker'])).network).toBe(true);
+     await expect(env.request('down', ['db'])).rejects.toThrow(/whole project/);
+     await expect(env.request('rm', ['db'])).rejects.toThrow(/Unsupported/);
+@@ -149,14 +163,309 @@ describe('Docker workbench', () => {
+     fs.writeFileSync(composePath, original
+       .replace('postgres:16-alpine', 'evil:hack')
+       .replace('pgdata:/var/lib/postgresql/data', '/:/host:rw'));
+-    expect(req.argv).toEqual(['docker', 'compose', '--project-name', 'shop', '--project-directory', repo, '-f', composePath, 'restart', 'db']);
+-    await expect(env.resolve(req.decision!.id, 'approve', req.digest!)).rejects.toThrow(/Compose content changed/);
++    expect(req.argv).toEqual(['docker', 'compose', '--project-name', 'shop', '--project-directory', repo, '-f', composePath, 'restart', '--no-deps', 'db']);
++    await expect(env.resolve(req.decision!.id, 'approve', req.digest!)).rejects.toThrow(/Compose content/);
+     expect(docker.calls.filter(c => c[0] === 'compose' && c.includes('restart'))).toEqual([]);
+     fs.writeFileSync(composePath, original);
+     const fresh = await env.request('restart', ['db']);
+     await env.resolve(fresh.decision!.id, 'approve', fresh.digest!);
+   });
+ 
++  it.each([
++    ['image', (doc: any) => { doc.services.db.image = 'postgres:17-alpine'; }],
++    ['command', (doc: any) => { doc.services.db.command = ['echo', 'changed']; }],
++    ['mount', (doc: any) => { doc.services.db.volumes = ['other:/data']; doc.volumes.other = {}; }],
++    ['port', (doc: any) => { doc.services.db.ports = ['127.0.0.1:55434:5432']; }],
++    ['environment', (doc: any) => { doc.services.db.environment = { APP_MODE: 'changed' }; }],
++  ])('invalidates the approval on a changed %s before even checking Docker', async (_name, edit) => {
++    const { repo, docker, env } = await setup();
++    const req = await env.request('restart', ['db']);
++    const file = path.join(repo, 'compose.yaml');
++    const doc = YAML.parse(fs.readFileSync(file, 'utf8'));
++    edit(doc);
++    fs.writeFileSync(file, YAML.stringify(doc));
++    docker.calls = [];
++    await expect(env.resolve(req.decision!.id, 'approve', req.digest!)).rejects.toThrow(/Compose content changed/);
++    expect(docker.calls).toEqual([]);
++  });
++
++  it.each(['Dockerfile', 'source', 'addition', 'deletion', 'ignore', 'mode', 'context path'])('invalidates a build approval when %s changes', async change => {
++    const { repo, docker, env } = await setup();
++    fs.writeFileSync(path.join(repo, 'app.txt'), 'approved source');
++    const req = await env.request('build', ['web']);
++    if (change === 'Dockerfile') fs.appendFileSync(path.join(repo, 'Dockerfile'), 'RUN echo harmless-change\n');
++    if (change === 'source') fs.writeFileSync(path.join(repo, 'app.txt'), 'changed source');
++    if (change === 'addition') fs.writeFileSync(path.join(repo, 'new.txt'), 'new source');
++    if (change === 'deletion') fs.unlinkSync(path.join(repo, 'app.txt'));
++    if (change === 'ignore') fs.appendFileSync(path.join(repo, '.dockerignore'), 'app.txt\n');
++    if (change === 'mode') fs.chmodSync(path.join(repo, 'app.txt'), 0o755);
++    if (change === 'context path') {
++      fs.mkdirSync(path.join(repo, 'other'));
++      fs.writeFileSync(path.join(repo, 'other', 'Dockerfile'), 'FROM scratch\n');
++      const file = path.join(repo, 'compose.yaml');
++      const doc = YAML.parse(fs.readFileSync(file, 'utf8'));
++      doc.services.web.build = './other';
++      fs.writeFileSync(file, YAML.stringify(doc));
++    }
++    docker.calls = [];
++    await expect(env.resolve(req.decision!.id, 'approve', req.digest!)).rejects.toThrow(/Compose content changed/);
++    expect(docker.calls).toEqual([]);
++  });
++
++  it('seals a relative context, custom Dockerfile, env file and mounts while a harmless race changes the repo at execution', async () => {
++    const { repo, docker, env } = await setup();
++    fs.mkdirSync(path.join(repo, 'app', 'docker'), { recursive: true });
++    fs.mkdirSync(path.join(repo, 'app', 'empty'));
++    fs.mkdirSync(path.join(repo, 'data'));
++    fs.writeFileSync(path.join(repo, 'app', 'docker', 'Appfile'), 'FROM scratch\nCOPY . /app\n');
++    fs.writeFileSync(path.join(repo, 'app', 'source.txt'), 'approved source');
++    fs.writeFileSync(path.join(repo, 'dev.env'), 'MODE=approved\n');
++    fs.writeFileSync(path.join(repo, '.env'), 'MODE=implicit-must-not-be-loaded\n');
++    const doc = { services: {
++      web: { build: { context: './app', dockerfile: 'docker/Appfile' }, env_file: './dev.env', volumes: ['./data:/data:rw', 'cache:/cache'], command: ['echo', 'approved'] },
++      other: { image: 'never/pull:unapproved', privileged: true },
++    }, volumes: { cache: {} } };
++    fs.writeFileSync(path.join(repo, 'compose.yaml'), YAML.stringify(doc));
++    const req = await env.request('build', ['web']);
++    expect(req.network).toBe(true);
++    expect(req.decision!.question).toMatch(/explicitly permits network/);
++    let composeFile = '', context = '';
++    docker.beforeMutation = args => {
++      expect(args).toEqual(expect.arrayContaining(['--project-name', 'shop', '--project-directory', repo, 'build', 'web']));
++      composeFile = args[args.indexOf('-f') + 1];
++      const sealed = YAML.parse(fs.readFileSync(composeFile, 'utf8'));
++      context = sealed.services.web.build.context;
++      // Mutate only harmless fixture files in the check/use window, then follow the actual argv.
++      fs.writeFileSync(path.join(repo, 'app', 'docker', 'Appfile'), 'FROM scratch\nRUN echo raced\n');
++      fs.writeFileSync(path.join(repo, 'app', 'source.txt'), 'raced source');
++      fs.writeFileSync(path.join(repo, 'dev.env'), 'MODE=raced\n');
++      fs.writeFileSync(path.join(repo, 'compose.yaml'), 'services: { intruder: { image: unapproved } }\n');
++      expect(Object.keys(sealed.services)).toEqual(['web']);
++      expect(sealed.services.web.command).toEqual(['echo', 'approved']);
++      expect(context.startsWith(repo)).toBe(false);
++      expect(fs.readFileSync(path.join(context, 'docker', 'Appfile'), 'utf8')).toBe('FROM scratch\nCOPY . /app\n');
++      expect(fs.readFileSync(path.join(context, 'source.txt'), 'utf8')).toBe('approved source');
++      expect(fs.existsSync(path.join(context, 'empty'))).toBe(true);
++      expect(fs.statSync(composeFile).mode & 0o777).toBe(0o400);
++      expect(fs.statSync(context).mode & 0o222).toBe(0);
++      expect(sealed.services.web.build.dockerfile).toBe('docker/Appfile');
++      expect(sealed.services.web.volumes[0]).toMatchObject({ type: 'bind', source: path.join(repo, 'data'), target: '/data', read_only: false });
++      expect(sealed.services.web.volumes[1].source).toBe('cache');
++      expect(fs.readFileSync(sealed.services.web.env_file[0].path, 'utf8')).toBe('MODE=approved\n');
++      expect(fs.readFileSync(args[args.indexOf('--env-file') + 1], 'utf8')).toBe('');
++    };
++    const result = await env.resolve(req.decision!.id, 'approve', req.digest!);
++    await env.close();
++    expect(result.job!.state).toBe('succeeded');
++    expect(fs.existsSync(composeFile)).toBe(false);
++    expect(fs.existsSync(context)).toBe(false);
++  });
++
++  it('rechecks files after approval availability awaits and cleans snapshots on failed engine checks', async () => {
++    const { repo, docker, env } = await setup();
++    const req = await env.request('build', ['web']);
++    docker.beforeAvailability = () => fs.appendFileSync(path.join(repo, 'Dockerfile'), 'RUN echo harmless-race\n');
++    await expect(env.resolve(req.decision!.id, 'approve', req.digest!)).rejects.toThrow(/Compose content changed/);
++    expect(docker.calls.some(c => c.includes('build'))).toBe(false);
++    expect(fs.existsSync(path.join(env.files.dir, 'approval-snapshots'))).toBe(false);
++    docker.beforeAvailability = null;
++    const fresh = await env.request('build', ['web']);
++    docker.endpoint = 'tcp://remote:2376';
++    await expect(env.resolve(fresh.decision!.id, 'approve', fresh.digest!)).rejects.toThrow(/not a local socket/);
++    expect(fs.existsSync(path.join(env.files.dir, 'approval-snapshots'))).toBe(false);
++  });
++
++  it.each(['throw', 'timeout'] as const)('cleans a snapshot and records a failed job on %s', async failure => {
++    const { docker, env } = await setup();
++    const req = await env.request('build', ['web']);
++    docker.failure = failure;
++    const result = await env.resolve(req.decision!.id, 'approve', req.digest!);
++    await env.close();
++    expect(result.job!.state).toBe('failed');
++    expect(result.job!.output).toMatch(failure === 'throw' ? /fixture spawn error/ : /timed out/);
++    expect(fs.readdirSync(path.join(env.files.dir, 'approval-snapshots'))).toEqual([]);
++  });
++
++  it('rejects a second concurrent approval and retains single-use state', async () => {
++    const { docker, env } = await setup();
++    const req = await env.request('restart', ['db']);
++    const first = env.resolve(req.decision!.id, 'approve', req.digest!);
++    await expect(env.resolve(req.decision!.id, 'approve', req.digest!)).rejects.toThrow(/already/);
++    await first;
++    await env.close();
++    expect(docker.calls.filter(c => c.includes('restart'))).toHaveLength(1);
++  });
++
++  it('requires dependencies to be included explicitly and never widens a scoped command', async () => {
++    const { repo, docker, env } = await setup();
++    const file = path.join(repo, 'compose.yaml');
++    const doc = YAML.parse(fs.readFileSync(file, 'utf8'));
++    doc.services.web.depends_on = ['db'];
++    fs.writeFileSync(file, YAML.stringify(doc));
++    await expect(env.request('up', ['web'])).rejects.toThrow(/explicitly included/);
++    const req = await env.request('up', ['db']);
++    docker.beforeMutation = args => {
++      const sealed = YAML.parse(fs.readFileSync(args[args.indexOf('-f') + 1], 'utf8'));
++      expect(Object.keys(sealed.services)).toEqual(['db']);
++      expect(args).toContain('--no-deps');
++      expect(args).toEqual(expect.arrayContaining(['--no-build', '--pull', 'never']));
++    };
++    const result = await env.resolve(req.decision!.id, 'approve', req.digest!);
++    await env.close();
++    expect(result.job!.state).toBe('succeeded');
++  });
++
++  it.each([
++    { privileged: true }, { network_mode: 'host' }, { pid: 'host' }, { ipc: 'host' }, { cap_add: ['SYS_ADMIN'] },
++    { devices: ['/dev/sda'] }, { volumes: ['/:/host'] }, { volumes: ['/var/run/docker.sock:/var/run/docker.sock'] },
++    { volumes: ['../:/host'] }, { extends: { file: '../compose.yaml', service: 'db' } },
++    { build: { context: 'https://example.invalid/context' } }, { build: { context: '../' } },
++    { build: { context: '.', dockerfile: '../Dockerfile' } }, { build: { context: '.', additional_contexts: { host: '/' } } },
++    { build: { context: '.', ssh: ['default'] } }, { build: { context: '.', secrets: ['token'] } },
++    { build: { context: '.', network: 'host' } }, { build: { context: '.', entitlements: ['security.insecure'] } },
++    { image: '${UNAPPROVED_IMAGE}' }, { environment: ['UNAPPROVED_TOKEN'] },
++  ])('rejects unsafe or unresolved scoped settings %j', async settings => {
++    const { repo, docker, env } = await setup();
++    fs.writeFileSync(path.join(repo, 'compose.yaml'), YAML.stringify({ services: { web: { image: 'postgres:16-alpine', ...settings } } }));
++    docker.calls = [];
++    await expect(env.request('build', ['web'])).rejects.toThrow(/Cannot seal/);
++    expect(docker.calls).toEqual([]);
++  });
++
++  it.each(['file symlink', 'ancestor symlink', 'hardlink', 'secret filename', 'secret content', 'oversized'])('rejects %s in a build context', async kind => {
++    const { repo, docker, env } = await setup();
++    const outside = path.join(fs.realpathSync(tmpDir('outside')), 'fixture.txt');
++    fs.writeFileSync(outside, 'harmless fixture');
++    if (kind === 'file symlink') fs.symlinkSync(outside, path.join(repo, 'linked.txt'));
++    if (kind === 'ancestor symlink') {
++      fs.symlinkSync(path.dirname(outside), path.join(repo, 'linked'));
++      const doc = YAML.parse(fs.readFileSync(path.join(repo, 'compose.yaml'), 'utf8'));
++      doc.services.web.build = './linked';
++      fs.writeFileSync(path.join(repo, 'compose.yaml'), YAML.stringify(doc));
++    }
++    if (kind === 'hardlink') fs.linkSync(outside, path.join(repo, 'hard.txt'));
++    if (kind === 'secret filename') fs.writeFileSync(path.join(repo, '.env'), 'MODE=private\n');
++    if (kind === 'secret content') { h!.d.addSecret('fixture-secret-value'); fs.writeFileSync(path.join(repo, 'plain.txt'), 'fixture-secret-value'); }
++    if (kind === 'oversized') fs.writeFileSync(path.join(repo, 'large.txt'), Buffer.alloc(8 * 1024 * 1024 + 1));
++    docker.calls = [];
++    await expect(env.request('build', ['web'])).rejects.toThrow(/Cannot seal/);
++    expect(docker.calls).toEqual([]);
++  });
++
++  it('honors Dockerfile-specific ignore rules and refuses secret re-inclusions', async () => {
++    const { repo, docker, env } = await setup();
++    fs.writeFileSync(path.join(repo, '.env'), 'MODE=private\n');
++    fs.writeFileSync(path.join(repo, 'Dockerfile.dockerignore'), '.git\n.env\n');
++    const req = await env.request('build', ['web']);
++    docker.beforeMutation = args => {
++      const sealed = YAML.parse(fs.readFileSync(args[args.indexOf('-f') + 1], 'utf8'));
++      const ctx = sealed.services.web.build.context;
++      expect(fs.existsSync(path.join(ctx, '.env'))).toBe(false);
++      expect(fs.existsSync(path.join(ctx, '.git'))).toBe(false);
++      expect(fs.readFileSync(path.join(ctx, 'Dockerfile.dockerignore'), 'utf8')).toBe('.git\n.env\n');
++    };
++    const result = await env.resolve(req.decision!.id, 'approve', req.digest!);
++    await new Promise(r => setTimeout(r, 20));
++    expect(result.job!.state).toBe('succeeded');
++    fs.appendFileSync(path.join(repo, 'Dockerfile.dockerignore'), '!.env\n');
++    await expect(env.request('build', ['web'])).rejects.toThrow(/secret files/);
++  });
++
++  it('keeps inactive profiles out of an unscoped action', async () => {
++    const { repo, docker, env } = await setup();
++    const file = path.join(repo, 'compose.yaml');
++    fs.writeFileSync(file, YAML.stringify({ services: {
++      db: { image: 'postgres:16-alpine' },
++      optional: { image: 'unapproved:missing', profiles: ['optional'], privileged: true },
++    } }));
++    const req = await env.request('up');
++    docker.beforeMutation = args => {
++      const sealed = YAML.parse(fs.readFileSync(args[args.indexOf('-f') + 1], 'utf8'));
++      expect(Object.keys(sealed.services)).toEqual(['db']);
++      expect(args.at(-1)).toBe('db');
++      expect(args).not.toContain('optional');
++    };
++    const result = await env.resolve(req.decision!.id, 'approve', req.digest!);
++    await new Promise(r => setTimeout(r, 20));
++    expect(result.job!.state).toBe('succeeded');
++  });
++
++  it('rejects a symlink nested in a repository bind directory before checking Docker', async () => {
++    const { repo, docker, env } = await setup();
++    fs.mkdirSync(path.join(repo, 'mount'));
++    const outside = fs.realpathSync(tmpDir('outside-bind'));
++    fs.writeFileSync(path.join(outside, 'harmless.txt'), 'fixture');
++    fs.symlinkSync(path.join(outside, 'harmless.txt'), path.join(repo, 'mount', 'linked.txt'));
++    fs.writeFileSync(path.join(repo, 'compose.yaml'), YAML.stringify({ services: { db: { image: 'postgres:16-alpine', volumes: ['./mount:/app'] } } }));
++    docker.calls = [];
++    await expect(env.request('up', ['db'])).rejects.toThrow(/Symlinks/);
++    expect(docker.calls).toEqual([]);
++  });
++
++  it('strips host Compose overrides and inherited variables from the actual subprocess environment', async () => {
++    const { repo, docker } = await setup();
++    h!.d.opts.baseEnv = { PATH: '/fixture/bin', HOME: '/fixture/home', DOCKER_HOST: 'unix:///fixture.sock', COMPOSE_FILE: '/unapproved.yaml', COMPOSE_PROFILES: 'unapproved', COMPOSE_PROJECT_NAME: 'foreign', UNAPPROVED_IMAGE: 'foreign:latest' };
++    const call = vi.spyOn(execution, 'run').mockImplementation(async (cmd, args, options) => {
++      expect(cmd).toBe('docker');
++      expect(options?.cwd).toBe(repo);
++      expect(options?.env).toMatchObject({ PATH: '/fixture/bin', DOCKER_HOST: 'unix:///fixture.sock', COMPOSE_DISABLE_ENV_FILE: 'true' });
++      for (const key of ['COMPOSE_FILE', 'COMPOSE_PROFILES', 'COMPOSE_PROJECT_NAME', 'UNAPPROVED_IMAGE']) expect(options?.env).not.toHaveProperty(key);
++      return docker.exec([...args], options);
++    });
++    const env = new ProjectEnvironment(h!.d, { portProbe: async () => false });
++    environments.push(env);
++    const req = await env.request('build', ['web']);
++    const result = await env.resolve(req.decision!.id, 'approve', req.digest!);
++    await new Promise(r => setTimeout(r, 20));
++    expect(result.job!.state).toBe('succeeded');
++    expect(call).toHaveBeenCalled();
++  });
++
++  it('binds explicit env-file contents to the approval', async () => {
++    const { repo, docker, env } = await setup();
++    fs.writeFileSync(path.join(repo, 'dev.env'), 'MODE=approved\n');
++    const file = path.join(repo, 'compose.yaml');
++    const doc = YAML.parse(fs.readFileSync(file, 'utf8'));
++    doc.services.db.env_file = './dev.env';
++    fs.writeFileSync(file, YAML.stringify(doc));
++    const req = await env.request('restart', ['db']);
++    fs.writeFileSync(path.join(repo, 'dev.env'), 'MODE=changed\n');
++    docker.calls = [];
++    await expect(env.resolve(req.decision!.id, 'approve', req.digest!)).rejects.toThrow(/Compose content changed/);
++    expect(docker.calls).toEqual([]);
++  });
++
++  it('bounds the combined build input count', async () => {
++    const { repo, docker, env } = await setup();
++    for (let i = 0; i < 2001; i++) fs.writeFileSync(path.join(repo, `entry-${i}.txt`), 'x');
++    docker.calls = [];
++    await expect(env.request('build', ['web'])).rejects.toThrow(/2000 entries/);
++    expect(docker.calls).toEqual([]);
++  });
++
++  it('pins a bounded file descriptor and refuses a harmless replacement during open', () => {
++    const root = fs.realpathSync(tmpDir('capture-race'));
++    const input = path.join(root, 'source.txt');
++    const replacement = path.join(root, 'replacement.txt');
++    fs.writeFileSync(input, 'approved');
++    fs.writeFileSync(replacement, 'harmless replacement');
++    const open = fs.openSync.bind(fs);
++    vi.spyOn(fs, 'openSync').mockImplementation((file, flags, mode) => {
++      if (file === input) fs.renameSync(replacement, input);
++      return open(file, flags, mode);
++    });
++    expect(() => readScopedBytes(root, input, 100)).toThrow(/changed/);
++  });
++
++  it('bounds ignore syntax and applies root-relative glob/negation rules', () => {
++    const ignore = dockerIgnore('**/private\n*.log\n!keep.log\n');
++    expect(ignore('app/private/key.txt')).toBe(true);
++    expect(ignore('a.log')).toBe(true);
++    expect(ignore('nested/a.log')).toBe(false);
++    expect(ignore('keep.log')).toBe(false);
++    expect(() => dockerIgnore('[abc]')).toThrow(/Unsupported/);
++  });
++
+   it('refuses mutations on a non-local Docker endpoint', async () => {
+     const { docker, env } = await setup();
+     docker.endpoint = 'tcp://prod-docker.example:2376';
+@@ -165,6 +474,16 @@ describe('Docker workbench', () => {
+     expect(r.blockers[0]).toMatch(/not a local socket/);
+   });
+ 
++  it('checks the actual context endpoint when DOCKER_CONTEXT overrides a local DOCKER_HOST', async () => {
++    const { docker, env } = await setup();
++    h!.d.opts.baseEnv = { DOCKER_CONTEXT: 'remote', DOCKER_HOST: 'unix:///local.sock' };
++    docker.endpoint = 'tcp://remote:2376';
++    const req = await env.request('stop', ['db']);
++    expect(req.decision).toBeNull();
++    expect(req.blockers.join(' ')).toMatch(/not a local socket/);
++    expect(docker.calls.some(c => c.includes('stop'))).toBe(false);
++  });
++
+   it('returns bounded, redacted service logs', async () => {
+     const { docker, env } = await setup();
+     h!.d.addSecret('hunter2-super-secret');
+@@ -223,6 +542,50 @@ describe('Local database wizard', () => {
+     expect(h!.d.redactText(password)).not.toContain(password);
+   });
+ 
++  it('keeps wizard passwords private and immutable through an approved scoped start', async () => {
++    const { docker, env } = await setup();
++    await env.createDatabase({ kind: 'postgres', service: 'devdb' });
++    const password = env.files.readSecret('devdb')!;
++    const req = await env.request('up', ['devdb']);
++    docker.beforeMutation = args => {
++      const sealed = YAML.parse(fs.readFileSync(args[args.indexOf('-f') + 1], 'utf8'));
++      expect(Object.keys(sealed.services)).toEqual(['devdb']);
++      expect(sealed.services.devdb.ports).toEqual(['127.0.0.1:5432:5432']);
++      expect(sealed.services.devdb.volumes[0].source).toBe('devdb-data');
++      const secret = sealed.secrets.devdb_password.file;
++      fs.writeFileSync(env.files.secretFile('devdb'), 'changed-but-harmless-password');
++      expect(secret).not.toBe(env.files.secretFile('devdb'));
++      expect(fs.statSync(secret).mode & 0o777).toBe(0o400);
++      expect(fs.readFileSync(secret, 'utf8')).toBe(password);
++      expect(JSON.stringify(req)).not.toContain(password);
++    };
++    const result = await env.resolve(req.decision!.id, 'approve', req.digest!);
++    await env.close();
++    expect(result.job!.state).toBe('succeeded');
++    expect(fs.readdirSync(path.join(env.files.dir, 'approval-snapshots'))).toEqual([]);
++  });
++
++  it('removes crash leftovers, persists interrupted jobs and never replays an approved action on restart', async () => {
++    const dataDir = tmpDir('data');
++    const first = await setup({ dataDir });
++    const req = await first.env.request('build', ['web']);
++    const stale = path.join(first.env.files.dir, 'approval-snapshots', `${req.decision!.id}-crash`);
++    fs.mkdirSync(path.join(stale, 'builds'), { recursive: true, mode: 0o700 });
++    fs.writeFileSync(path.join(stale, 'builds', 'source.txt'), 'harmless crash fixture', { mode: 0o400 });
++    fs.chmodSync(path.join(stale, 'builds'), 0o500);
++    fs.chmodSync(stale, 0o500);
++    h!.d.store.kvSet('environment:jobs', JSON.stringify([{ id: 'crashed', decisionId: req.decision!.id, action: 'build', services: ['web'], argv: req.argv, state: 'running', exitCode: null, output: 'partial log', startedAt: h!.d.nowIso(), endedAt: null }]));
++    await h!.close(); h = undefined;
++    const second = await setup({ repo: first.repo, dataDir });
++    const job = (await second.env.status()).jobs[0];
++    expect(job).toMatchObject({ state: 'interrupted', exitCode: null, action: 'build' });
++    expect(job.output).toMatch(/check service status/);
++    expect(job.endedAt).not.toBeNull();
++    expect(JSON.parse(h!.d.store.kvGet('environment:jobs')!)[0].state).toBe('interrupted');
++    expect(fs.existsSync(stale)).toBe(false);
++    expect(second.docker.calls.some(c => c.includes('build'))).toBe(false);
++  });
++
+   it('creates a private SQLite file without Docker', async () => {
+     const { docker, env } = await setup();
+     const r = await env.createDatabase({ kind: 'sqlite', name: 'dev' });

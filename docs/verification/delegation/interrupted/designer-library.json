@@ -1,0 +1,87 @@
+{
+  "worker": "designer-library",
+  "status": {
+    "id": "designer-library",
+    "pid": 20704,
+    "model": "claude-opus-5-5-high",
+    "state": "failed",
+    "startedAt": "2026-10-07T03:24:07.028Z",
+    "lastOutputAt": "2026-10-07T03:56:12.857Z",
+    "exitCode": 1,
+    "reason": null,
+    "endedAt": "2026-10-07T03:56:14.505Z"
+  },
+  "files": [
+    "examples/fake-agent/fake-agent.mjs",
+    "packages/core/src/connectors.ts",
+    "packages/core/src/entities.ts",
+    "packages/core/src/events.ts",
+    "packages/core/src/index.ts",
+    "packages/core/src/libraryReducer.ts",
+    "packages/core/src/mocks.ts",
+    "packages/core/src/reducer.ts",
+    "packages/core/src/skills.ts",
+    "packages/daemon/src/adapters/agents/claude.ts",
+    "packages/daemon/src/connectors.ts",
+    "packages/daemon/src/context/sync.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/designer.ts",
+    "packages/daemon/src/mcp/server.ts",
+    "packages/daemon/src/mcpBridge.ts",
+    "packages/daemon/src/mocks.ts",
+    "packages/daemon/src/runManager.ts",
+    "packages/daemon/src/server/http.ts",
+    "packages/daemon/src/server/libraryRoutes.ts",
+    "packages/daemon/src/skills.ts",
+    "packages/daemon/test/connectors.test.ts",
+    "packages/daemon/test/fixtures/fake-mcp-tools.mjs",
+    "packages/daemon/test/mocks.test.ts",
+    "packages/daemon/test/skills.test.ts",
+    "packages/web/src/pages/Connectors.tsx",
+    "packages/web/src/pages/Mocks.tsx",
+    "packages/web/src/pages/Skills.tsx"
+  ],
+  "checks": [
+    {
+      "command": "pnpm typecheck 2>&1 | tail -40",
+      "exitCode": 0,
+      "output": "\n> one-connect@0.1.0 typecheck /private/tmp/one-connect-cursor-Bu9W8J/designer-library\n> pnpm -r typecheck\n\nScope: 3 of 4 workspace projects\npackages/core typecheck$ tsc -p tsconfig.json\npackages/core typecheck: Done\npackages/daemon typecheck$ tsc -p tsconfig.json\npackages/web typecheck$ tsc -p tsconfig.json\npackages/web typecheck: Done\npackages/daemon typecheck: Done\n"
+    },
+    {
+      "command": "npx vitest run packages/daemon/test/designer.test.ts packages/daemon/test/agent-builder.test.ts packages/daemon/test/imports-docker.test.ts packages/daemon/test/e2e.test.ts 2>&1 | tail -40",
+      "exitCode": 0,
+      "output": "\n RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/designer-library\n\n\n Test Files  4 passed (4)\n      Tests  24 passed (24)\n   Start at  23:42:12\n   Duration  24.14s (tests 92%, import 4%, transform 3%)\n\n"
+    },
+    {
+      "command": "npx vitest run packages/daemon/test/skills.test.ts 2>&1 | tail -60",
+      "exitCode": 0,
+      "output": "\n RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/designer-library\n\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)\n   Start at  23:45:36\n   Duration  1.13s (tests 52%, import 25%, transform 23%)\n\n"
+    },
+    {
+      "command": "npx vitest run packages/daemon/test/connectors.test.ts 2>&1 | tail -60",
+      "exitCode": 0,
+      "output": "\n RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/designer-library\n\n\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Start at  23:47:05\n   Duration  1.22s (tests 59%, import 22%, transform 19%)\n\n"
+    },
+    {
+      "command": "npx vitest run packages/daemon/test/connectors.test.ts packages/daemon/test/skills.test.ts --reporter=verbose -t \"MCP tool server\" 2>&1 | tail -20; rg -n \"expect.poll|test.skip|it.skip\" packages/daemon/test/connectors.test.ts; cat vitest.config.* 2>/dev/null | head -30",
+      "exitCode": 0,
+      "output": "\n RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/designer-library\n\n ↓ |daemon| packages/daemon/test/skills.test.ts > project skills library > validates drafts, publishes immutable versions, freezes them per assignment and survives restart\n ↓ |daemon| packages/daemon/test/skills.test.ts > project skills library > exports frozen skills into a worktree without overwriting tracked, foreign or symlinked paths\n ↓ |daemon| packages/daemon/test/connectors.test.ts > connector manager > drafts make no calls; activation is a single-use human decision bound to the exact settings and survives restart\n ↓ |daemon| packages/daemon/test/connectors.test.ts > connector manager > imports GitHub issues through the gh fixture, connects Obsidian knowledge and gates Docker reads\n ✓ |daemon| packages/daemon/test/connectors.test.ts > connector manager > runs a local MCP tool server only after approval of the exact command, tools and roots 333ms\n\n Test Files  1 passed | 1 skipped (2)\n      Tests  1 passed | 4 skipped (5)\n   Start at  23:47:12\n   Duration  795ms (transform 42%, tests 30%, import 28%)\n\n// SPDX-License-Identifier: Apache-2.0\nimport { defineConfig } from 'vitest/config';\n\nexport default defineConfig({\n  test: {\n    projects: [\n      { test: { name: 'core', include: ['packages/core/test/**/*.test.ts'], environment: 'node' } },\n      {\n        test: {\n          name: 'daemon',\n          include: ['packages/daemon/test/**/*.test.ts'],\n          environment: 'node',\n          testTimeout: 30_000,\n          hookTimeout: 30_000,\n          pool: 'forks',\n        },\n      },\n      {\n        test: { name: 'web', include: ['packages/web/test/**/*.test.tsx'], environment: 'jsdom' },\n      },\n    ],\n  },\n});\n"
+    },
+    {
+      "command": "npx vitest run packages/daemon/test/mocks.test.ts packages/daemon/test/connectors.test.ts 2>&1 | tail -80",
+      "exitCode": 0,
+      "output": "\n RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/designer-library\n\n ❯ |daemon| packages/daemon/test/mocks.test.ts (3 tests | 2 failed) 5638ms\n   ❯ design mock artifacts (3)\n     × a design agent run exports frozen skills, writes a mock, registers it and gets honest evidence 3406ms\n     × validates capture, blocks unsafe previews, gates drift with human exceptions and survives restart 177ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  |daemon| packages/daemon/test/mocks.test.ts > design mock artifacts > a design agent run exports frozen skills, writes a mock, registers it and gets honest evidence\nTypeError: Cannot read properties of null (reading 'toLowerCase')\n ❯ packages/daemon/test/mocks.test.ts:45:97\n     43|\n     44|     const [art] = d.mocks.list({ assignmentId: a.id });\n     45|     expect(art).toMatchObject({ workItemId: item.id, agentId: 'codex',…\n       |                                                                                                 ^\n     46|     const rev = art.revisions[0];\n     47|     expect(rev.files.map(f => f.path)).toEqual(['app.js', 'index.html'…\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  |daemon| packages/daemon/test/mocks.test.ts > design mock artifacts > validates capture, blocks unsafe previews, gates drift with human exceptions and survives restart\nError: Choose findings from this revision\n ❯ DesignMocks.addException packages/daemon/src/mocks.ts:346:60\n    344|     const known = new Map([...r.findings, ...(gate.drift ? [gate.drift…\n    345|     const ids = [...new Set(findingIds ?? [])];\n    346|     if (!ids.length || ids.some(i => !known.has(i))) throw new Command…\n       |                                                            ^\n    347|     if (ids.some(i => known.get(i)!.severity === 'error')) throw new C…\n    348|     const exception = { id: newId('dex'), findingIds: ids, rationale: …\n ❯ packages/daemon/test/mocks.test.ts:200:20\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed | 1 passed (2)\n      Tests  2 failed | 4 passed (6)\n   Start at  23:50:43\n   Duration  6.27s (tests 85%, import 8%, transform 7%)\n\n"
+    },
+    {
+      "command": "npx vitest run packages/daemon/test/mocks.test.ts 2>&1 | rg -v \"^\\s*$\" | tail -60",
+      "exitCode": 0,
+      "output": "ed',href:'form submit'});},true);\n})();</script><meta charset=\\\"utf-8\\\"><meta name=\\\"viewport\\\" content=\\\"width=device-width,initial-scale=1\\\"><title>LOC-1 mock</title><style data-src=\\\"tokens.css\\\">:root {\n  --design-background: #f3f6f7;\n  --design-surface: #ffffff;\n  --design-text: #18343b;\n  --design-muted: #526870;\n  --design-accent: #087e8b;\n  --design-accent-text: #ffffff;\n  --design-border: #c9d6da;\n  --design-radius: 8px;\n  --design-space: 8px;\n  --design-font: -apple-system, BlinkMacSystemFont, \\\"Segoe UI\\\", sans-serif;\n}\n</style><style data-src=\\\"styles.css\\\">body{margin:0;background:var(--design-background);color:var(--design-text);font-family:var(--design-font)}\n.card{background:var(--design-surface);border:1px solid var(--design-border);border-radius:var(--design-radius);padding:16px}\nbutton{background:var(--design-accent);color:var(--design-accent-text);min-height:44px}\n</style></head>\n<body><main class=\\\"card\\\"><h1>LOC-1</h1><p>Settings mock for review.</p><button type=\\\"button\\\">Save</button><p role=\\\"status\\\"></p></main><script data-src=\\\"app.js\\\">document.querySelector('button').addEventListener('click',()=>{document.querySelector('[role=status]').textContent='Saved';});\n</script></body></html>\n\"\n ❯ packages/daemon/test/mocks.test.ts:62:24\n     60|     expect(p.html).toContain('<style data-src=\"styles.css\">');\n     61|     expect(p.html).toContain('<script data-src=\"app.js\">');\n     62|     expect(p.html).not.toMatch(/href=\"styles\\.css\"|src=\"app\\.js\"/);\n       |                        ^\n     63|\n     64|     // HTTP: authenticated, scoped to the install, and refused cross-o…\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n FAIL  |daemon| packages/daemon/test/mocks.test.ts > design mock artifacts > validates capture, blocks unsafe previews, gates drift with human exceptions and survives restart\nError: Choose findings from this revision\n ❯ DesignMocks.addException packages/daemon/src/mocks.ts:346:60\n    344|     const known = new Map([...r.findings, ...(gate.drift ? [gate.drift…\n    345|     const ids = [...new Set(findingIds ?? [])];\n    346|     if (!ids.length || ids.some(i => !known.has(i))) throw new Command…\n       |                                                            ^\n    347|     if (ids.some(i => known.get(i)!.severity === 'error')) throw new C…\n    348|     const exception = { id: newId('dex'), findingIds: ids, rationale: …\n ❯ packages/daemon/test/mocks.test.ts:202:20\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n Test Files  1 failed (1)\n      Tests  2 failed | 1 passed (3)\n   Start at  23:51:03\n   Duration  5.92s (tests 91%, transform 4%, import 4%)\n"
+    },
+    {
+      "command": "npx vitest run packages/daemon/test/mocks.test.ts 2>&1 | rg -v \"^\\s*$\" | tail -50",
+      "exitCode": 0,
+      "output": " RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/designer-library\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n   Start at  23:51:40\n   Duration  5.87s (tests 93%, transform 4%, import 3%)\n"
+    }
+  ],
+  "note": "Worker interrupted by Cursor Opus usage limit; no handoff, incomplete implementation, pipeline exits may mask errors. Evidence requires independent checks."
+}

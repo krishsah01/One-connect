@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Fake codex for tests and the demo. See ../fake-agent.mjs.
+FAKE_VENDOR=codex exec node "$(dirname "$0")/../fake-agent.mjs" "$@"

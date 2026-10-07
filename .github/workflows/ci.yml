@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI
+on:
+  push:
+    branches: [main, integration]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+  licenses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: cargo fetch --manifest-path packages/desktop/src-tauri/Cargo.toml --locked
+      - name: SPDX headers and manifest licenses
+        run: pnpm spdx:check
+      - name: Dependency license compatibility + THIRD_PARTY_NOTICES.md up to date
+        run: pnpm license:check
+  desktop:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: cargo fetch --manifest-path packages/desktop/src-tauri/Cargo.toml --locked
+      - run: pnpm desktop:prepare
+      - run: cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --locked
+      - run: pnpm desktop:build

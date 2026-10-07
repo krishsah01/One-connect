@@ -1,0 +1,6 @@
+{
+  "identifier": "main-window",
+  "description": "Only bundled local dashboard assets receive native IPC. No remote origins.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

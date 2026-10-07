@@ -1,0 +1,762 @@
+
+# Build Prompt: Agent Control Center
+
+Paste everything below the line into the builder you choose (Claude Code, Codex, Cursor, v0, or another). It's project-agnostic: projects, agents, trackers and policies are all configuration.
+
+---
+
+## Role
+
+You are a senior full-stack engineer and product designer. Build **Agent Control Center**: a local-first app that runs a team of AI coding agents from different vendors through the whole development cycle, in one interface. Every agent gets its own live, real-time view. Everything is connected: issues ↔ assignments ↔ agent runs ↔ branches ↔ handoffs ↔ reviews ↔ merges ↔ releases ↔ the human's decisions.
+
+Plan before you code. Write a short architecture doc and a phased plan first, then build Phase 1 end to end with tests before moving on.
+
+## Why this exists (real failure modes to design against)
+
+These all happened in a real multi-agent project. The product must make them impossible or loud:
+
+**The coordinator did the work instead of coordinating.** One agent acted as lead and spent most of its usage clicking through other apps' UIs. It hit its usage limit before dispatching a ten-line fix.
+**There was no shared state.** Agents worked from different, stale copies of the instructions, and nobody could see who was doing what.
+**Agents sat idle.** An agent finished its task and waited for a new one instead of pulling the next queued item.
+**Silent stalls.** An agent sat on an approval prompt for four days, and a headless run died on "connection timed out". No one noticed either.
+**Lost evidence.** Run logs lived in a temp folder that was wiped on restart, so the handoff and test evidence were gone.
+**The tracker drifted.** Work was merged while the issue still said "Todo", and bugs found along the way lived only in comments.
+**Wrong models.** Agents ran on stale or weak models (a "Lite" model doing research, an old model after newer ones shipped), with no visibility.
+**Usage-limit and cost surprises.** A paid fallback could have been switched on silently, and usage limits ended sessions mid-task.
+**Unsafe reach.** A push to an unprotected main branch would have deployed to production immediately, and a production database had been paused for days without anyone noticing.
+**Ceremony instead of progress.** Leases with expiry times, readiness "receipts" and multi-round coordination protocols consumed more effort than the work itself.
+Recalled a memory, ran a command
+The directory is empty, and the prompt cuts off right after the "Why this exists" list—there's nothing on features, tech stack, phases, or acceptance criteria. I'll check with you before starting a large build.
+
+# Build Prompt: Agent Control Center
+
+Paste everything below the line into the builder you choose (Claude Code, Codex, Cursor, v0, or another). It's project-agnostic: projects, agents, trackers and policies are all configuration.
+
+---
+
+## Role
+
+You are a senior full-stack engineer and product designer. Build **Agent Control Center**: a local-first app that runs a team of AI coding agents from different vendors through the whole development cycle, in one interface. Every agent gets its own live, real-time view. Everything is connected: issues ↔ assignments ↔ agent runs ↔ branches ↔ handoffs ↔ reviews ↔ merges ↔ releases ↔ the human's decisions.
+
+Plan before you code. Write a short architecture doc and a phased plan first, then build Phase 1 end to end with tests before moving on.
+
+## Why this exists (real failure modes to design against)
+
+These all happened in a real multi-agent project. The product must make them impossible or loud:
+
+**The coordinator did the work instead of coordinating.** One agent acted as lead and spent most of its usage clicking through other apps' UIs. It hit its usage limit before dispatching a ten-line fix.
+**There was no shared state.** Agents worked from different, stale copies of the instructions, and nobody could see who was doing what.
+**Agents sat idle.** An agent finished its task and waited for a new one instead of pulling the next queued item.
+**Silent stalls.** An agent sat on an approval prompt for four days, and a headless run died on "connection timed out". No one noticed either.
+**Lost evidence.** Run logs lived in a temp folder that was wiped on restart, so the handoff and test evidence were gone.
+**The tracker drifted.** Work was merged while the issue still said "Todo", and bugs found along the way lived only in comments.
+**Wrong models.** Agents ran on stale or weak models (a "Lite" model doing research, an old model after newer ones shipped), with no visibility.
+**Usage-limit and cost surprises.** A paid fallback could have been switched on silently, and usage limits ended sessions mid-task.
+**Unsafe reach.** A push to an unprotected main branch would have deployed to production immediately, and a production database had been paused for days without anyone noticing.
+**Ceremony instead of progress.** Leases with expiry times, readiness "receipts" and multi-round coordination protocols consumed more effort than the work itself.
+**The human was away from the desk.** The owner approves decisions from a phone, and those approvals must be quick, safe and auditable.
+## Core principles
+
+- **Bring your own subscriptions (the headline feature).** The app runs agents on the plans the user **already pays for**, so the team costs nothing extra. API keys and per-token billing are not the default.
+  - Each agent runs through its vendor's **official** CLI or app, signed in with the user's own account. Examples:
+    - ChatGPT Plus/Pro/Team → Codex CLI or the ChatGPT/Codex app;
+    - Claude Pro/Max → Claude Code / Claude Agent SDK with the Claude login;
+    - Cursor Pro → the Cursor agent CLI;
+    - Google AI Pro → Antigravity and the Gemini app;
+    - GitHub Copilot → Copilot CLI or agent;
+    - any other vendor CLI with a login.
+  - The control center **never sees, stores or proxies the user's credentials**. It calls the vendor tool, which handles its own auth (OAuth/device login). It only reports login state: logged in, expired, needs re-auth.
+  - **Show each subscription's included usage:** remaining or limit status where the vendor exposes it, otherwise "unknown". Detect usage-limit errors, and route work to an agent whose subscription still has capacity.
+  - **Paid modes stay off.** That covers API-key mode, on-demand or overage billing, purchased credits and auto-recharge. Turning one on requires an explicit per-agent opt-in with a cost banner.
+  - **Stay within each vendor's terms:**
+    - one user's subscriptions are used only by that user, never shared or pooled across users, and never resold;
+    - no scraping or extracting session tokens from apps;
+    - no circumventing rate limits.
+    The README must tell users to check their own plan's terms for automated use.
+- **Pull, not push.** Agents fetch their next work from one source of truth; the coordinator never needs to drive another app's UI. UI automation exists only as an optional, clearly labelled fallback adapter.
+- **One source of truth per concern.**
+  - The work tracker owns issues and statuses.
+  - Git owns code.
+  - The control center's event store owns runs, handoffs and decisions.
+  - Everything else is a view.
+- **No issue, no dispatch.** Every run is tied to a work item. Status changes happen atomically with the action that causes them.
+- **Now + Next for every agent.** When an agent finishes Now, it starts Next automatically. The queue refills itself, and idle time is shown as a metric.
+- **Evidence over claims.** "Done" requires recorded evidence: commands, results, SHAs. The UI never shows a step as passed without proof attached.
+- **The human decides product, cost, security and deploys.** Everything irreversible or outward-facing needs per-action approval.
+- **Lean process.** Leases, receipts and similar ceremony are replaced by ownership (issue ↔ agent) plus live process state.
+
+## Domain model (implement as typed entities)
+
+- **Project:**
+  - repo path(s);
+  - integration branch;
+  - protected branches;
+  - test, lint and build commands;
+  - tracker binding;
+  - release gates;
+  - policies.
+- **Agent:**
+  - id, display name, vendor, surface (CLI, desktop app, web app, IDE);
+  - role (lead/coordinator, engineer, reviewer, QA, researcher);
+  - adapter type;
+  - model inventory (allowed models, current model, newest available, effort level);
+  - capabilities: can it write code, run shell, reach the tracker, read local files, run headless;
+  - cost plan (included subscription vs metered; paid fallback must be OFF);
+  - concurrency limit;
+  - status.
+- **Work item:** a mirror of a tracker issue. Holds id, title, description, acceptance criteria, labels, priority, parent and blocking relations, status, owner agent, linked branches/PRs/runs, and an evidence list.
+- **Assignment:** work item → agent, with:
+  - scope;
+  - allowed paths;
+  - worktree and branch;
+  - base SHA;
+  - required checks;
+  - the handoff format;
+  - Now or Next position.
+  The assignment text is generated from a template and editable before dispatch.
+- **Run:** one agent session. Holds:
+  - process or session id;
+  - model and effort;
+  - start and end time;
+  - state (queued, starting, running, waiting-for-approval, waiting-for-input, stalled, failed, finished);
+  - a durable transcript (stream of structured events);
+  - usage consumed;
+  - exit reason.
+- **Event:** a typed, timestamped record, for example:
+  - message, tool call, file edit, command run;
+  - test result (counts);
+  - commit, handoff, status change;
+  - approval request, error, usage warning.
+- **Handoff:** a structured block parsed from the agent's final message, commit body or tracker comment:
+  - Done;
+  - Evidence (commands and actual results);
+  - Commit (SHA and branch);
+  - Blocked (what, and on whom);
+  - Next.
+- **Review:** reviewer agent or human, target SHA, findings, verdict. Rule: the author can never be the sole reviewer.
+- **Merge:** source branch → integration branch, result, post-merge checks.
+- **Release:** an ordered plan of steps. Each step has an owner, an exact command or action, a verification check, a rollback and an approval state.
+- **Decision:** a question for the human, with options, a recommendation, evidence links, an urgency, and the answer with timestamp and channel. The answer is an auditable record.
+- **Policy:**
+  - zero extra spend;
+  - model quality floor and the newest-model rule;
+  - allowed and denied models;
+  - approval-required actions;
+  - path scopes;
+  - privacy rules;
+  - quiet hours.
+
+## Adapters (all pluggable, all project-agnostic)
+
+**1. Agent runtime adapters.** Each implements one interface: start, send, stream, pause, resume, stop, status, list_models, usage, auth_status, billing_mode, and pending_approvals.
+- **Subscription-first:** every adapter defaults to the vendor's subscription login.
+  - auth_status reports logged in, expired or not installed, and gives the vendor's own login command to fix it. The UI shows it as "Run <vendor login> in a terminal" or "Open the app and sign in".
+  - billing_mode must report subscription / metered / unknown. Dispatch is blocked when it isn't subscription and the user hasn't opted in for that agent.
+- **Onboarding wizard:** detect installed vendor CLIs and apps, check each one's login state, list its models, and let the user map each subscription to an agent role.
+- **Don't bundle vendor binaries.** Users install the official tools themselves; the wizard links to each vendor's install page.
+- **Pin the exact binary.** Some apps ship a newer bundled CLI than the one on the PATH, and only the newer one can run the newest models.
+- **Headless CLI adapters** (preferred). Spawn the agent's own CLI inside the assignment's worktree and capture stdout and stderr as events. Examples to support out of the box:
+  - an OpenAI Codex CLI (exec mode);
+  - Cursor's agent CLI (print mode);
+  - Claude Code / Claude Agent SDK (headless);
+  - any generic "command + prompt" CLI.
+  Discover each CLI's model list at dispatch time and pick the newest allowed model at the configured effort. Detect the common failure modes: unsupported model for the account, auth expired, connection/routing timeout, usage limit reached, sandbox write denied (for example, the agent can't write the git index).
+- **App-bound adapters** for agents with no CLI, like desktop IDE agents and chat apps.
+  - **Relay mode** (default): the control center generates a short, self-contained prompt, the human or a phone shortcut pastes it in, and the agent's result is pulled back via a shared link, a file the agent writes, or a paste box.
+  - **Optional OS-automation mode:** opt-in, scoped per app, never reads unrelated chats, and every action is logged.
+- **Subagent adapter:** for a lead agent that can spawn sub-workers, track them as child runs under the parent.
+
+**2. Work-tracker adapters:** Linear, GitHub Issues/Projects and Jira, with two-way sync via webhooks plus polling fallback. Map statuses to the lifecycle below. Create issues for new findings in one click (or automatically, with a rule), and post handoffs as comments.
+
+**3. VCS adapter:** git worktrees, one per assignment.
+- Branch naming: <agent>/<issue-key>-<slug>.
+- Detect file-system changes live.
+- Show the diff against base.
+- Enforce allowed paths with a pre-commit check and a dashboard warning.
+- Detect conflicts with other active worktrees early.
+
+**4. Code host and CI adapter:** GitHub/GitLab PRs, checks and branch protection status. Warn loudly if the production branch is unprotected.
+
+**5. Infra status adapters (read-only by default):** hosting (for example Vercel), databases (for example Supabase/Postgres) and workers.
+- Surface health such as a paused or inactive database, recent runtime errors, the migrations applied vs in the repo (including drift detection), and env-flag state.
+- Any write action requires an explicit per-step approval.
+
+**6. Knowledge adapter:** a markdown docs folder or Obsidian vault for the team contract, the brief, and decision records.
+
+**7. Notification adapter:** mobile push or web push, plus optional chat-app delivery. No email unless explicitly enabled.
+
+## Lifecycle (one state machine shared by all views)
+
+Backlog → Selected → Assigned (Next) → Assigned (Now) → Running → Handoff received → In review → Changes requested ↺ → Approved → Merged to integration → Release candidate → Deployed → Verified (Done)
+
+Side states: Blocked (on human / on issue / on agent), Stalled, Failed, Canceled.
+
+Rules:
+- Every transition writes an event and syncs to the tracker in the same operation.
+- **Done** requires merge evidence AND acceptance evidence. If acceptance needs production or real-device verification, the item stays open until that evidence exists.
+
+## Screens
+
+**Mission Control** (home):
+   - **One live card per agent:** status light, current issue, model and effort, elapsed time, last meaningful event, usage meter, and the Now/Next queue.
+   - **A pipeline strip:** a count per lifecycle stage, clickable.
+   - **The decisions inbox** with an urgency badge.
+   - **Release gates** at a glance.
+   - **Infra health:** database, hosting, CI.
+   - **"Idle agents" and "stalled runs" alerts.**
+**Agent Console** (one per agent, real time):
+   - **Live transcript/terminal stream:** structured, filterable to messages, commands, edits, tests or errors.
+   - **Current diff** in the worktree, with changed files.
+   - **Tests:** the last test run with pass/fail counts.
+   - **Pending approval prompts**, which can be approved or denied right here.
+   - **Controls:** start, pause, resume, stop, send a message, nudge, swap model (shows which model is newest), and reassign.
+   - **Run history,** with durable logs.
+**Work Board:** tracker-synced columns, owner avatars, dependency graph view, filters by agent, label and milestone, and the Now/Next queue editor (drag to reorder or reassign).
+**Dispatch Composer:** pick an issue and an agent, and an assignment is generated from a template. The template covers:
+   - scope;
+   - allowed paths;
+   - the worktree to create;
+   - required checks;
+   - the handoff format;
+   - an "ask the human if…" list.
+   The dispatch is pre-flight checked before it goes:
+   - the model is allowed and the newest;
+   - the cost plan is included;
+   - no path overlap with an active assignment;
+   - the issue exists.
+
+   The composer shows the exact prompt, and the human can then dispatch.
+
+**Review & Merge:**
+   - the diff at a specific SHA, with tests and CI;
+   - a reviewer picker that enforces "author ≠ reviewer";
+   - findings, approve, or request changes;
+   - one-click merge to the integration branch, with post-merge tests;
+   - the tracker updated automatically.
+**Timeline:** a cross-agent event history per issue, per agent, and project-wide. Every handoff is rendered as a card.
+**Decisions (phone-first):**
+   - one card per decision with options, a recommendation, evidence and risk;
+   - approve, deny, or answer free text;
+   - an audit trail;
+   - irreversible actions need a second confirmation.
+**Release Cockpit:** the release plan as ordered steps (push, PR, CI green, migration dry-run, backup, migrate, set env flags, deploy, verify routes, real-device QA). Each step shows:
+   - its owner;
+   - its command;
+   - its check;
+   - its rollback;
+   - its approval state.
+   Steps can't be skipped. Includes a migration-drift checker (repo vs production history).
+
+**Usage & Models:**
+   - per-agent included-usage meters, plus limit forecasts;
+   - a model inventory with a "newer model available" flag and a last-checked time;
+   - paid-fallback status, which must show OFF;
+   - a history of usage-limit events.
+**Brief & Reports:**
+    - an auto-generated live brief: priorities, each agent's Now and Next, decisions pending, recent changes;
+    - a **morning report** built only from real state, which never implies deploys, merges or passing tests without evidence;
+    - an exportable standup.
+**Settings & Policies:** projects, agents, adapters, roles, model rules, approval-required actions, path scopes, privacy, quiet hours, and notification routing.
+## Real-time architecture
+
+- **Local supervisor daemon** on the developer's machine:
+  - spawns and attaches to agent processes;
+  - writes **durable** logs in an app data directory, never temp;
+  - parses output into events;
+  - watches worktrees;
+  - receives tracker and CI webhooks, with polling as a fallback;
+  - runs the rules engine.
+- **Event bus:** a persistent store (SQLite by default, Postgres optional) with an append-only event log, plus WebSocket/SSE fan-out to clients.
+- **Web UI:** responsive, works as a PWA on the phone. Remote access goes over an authenticated secure tunnel. No public endpoints without auth.
+- **Restart-safe:** on restart, reattach to live processes or mark them orphaned, and replay state from the event log.
+
+## Rules engine (built-in automations, each toggleable)
+
+- **Auto-refill:** when Now finishes, promote Next and dispatch it if the policy allows.
+- **Stall detection:** no new event for N minutes, or a pending approval older than M minutes → alert and surface it in Mission Control.
+- **Connectivity and usage-limit handling:**
+  - detect the failure;
+  - check connectivity;
+  - retry once;
+  - then pause and suggest reassigning to another agent with capacity.
+  - Never silently downgrade the model or enable paid usage.
+- **Tracker reconciliation:** merged-but-not-updated, in-progress-without-a-live-run, or a finding without an issue → fix it, or ask.
+- **Handoff enforcement:** a run that ends without a handoff block is flagged, and a handoff skeleton is generated from its events.
+- **Newest-model check** at every dispatch.
+- **Coordinator-only mode:** the lead agent can be restricted to coordination (no code-writing runs) to save its usage.
+- **Infra watch:** a database paused or inactive, CI failing on the integration branch, unprotected production branch → alert.
+
+## Safety and guardrails (non-negotiable)
+
+- **Zero extra spend by default:**
+  - included subscription usage only;
+  - API-key or metered adapters must be explicitly enabled per agent, with a visible cost banner;
+  - paid fallbacks stay off.
+- **Secrets:** never put them in prompts, logs or tracker comments. Redact them in the event pipeline (patterns plus a configured denylist).
+- **No push** to protected or production branches. **No deploys, production database writes, migrations, publishing or outbound messages** without a per-action human approval recorded as a Decision.
+- **Path-scope enforcement** per assignment, and **one writer per worktree.**
+- **Privacy:** never read the human's unrelated chats, tabs or files. The OS-automation adapter is scoped per app and is opt-in.
+- **Audit log** of every action by every agent and by the control center itself.
+- **Kill switch:** stop all runs instantly.
+
+## Open source and licensing
+
+This project will be published as open source. Set it up that way from the first commit.
+
+- **License: Apache License 2.0 by default** (LICENSE at the repo root, plus a NOTICE file). It's permissive like MIT, adds an explicit patent grant, and is well understood by companies that might adopt it.
+  - Keep the license choice in one place so the owner can switch before the first public release.
+  - The alternatives are MIT (simplest) or AGPL-3.0 (keeps hosted forks open). Explain the trade-off in docs/licensing.md.
+  - **Don't pick a license yourself if the owner has specified one.**
+- **SPDX headers** on every source file (// SPDX-License-Identifier: Apache-2.0), and the license field in every package manifest.
+- **Third-party license inventory:**
+  - generate THIRD_PARTY_NOTICES.md from the dependency tree in CI;
+  - fail CI on dependencies with licenses incompatible with the chosen one (for example GPL/AGPL in an Apache-2.0 build), with a reviewed allowlist.
+- **Contributions:**
+  - CONTRIBUTING.md with the Developer Certificate of Origin (DCO) sign-off (git commit -s) and a CI check that enforces it;
+  - CODE_OF_CONDUCT.md (Contributor Covenant);
+  - issue and PR templates.
+- **SECURITY.md:** private vulnerability reporting, supported versions, and the threat model. This tool runs agents with shell access on the user's machine, so state that clearly.
+- **Trademarks and affiliation:**
+  - a README disclaimer that the project is independent and not affiliated with or endorsed by OpenAI, Anthropic, Google, Anysphere (Cursor), GitHub, Linear or any other vendor;
+  - product names are used only to identify compatible tools;
+  - no vendor logos unless their brand guidelines allow it.
+- **Vendor terms:**
+  - the README and onboarding state that each user is responsible for following their own subscription's terms;
+  - the tool is designed for **one person using their own subscriptions on their own machine**;
+  - the project ships no vendor binaries, credentials or reverse-engineered private APIs. It only drives official CLIs, apps and public APIs.
+- **Release hygiene:**
+  - semantic versioning and a CHANGELOG.md;
+  - reproducible builds;
+  - signed release artifacts where practical;
+  - no telemetry by default, and any opt-in telemetry documented.
+
+## Configuration (example control-center.yaml)
+
+project:
+  name: example-app
+  repo: ~/code/example-app
+  integration_branch: integration
+  protected_branches: [main]
+  checks: { test: "npm test", typecheck: "npx tsc --noEmit", lint: "npm run lint", build: "npm run build" }
+tracker: { type: linear, team: ENG, project: "Example App" }
+policies:
+  zero_extra_spend: true
+  newest_model_rule: true
+  quality_floor: { code: "sonnet-class high", schema_security: "opus-class high", research: "pro-class" }
+  require_approval: [push_protected, deploy, prod_db_write, migration_apply, publish, send_message]
+agents:   # each runs on a subscription the user already pays for; billing: subscription is enforced
+  - { id: lead,   name: "Claude Code", subscription: "Claude Max",     role: lead,       adapter: claude-headless,  billing: subscription, mode: coordinator-only }
+  - { id: codex,  name: "Codex",       subscription: "ChatGPT Plus",   role: engineer,   adapter: codex-cli,        billing: subscription, model: newest, effort: high }
+  - { id: cursor, name: "Cursor",      subscription: "Cursor Pro",     role: engineer,   adapter: cursor-agent-cli, billing: subscription, model: newest-opus-for-schema, on_demand: off }
+  - { id: ag,     name: "Antigravity", subscription: "Google AI Pro",  role: engineer,   adapter: relay,            billing: subscription }
+  - { id: gemini, name: "Gemini",      subscription: "Google AI Pro",  role: researcher, adapter: relay,            billing: subscription, model: pro-deep-research }
+## Acceptance (demo you must make work)
+
+On a sample repo with two headless CLI agents and one relay agent:
+
+Create a tracker issue in the UI. It appears in the tracker.
+Dispatch it to Agent A. A worktree and branch are created, and the console streams live events.
+Agent A finishes. The handoff is parsed, the tracker gets the comment and the status update, and Next auto-starts.
+Agent B reviews at the SHA. The human approves from a phone-sized screen. It merges to integration, post-merge tests run green, and the tracker updates.
+Kill a run's network mid-way. The run is marked failed, retried once, then flagged with a reassignment suggestion.
+Leave an approval prompt pending. A stall alert fires.
+Generate the morning report. Every claim links to evidence.
+Restart the daemon. All state and logs survive.
+## Deliverables
+
+- An architecture doc and a phased plan:
+  - **P1:** daemon, event store, CLI adapters, Mission Control, Agent Console, Work Board, one tracker adapter;
+  - **P2:** review and merge, decisions, rules engine;
+  - **P3:** release cockpit, infra adapters, relay and OS-automation adapters, PWA polish.
+- Working code with unit and integration tests. Adapter contract tests let a new agent or tracker be added by implementing one interface.
+- Docs: setup, "connect your subscriptions" (per vendor: install the official tool, log in, verify the included plan, turn paid overage off), adding an agent adapter, adding a tracker adapter, the security model, and licensing.
+- Open-source repo files from day one: LICENSE (Apache-2.0 unless the owner says otherwise), NOTICE, THIRD_PARTY_NOTICES.md (generated), CONTRIBUTING.md (with DCO), CODE_OF_CONDUCT.md, SECURITY.md, CHANGELOG.md, a README with the non-affiliation disclaimer, and CI checks for license compatibility and DCO sign-off.
+
+Ask me before choosing paid infrastructure, before making any outbound network integration live, and if any requirement conflicts with the safety section.
+
+Got the full spec. I'll check the toolchain first, then write the architecture doc and plan, then build Phase 1.
+
+Ran 14 commands (2 failed)
+I've confirmed your installed agent CLIs (Claude Code, Codex, Cursor, Gemini, gh), their headless flags, and subscription sign-ins. Now I'll check two more details before writing the plan.
+
+Compared bundled Codex version and Cursor account info
+Which tracker should Phase 1's one real tracker adapter target? Either one is built and contract-tested but stays off until you approve going live. The demo runs on a built-in local tracker.
+
+they should have option to choose from both
+
+To check the Claude/Codex/Cursor adapters against real output, may I run one tiny prompt per CLI (for example, 'reply OK') during verification? Each uses a small amount of your included subscription usage. Paid modes stay off.
+
+Yes, one tiny run each (Recommended)
+
+Created luminous-coalescing-lecun.md, used a tool
+/Users/krishkumarsah/.claude/plans/
+luminous-coalescing-lecun.md
+# Agent Control Center: architecture + Phase 1 build plan
+
+## Context
+
+You want a local-first, open-source (Apache-2.0) control center that runs a team of coding agents from different vendors on the subscriptions you already pay for. It has to make the 11 failure modes in the prompt impossible or loud: the coordinator doing the work, stale shared state, idle agents, silent stalls, lost logs, tracker drift, wrong models, cost surprises, unsafe reach, ceremony, and an owner who is away from the desk.
+
+`/Users/krishkumarsah/Docs/Projects/Interface` is empty. This plan covers the whole architecture, builds **Phase 1 end to end with tests**, and outlines P2 and P3.
+
+Facts checked on this machine (read-only):
+- **Node:** 26.5 (built-in `node:sqlite`, so no native builds), pnpm 10.28, git 2.53.
+- **Claude Code 2.1.284:** `claude auth status` reports `authMethod: claude.ai`.
+- **Codex 0.154.0 (PATH):** "Logged in using ChatGPT". `codex debug models` returns a JSON catalog with `slug`, `visibility`, `priority`, `supported_reasoning_levels` and `upgrade`. Session rollouts carry `rate_limits.primary/secondary.used_percent` and `resets_at`.
+- **Bundled Codex:** `ChatGPT.app` ships a **newer** Codex (0.159.0-alpha) at `/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex`. This is the binary-pinning case from the prompt.
+- **Cursor agent 2026.10.01:** `status` says logged in, `about` reports Tier Pro, and `models` prints an `id - Name` list.
+- **Also installed:** Gemini CLI 0.35 (`-p -o stream-json`), gh 2.87 (logged in), and Grok `agent`.
+
+Your answers: **both GitHub and Linear tracker adapters ship in P1 and are selectable in config**, plus a local tracker for offline use and tests. **One tiny live run per vendor CLI** is approved for verification.
+
+## Stack and layout
+
+TypeScript pnpm monorepo:
+- **Server:** Fastify, `@fastify/websocket`, `@fastify/static`.
+- **Data and config:** `node:sqlite`, `zod`, `yaml`.
+- **Agents:** `@modelcontextprotocol/sdk`.
+- **UI:** React with Vite, react-router, `@dnd-kit`.
+- **Tests:** Vitest with Testing Library.
+
+Every dependency is MIT, ISC or Apache. The repo root is this folder. I'll run `git init -b main` and **make no commits** unless you ask; the first commit should carry your `-s` sign-off.
+
+```
+packages/core     pure domain: zod entities, lifecycle FSM, typed events, shared reducer,
+                  handoff parser, redactor, preflight, assignment template, model ranking,
+                  test-output parser (vitest/jest/pytest/go/node:test counts)
+packages/daemon   supervisor + CLI `acc` (daemon | onboard | doctor | kill-all | rebuild)
+  store/          append-only SQLite event log (UPDATE/DELETE blocked by triggers), outbox, snapshots
+  runner/         detached per-run wrapper + supervisor (spawn, tail, reattach, orphan detection)
+  adapters/agents claude.ts codex.ts cursor.ts generic.ts relay.ts detect.ts failures.ts
+  adapters/trackers local.ts github.ts (via gh CLI) linear.ts (GraphQL)
+  adapters/vcs    git.ts (worktrees, diff, scope, overlap, merge-tree, hooks)
+  mcp/            `acc` stdio MCP server given to every agent run
+  rules/          auto-refill, stall, failure-retry, usage-limit, handoff enforcement
+  server/         REST commands + WebSocket fan-out, auth
+packages/web      Mission Control, Agent Console, Work Board (+ dispatch panel), Agents setup
+examples/         sample-repo, control-center.yaml, fake-agent (emits vendor-shaped JSONL + failure modes)
+scripts/          demo, licenses (notices + allowlist), check-spdx, check-dco, set-license
+docs/             architecture, plan, setup, subscriptions, adding-agent-adapter,
+                  adding-tracker-adapter, security, licensing
+```
+
+## Core architecture decisions
+
+1. **Event-sourced state.** Every command handler follows the same steps:
+   1. Validate the command against the in-memory state.
+   2. Emit typed events.
+   3. Append the events, plus any tracker-sync outbox rows, in **one SQLite transaction**.
+   4. Apply them through the shared `core/reducer.ts`.
+   5. Broadcast them.
+
+   The daemon and the UI run the **same reducer**, so views can't disagree. On boot the daemon replays the log, using a snapshot plus the tail. Every event carries `actor` (agent, human or system), so the event log is also the audit log.
+2. **Transcript vs control events.** Both live in one table. Control events (lifecycle, runs, agents, alerts) are broadcast to every client. Transcript events (messages, tool calls, edits, commands) go only to Agent Consoles subscribed to that run, replayed from `since=seq`.
+3. **Durable, restart-safe runs.**
+   - The data dir is `~/Library/Application Support/AgentControlCenter` (XDG on Linux), overridable with `ACC_DATA_DIR`. The daemon refuses to start if the data dir resolves under `os.tmpdir()`.
+   - Each run gets a detached `runner` process. It spawns the vendor CLI in its own process group, **redacts every line before it touches disk**, and writes `runs/<id>/stdout.jsonl`, `stderr.log` and `exit.json`. It forwards `inbox.jsonl` to the child's stdin when the vendor supports streaming input.
+   - The daemon tails these files from a stored byte offset. After a daemon restart it re-tails live runners, checking PID plus start time to guard against PID reuse. Runs that died while the daemon was down become `orphaned`, with their exit code recovered.
+4. **One shared state for agents (pull, not push).** Every run gets the `acc` MCP server, which authenticates over a unix socket with a per-run token. Its tools:
+   - `get_assignment`: always the current text.
+   - `post_handoff`.
+   - `report_finding`: creates a tracker issue (rule-gated). This stops bugs from living only in comments.
+   - `ask_human`: a blocking decision or approval, which sets the run to `waiting-for-approval`.
+   - `permission_prompt`: wired to Claude's `--permission-prompt-tool`.
+
+   Claude runs use `--strict-mcp-config`, so agents **don't inherit your personal MCP servers** (Gmail, Calendar and so on). This is the privacy rule.
+5. **Tracker sync = transactional outbox.** A lifecycle event and its tracker write are committed together. A worker delivers the write with retries, and an undelivered or failed sync raises a loud "tracker out of sync" alert. Polling ingests changes made directly in the tracker. Webhooks need a public tunnel, so they wait for P2/P3 and your approval.
+
+## Agent runtime adapters (one interface)
+
+Every adapter implements `start/send/stream/pause/resume/stop/status/list_models/usage/auth_status/billing_mode/pending_approvals`. A shared **contract test suite** runs each adapter against `examples/fake-agent`, which replays recorded vendor streams, both real and synthetic, plus failure modes.
+
+| Adapter | Spawn | Models / newest | Auth & billing | Usage | send / pause |
+|---|---|---|---|---|---|
+| `claude-headless` | `claude -p --output-format stream-json --input-format stream-json --verbose --model --effort --session-id --permission-prompt-tool --mcp-config --strict-mcp-config --add-dir <git-common-dir>` | config allowlist + aliases; resolved id from `init` event | `claude auth status` JSON (`claude.ai` → subscription) | tokens from `result`; limit errors parsed | live via stream-json stdin; pause = interrupt, resume = `--resume <session>` |
+| `codex-cli` | `codex exec --json -m -c model_reasoning_effort= -s workspace-write -C <wt> --add-dir <git-common-dir> -c mcp_servers.acc=…` | `codex debug models` (visible, priority, `upgrade`) | `codex login status` text | `rate_limits` used % + reset (5h / weekly) | follow-up via `codex exec resume <thread>` |
+| `cursor-agent-cli` | `cursor-agent -p --output-format stream-json --model --workspace <wt> --trust` (+`--force` only if policy allows shell); writes worktree `.cursor/mcp.json`, never committed | `cursor-agent models`; effort = id suffix | `status` + `about` (tier); on-demand = **unknown**, banner "verify on-demand is off" | unknown unless exposed | `--resume <chatId>` |
+| `generic-cli` | command template `{prompt} {model} {cwd}` | config list | config-declared | unknown | per template (Gemini and Grok presets) |
+| `relay` (minimal) | copy self-contained prompt → paste result box → parsed as handoff | n/a | n/a | n/a | n/a |
+
+All adapters share these guardrails:
+- **Sanitized child env.** `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `CODEX_API_KEY`, `CURSOR_API_KEY`, and the Bedrock and Vertex variables are stripped unless that agent has opted into metered billing. Without this, a stray env var could silently switch an agent to paid API billing.
+- **`--add-dir <git common dir>`** is passed so sandboxed agents can write the worktree's git index. This was one of the known failure modes.
+- **Binary pinning.** `detect.ts` scans PATH plus known app bundles, records the absolute path and version of each binary, and flags alpha builds. Preflight re-checks that the pinned path and version are unchanged.
+- **Failure classifier.** It recognizes auth expired, model unsupported for the account, connection or routing timeout, usage limit reached (with the reset time when the vendor gives one), and sandbox write denied.
+
+## Phase 1 build list
+
+- **Core:** entities from the spec (Project, Agent, WorkItem, Assignment, Run, Event, Handoff and Policy are complete; Review, Merge, Release and Decision are typed now, with their flows in P2). Also:
+  - lifecycle FSM covering all states, including side states, with a guard that **Done requires merge AND acceptance evidence**;
+  - handoff parser that tolerates headings, bold labels and lists;
+  - redactor: patterns for gh, sk-, sk-ant-, xox, AWS, JWT, PEM, Bearer and credentialed URLs, plus a runtime denylist built from configured env-var values;
+  - preflight checks: issue exists, model allowed, newest allowed model, quality floor, billing is `subscription` (or opted in), auth OK, no path overlap with an active assignment, coordinator-only role, no secrets in the prompt.
+- **VCS:**
+  - a worktree per assignment under the data dir, with branch `<agent>/<KEY>-<slug>` and the base SHA recorded;
+  - live `fs.watch` with diff against base;
+  - allowed-path warnings, plus a per-worktree pre-commit hook (via `extensions.worktreeConfig` and a per-worktree `core.hooksPath` that **chains to your existing hooks**);
+  - a pre-push hook that blocks protected branches;
+  - early conflict detection: changed-file overlap plus `git merge-tree`.
+- **Evidence:** after each run, **the daemon itself** runs the project's required checks in the worktree and records the commands, pass and fail counts, and SHA. Handoff claims that don't match recorded events are marked `unverified`.
+- **Rules (each one toggleable):**
+  - auto-refill: Now finishes, Next is promoted and dispatched if preflight passes;
+  - idle-time metric;
+  - stall: no event for N minutes, or an approval pending longer than M minutes;
+  - failure retry: classify the failure, check connectivity by DNS lookup of the vendor host, retry once by resuming the session, then pause with a reassignment suggestion (agents with capacity and subscription billing). It never downgrades the model or enables paid usage;
+  - usage limit: the agent is marked limited until reset, with a suggestion;
+  - handoff enforcement: a run with no handoff is flagged and a skeleton is generated from its events.
+- **Trackers:**
+  - `local`: SQLite-backed, the default for the demo;
+  - `github`: drives your `gh` CLI, so no token is handled. Issues, comments, `acc:<state>` labels, and close on Done or Canceled. Projects v2 comes in P2;
+  - `linear`: GraphQL. The key comes from the macOS Keychain (`security find-generic-password -s agent-control-center -a linear`) or `LINEAR_API_KEY`, is never persisted, and is added to the redaction denylist.
+
+  Status mapping is configurable, and all three adapters pass the same contract suite. The GitHub adapter is tested against a fake `gh` shim, and Linear against a mocked GraphQL endpoint.
+- **Server:**
+  - binds `127.0.0.1` only, with a per-install token stored `0600`;
+  - `acc open` exchanges a one-time code for an HttpOnly, SameSite=Strict cookie;
+  - Host and Origin checks against DNS rebinding;
+  - kill switch in the API and `acc kill-all`, which still works with the UI down.
+- **UI:** responsive and phone-friendly, with light and dark tokens.
+  - **Mission Control:** an agent card each (status light, issue, model and effort, elapsed time, last meaningful event, usage meter, Now/Next), a pipeline strip, and idle and stalled alerts. Decisions, release and infra show as placeholders until P2/P3.
+  - **Agent Console:** a filterable live transcript, the worktree diff and changed files, the last test counts, pending approvals you can approve or deny, start/pause/resume/stop/send/nudge/swap-model/reassign controls, and run history.
+  - **Work Board:** tracker-synced columns, owners, filters, a drag-and-drop Now/Next queue editor, and a dispatch panel showing the generated, editable assignment, preflight results and the exact prompt.
+  - **Agents setup** (onboarding): detected binaries, login state with the vendor's own login command, billing mode, models, and role mapping.
+- **Open source from day one:**
+  - `LICENSE` (Apache-2.0 text taken from an installed Apache package, checked in full) and `NOTICE`;
+  - `THIRD_PARTY_NOTICES.md` generated from `pnpm licenses list --json`, with CI failing on GPL, AGPL, SSPL or unknown licenses outside the reviewed allowlist;
+  - SPDX headers plus a checker; root `package.json#license` is the single source, and `set-license` switches it everywhere;
+  - `CONTRIBUTING.md` with DCO and a CI DCO check; `CODE_OF_CONDUCT.md` adopting Contributor Covenant 2.1 by reference;
+  - `SECURITY.md` with a threat model covering agents with shell access, `CHANGELOG.md`, issue and PR templates;
+  - README with the non-affiliation disclaimer and the "check your plan's terms" note, plus `docs/licensing.md` (Apache vs MIT vs AGPL).
+
+**P2:** Review & Merge (author ≠ reviewer, merge at SHA, post-merge checks), Decisions (phone-first, second confirmation, audit), Dispatch Composer as its own screen, Timeline, full rules engine (tracker reconciliation, infra watch), GitHub Projects v2, webhooks.
+
+**P3:** Release Cockpit with migration drift, infra adapters (Vercel and Supabase, read-only), OS-automation adapter, notifications and web push, PWA, secure tunnel, Usage & Models screen, Brief and morning report.
+
+## Assumptions and what I'll ask before doing
+
+- **Possible conflict with the safety section.** Tracker issue creation, status changes and handoff comments are outbound writes. My proposal: enabling a tracker in config counts as standing approval for those writes, recorded as a Decision. Messages to people (chat, email) still need per-action approval. You can reject this in plan review.
+- **I'll ask before:** pointing GitHub or Linear at a real repo or team, using any tunnel or paid infrastructure, and running any vendor CLI beyond the one tiny smoke run each (read-only or ask mode, in a scratch repo).
+- **Placeholders.** The CoC enforcement contact and the SECURITY contact will be marked TODO. GitHub private vulnerability reporting is the default channel.
+
+## Verification
+
+1. **Build and tests:** `pnpm install && pnpm -r typecheck && pnpm test`. This covers core units, the event store (append-only, replay, snapshot), the runner (durable logs, exit capture, reattach after daemon kill), VCS against temp repos, the agent and tracker contract suites, rules with a fake clock, and UI components.
+2. **License checks:** `pnpm license:check && pnpm spdx:check` (notices up to date, allowlist, headers, manifests).
+3. **Demo:** `pnpm demo` builds the sample repo (`main` plus `integration`) in the data dir, with fake agents A and B (headless) and one relay agent on the local tracker. I'll walk it in the Browser pane:
+   1. Create an issue; it appears in the tracker.
+   2. Dispatch to A: worktree and branch are created, and the console streams live.
+   3. A finishes: the handoff is parsed, and a tracker comment and status update are posted. Daemon-run checks record the evidence, and Next auto-starts.
+   4. Run a fake network failure: the run fails, retries once, then is flagged with a reassignment suggestion.
+   5. Use `ask_human` and leave it pending: the stall alert fires (1-minute threshold in the demo).
+   6. Kill and restart the daemon mid-run: state, logs and the live run all survive or reattach.
+
+   Acceptance steps 4 (review/merge) and 7 (morning report) are P2/P3.
+4. **Live smoke run:** one tiny run each with real `claude`, `codex` and `cursor-agent` in a scratch repo, in read-only or ask modes. The streams are captured as redacted fixtures. I'll also check `auth_status`, `billing_mode`, `list_models` and pinning: PATH Codex 0.154 vs bundled 0.159-alpha.
+5. **Phone width:** check Mission Control and the Agent Console at 375px.
+My initial scan of the Codex binary came back empty, so I'm retrying with a full-binary scan to continue building out the Connections model.
+
+Monthly spend limit reached
+Auto-resuming at 12:21 AM
+
+Most usage on this machine in the last 24 hours ran above 150k context. See breakdown
+Auto-continue when limits reset
+
+
+Edited 3 files
++344
+−0
+
+egress.ts
++58
+−0
+
+providers.ts
++111
+−0
+
+providers.test.ts
++175
+−0
+
+
+You can comment on the plan in plan mode, or when Claude asks you to approve it.
+Agent Control Center: architecture + Phase 1 build plan
+Context
+You want a local-first, open-source (Apache-2.0) control center that runs a team of coding agents from different vendors on the subscriptions you already pay for. It has to make the 11 failure modes in the prompt impossible or loud: the coordinator doing the work, stale shared state, idle agents, silent stalls, lost logs, tracker drift, wrong models, cost surprises, unsafe reach, ceremony, and an owner who is away from the desk.
+
+/Users/krishkumarsah/Docs/Projects/Interface is empty. This plan covers the whole architecture, builds Phase 1 end to end with tests, and outlines P2 and P3.
+
+Facts checked on this machine (read-only):
+
+Node: 26.5 (built-in node:sqlite, so no native builds), pnpm 10.28, git 2.53.
+Claude Code 2.1.284: claude auth status reports authMethod: claude.ai.
+Codex 0.154.0 (PATH): "Logged in using ChatGPT". codex debug models returns a JSON catalog with slug, visibility, priority, supported_reasoning_levels and upgrade. Session rollouts carry rate_limits.primary/secondary.used_percent and resets_at.
+Bundled Codex: ChatGPT.app ships a newer Codex (0.159.0-alpha) at /Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex. This is the binary-pinning case from the prompt.
+Cursor agent 2026.10.01: status says logged in, about reports Tier Pro, and models prints an id - Name list.
+Also installed: Gemini CLI 0.35 (-p -o stream-json), gh 2.87 (logged in), and Grok agent.
+Your answers: both GitHub and Linear tracker adapters ship in P1 and are selectable in config, plus a local tracker for offline use and tests. One tiny live run per vendor CLI is approved for verification.
+
+Stack and layout
+TypeScript pnpm monorepo:
+
+Server: Fastify, @fastify/websocket, @fastify/static.
+Data and config: node:sqlite, zod, yaml.
+Agents: @modelcontextprotocol/sdk.
+UI: React with Vite, react-router, @dnd-kit.
+Tests: Vitest with Testing Library.
+Every dependency is MIT, ISC or Apache. The repo root is this folder. I'll run git init -b main and make no commits unless you ask; the first commit should carry your -s sign-off.
+
+packages/core     pure domain: zod entities, lifecycle FSM, typed events, shared reducer,
+                  handoff parser, redactor, preflight, assignment template, model ranking,
+                  test-output parser (vitest/jest/pytest/go/node:test counts)
+packages/daemon   supervisor + CLI `acc` (daemon | onboard | doctor | kill-all | rebuild)
+  store/          append-only SQLite event log (UPDATE/DELETE blocked by triggers), outbox, snapshots
+  runner/         detached per-run wrapper + supervisor (spawn, tail, reattach, orphan detection)
+  adapters/agents claude.ts codex.ts cursor.ts generic.ts relay.ts detect.ts failures.ts
+  adapters/trackers local.ts github.ts (via gh CLI) linear.ts (GraphQL)
+  adapters/vcs    git.ts (worktrees, diff, scope, overlap, merge-tree, hooks)
+  mcp/            `acc` stdio MCP server given to every agent run
+  rules/          auto-refill, stall, failure-retry, usage-limit, handoff enforcement
+  server/         REST commands + WebSocket fan-out, auth
+packages/web      Mission Control, Agent Console, Work Board (+ dispatch panel), Agents setup
+examples/         sample-repo, control-center.yaml, fake-agent (emits vendor-shaped JSONL + failure modes)
+scripts/          demo, licenses (notices + allowlist), check-spdx, check-dco, set-license
+docs/             architecture, plan, setup, subscriptions, adding-agent-adapter,
+                  adding-tracker-adapter, security, licensing
+Core architecture decisions
+Event-sourced state. Every command handler follows the same steps:
+Validate the command against the in-memory state.
+Emit typed events.
+Append the events, plus any tracker-sync outbox rows, in one SQLite transaction.
+Apply them through the shared core/reducer.ts.
+Broadcast them.
+The daemon and the UI run the same reducer, so views can't disagree. On boot the daemon replays the log, using a snapshot plus the tail. Every event carries actor (agent, human or system), so the event log is also the audit log.
+Transcript vs control events. Both live in one table. Control events (lifecycle, runs, agents, alerts) are broadcast to every client. Transcript events (messages, tool calls, edits, commands) go only to Agent Consoles subscribed to that run, replayed from since=seq.
+Durable, restart-safe runs.
+The data dir is ~/Library/Application Support/AgentControlCenter (XDG on Linux), overridable with ACC_DATA_DIR. The daemon refuses to start if the data dir resolves under os.tmpdir().
+Each run gets a detached runner process. It spawns the vendor CLI in its own process group, redacts every line before it touches disk, and writes runs/<id>/stdout.jsonl, stderr.log and exit.json. It forwards inbox.jsonl to the child's stdin when the vendor supports streaming input.
+The daemon tails these files from a stored byte offset. After a daemon restart it re-tails live runners, checking PID plus start time to guard against PID reuse. Runs that died while the daemon was down become orphaned, with their exit code recovered.
+One shared state for agents (pull, not push). Every run gets the acc MCP server, which authenticates over a unix socket with a per-run token. Its tools:
+get_assignment: always the current text.
+post_handoff.
+report_finding: creates a tracker issue (rule-gated). This stops bugs from living only in comments.
+ask_human: a blocking decision or approval, which sets the run to waiting-for-approval.
+permission_prompt: wired to Claude's --permission-prompt-tool.
+Claude runs use --strict-mcp-config, so agents don't inherit your personal MCP servers (Gmail, Calendar and so on). This is the privacy rule.
+Tracker sync = transactional outbox. A lifecycle event and its tracker write are committed together. A worker delivers the write with retries, and an undelivered or failed sync raises a loud "tracker out of sync" alert. Polling ingests changes made directly in the tracker. Webhooks need a public tunnel, so they wait for P2/P3 and your approval.
+Agent runtime adapters (one interface)
+Every adapter implements start/send/stream/pause/resume/stop/status/list_models/usage/auth_status/billing_mode/pending_approvals. A shared contract test suite runs each adapter against examples/fake-agent, which replays recorded vendor streams, both real and synthetic, plus failure modes.
+
+Adapter	Spawn	Models / newest	Auth & billing	Usage	send / pause
+claude-headless	claude -p --output-format stream-json --input-format stream-json --verbose --model --effort --session-id --permission-prompt-tool --mcp-config --strict-mcp-config --add-dir <git-common-dir>	config allowlist + aliases; resolved id from init event	claude auth status JSON (claude.ai → subscription)	tokens from result; limit errors parsed	live via stream-json stdin; pause = interrupt, resume = --resume <session>
+codex-cli	codex exec --json -m -c model_reasoning_effort= -s workspace-write -C <wt> --add-dir <git-common-dir> -c mcp_servers.acc=…	codex debug models (visible, priority, upgrade)	codex login status text	rate_limits used % + reset (5h / weekly)	follow-up via codex exec resume <thread>
+cursor-agent-cli	cursor-agent -p --output-format stream-json --model --workspace <wt> --trust (+--force only if policy allows shell); writes worktree .cursor/mcp.json, never committed	cursor-agent models; effort = id suffix	status + about (tier); on-demand = unknown, banner "verify on-demand is off"	unknown unless exposed	--resume <chatId>
+generic-cli	command template {prompt} {model} {cwd}	config list	config-declared	unknown	per template (Gemini and Grok presets)
+relay (minimal)	copy self-contained prompt → paste result box → parsed as handoff	n/a	n/a	n/a	n/a
+All adapters share these guardrails:
+
+Sanitized child env. ANTHROPIC_API_KEY, OPENAI_API_KEY, CODEX_API_KEY, CURSOR_API_KEY, and the Bedrock and Vertex variables are stripped unless that agent has opted into metered billing. Without this, a stray env var could silently switch an agent to paid API billing.
+--add-dir <git common dir> is passed so sandboxed agents can write the worktree's git index. This was one of the known failure modes.
+Binary pinning. detect.ts scans PATH plus known app bundles, records the absolute path and version of each binary, and flags alpha builds. Preflight re-checks that the pinned path and version are unchanged.
+Failure classifier. It recognizes auth expired, model unsupported for the account, connection or routing timeout, usage limit reached (with the reset time when the vendor gives one), and sandbox write denied.
+Phase 1 build list
+Core: entities from the spec (Project, Agent, WorkItem, Assignment, Run, Event, Handoff and Policy are complete; Review, Merge, Release and Decision are typed now, with their flows in P2). Also:
+lifecycle FSM covering all states, including side states, with a guard that Done requires merge AND acceptance evidence;
+handoff parser that tolerates headings, bold labels and lists;
+redactor: patterns for gh, sk-, sk-ant-, xox, AWS, JWT, PEM, Bearer and credentialed URLs, plus a runtime denylist built from configured env-var values;
+preflight checks: issue exists, model allowed, newest allowed model, quality floor, billing is subscription (or opted in), auth OK, no path overlap with an active assignment, coordinator-only role, no secrets in the prompt.
+VCS:
+a worktree per assignment under the data dir, with branch <agent>/<KEY>-<slug> and the base SHA recorded;
+live fs.watch with diff against base;
+allowed-path warnings, plus a per-worktree pre-commit hook (via extensions.worktreeConfig and a per-worktree core.hooksPath that chains to your existing hooks);
+a pre-push hook that blocks protected branches;
+early conflict detection: changed-file overlap plus git merge-tree.
+Evidence: after each run, the daemon itself runs the project's required checks in the worktree and records the commands, pass and fail counts, and SHA. Handoff claims that don't match recorded events are marked unverified.
+Rules (each one toggleable):
+auto-refill: Now finishes, Next is promoted and dispatched if preflight passes;
+idle-time metric;
+stall: no event for N minutes, or an approval pending longer than M minutes;
+failure retry: classify the failure, check connectivity by DNS lookup of the vendor host, retry once by resuming the session, then pause with a reassignment suggestion (agents with capacity and subscription billing). It never downgrades the model or enables paid usage;
+usage limit: the agent is marked limited until reset, with a suggestion;
+handoff enforcement: a run with no handoff is flagged and a skeleton is generated from its events.
+Trackers:
+local: SQLite-backed, the default for the demo;
+github: drives your gh CLI, so no token is handled. Issues, comments, acc:<state> labels, and close on Done or Canceled. Projects v2 comes in P2;
+linear: GraphQL. The key comes from the macOS Keychain (security find-generic-password -s agent-control-center -a linear) or LINEAR_API_KEY, is never persisted, and is added to the redaction denylist.
+Status mapping is configurable, and all three adapters pass the same contract suite. The GitHub adapter is tested against a fake gh shim, and Linear against a mocked GraphQL endpoint.
+Server:
+binds 127.0.0.1 only, with a per-install token stored 0600;
+acc open exchanges a one-time code for an HttpOnly, SameSite=Strict cookie;
+Host and Origin checks against DNS rebinding;
+kill switch in the API and acc kill-all, which still works with the UI down.
+UI: responsive and phone-friendly, with light and dark tokens.
+Mission Control: an agent card each (status light, issue, model and effort, elapsed time, last meaningful event, usage meter, Now/Next), a pipeline strip, and idle and stalled alerts. Decisions, release and infra show as placeholders until P2/P3.
+Agent Console: a filterable live transcript, the worktree diff and changed files, the last test counts, pending approvals you can approve or deny, start/pause/resume/stop/send/nudge/swap-model/reassign controls, and run history.
+Work Board: tracker-synced columns, owners, filters, a drag-and-drop Now/Next queue editor, and a dispatch panel showing the generated, editable assignment, preflight results and the exact prompt.
+Agents setup (onboarding): detected binaries, login state with the vendor's own login command, billing mode, models, and role mapping.
+Open source from day one:
+LICENSE (Apache-2.0 text taken from an installed Apache package, checked in full) and NOTICE;
+THIRD_PARTY_NOTICES.md generated from pnpm licenses list --json, with CI failing on GPL, AGPL, SSPL or unknown licenses outside the reviewed allowlist;
+SPDX headers plus a checker; root package.json#license is the single source, and set-license switches it everywhere;
+CONTRIBUTING.md with DCO and a CI DCO check; CODE_OF_CONDUCT.md adopting Contributor Covenant 2.1 by reference;
+SECURITY.md with a threat model covering agents with shell access, CHANGELOG.md, issue and PR templates;
+README with the non-affiliation disclaimer and the "check your plan's terms" note, plus docs/licensing.md (Apache vs MIT vs AGPL).
+P2: Review & Merge (author ≠ reviewer, merge at SHA, post-merge checks), Decisions (phone-first, second confirmation, audit), Dispatch Composer as its own screen, Timeline, full rules engine (tracker reconciliation, infra watch), GitHub Projects v2, webhooks.
+
+P3: Release Cockpit with migration drift, infra adapters (Vercel and Supabase, read-only), OS-automation adapter, notifications and web push, PWA, secure tunnel, Usage & Models screen, Brief and morning report.
+
+Assumptions and what I'll ask before doing
+Possible conflict with the safety section. Tracker issue creation, status changes and handoff comments are outbound writes. My proposal: enabling a tracker in config counts as standing approval for those writes, recorded as a Decision. Messages to people (chat, email) still need per-action approval. You can reject this in plan review.
+I'll ask before: pointing GitHub or Linear at a real repo or team, using any tunnel or paid infrastructure, and running any vendor CLI beyond the one tiny smoke run each (read-only or ask mode, in a scratch repo).
+Placeholders. The CoC enforcement contact and the SECURITY contact will be marked TODO. GitHub private vulnerability reporting is the default channel.
+Verification
+Build and tests: pnpm install && pnpm -r typecheck && pnpm test. This covers core units, the event store (append-only, replay, snapshot), the runner (durable logs, exit capture, reattach after daemon kill), VCS against temp repos, the agent and tracker contract suites, rules with a fake clock, and UI components.
+License checks: pnpm license:check && pnpm spdx:check (notices up to date, allowlist, headers, manifests).
+Demo: pnpm demo builds the sample repo (main plus integration) in the data dir, with fake agents A and B (headless) and one relay agent on the local tracker. I'll walk it in the Browser pane:
+Create an issue; it appears in the tracker.
+Dispatch to A: worktree and branch are created, and the console streams live.
+A finishes: the handoff is parsed, and a tracker comment and status update are posted. Daemon-run checks record the evidence, and Next auto-starts.
+Run a fake network failure: the run fails, retries once, then is flagged with a reassignment suggestion.
+Use ask_human and leave it pending: the stall alert fires (1-minute threshold in the demo).
+Kill and restart the daemon mid-run: state, logs and the live run all survive or reattach.
+Acceptance steps 4 (review/merge) and 7 (morning report) are P2/P3.
+Live smoke run: one tiny run each with real claude, codex and cursor-agent in a scratch repo, in read-only or ask modes. The streams are captured as redacted fixtures. I'll also check auth_status, billing_mode, list_models and pinning: PATH Codex 0.154 vs bundled 0.159-alpha.
+Phone width: check Mission Control and the Agent Console at 375px.
+---
+name: Bug report
+about: Something the control center did wrong (or failed to make loud)
+labels: bug
+---
+
+**What happened**
+
+**What you expected**
+
+**Which failure mode does this touch?** (stall, idle agent, tracker drift, billing, wrong model, unsafe reach, lost evidence, …)
+
+**Steps to reproduce**
+
+**Environment**
+- OS / Node version:
+- Agent adapters and vendor CLI versions (`acc onboard`):
+- Tracker type:
+
+**Logs**
+Relevant events or run logs. They are already redacted, but please check again before posting.
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability
+    about: Please report security issues privately (see SECURITY.md).
+
+
+
+
+
+
+
+
+
+
+
+

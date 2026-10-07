@@ -1,0 +1,128 @@
+{
+  "openDesignSource": "https://github.com/nexu-io/open-design",
+  "openDesignCommit": "53231d40b778d88eba23f35547bf99485d3ae9fc",
+  "skills": [
+    {
+      "id": "taste-skill",
+      "name": "Taste Skill",
+      "description": "Visual direction for landing pages and redesigns; contextual taste rules.",
+      "license": "MIT",
+      "source": "https://github.com/Leonxlnx/taste-skill",
+      "version": "53231d40b778d88eba23f35547bf99485d3ae9fc",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "4575a543ab88dad12ccea7d97e563d0bce5b448b06072e65d3264497dad326df"
+        },
+        {
+          "path": "SKILL.md",
+          "sha256": "10bfcad7c488585c9dbe332c082f0ef7896e0516ae8768b6ec2194f70e97a656"
+        }
+      ]
+    },
+    {
+      "id": "web-design-guidelines",
+      "name": "Web design guidelines",
+      "description": "Pinned Vercel product-interface review rules.",
+      "license": "MIT",
+      "source": "https://github.com/vercel-labs/web-interface-guidelines",
+      "version": "4e799d45c17aec1498c269287a83b9dba22b966b",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "6cd1609c9c12233507cdd2ce0d32e9a721e3c27494951be06b90090deeeb7af2"
+        },
+        {
+          "path": "SKILL.md",
+          "sha256": "3f7209777447330ea36e15c66b423c1fb9051fd1bb5fa30dcd25398780a1db6d"
+        },
+        {
+          "path": "references/guidelines.md",
+          "sha256": "934df9cec7c38850e579bd69618f8d8abef79bf059c476a002c49287852ce5b8"
+        }
+      ]
+    },
+    {
+      "id": "design-references",
+      "name": "Design references",
+      "description": "Licensed Linear and Notion DESIGN.md analyses to guide original systems.",
+      "license": "MIT",
+      "source": "https://github.com/VoltAgent/awesome-design-md",
+      "version": "13be5c05c63be24b57581162364167028020f043",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "1167ba7ed9f1943e0e78b011ebf12a0eecdf70b21626a125b4941f0c67c8a7da"
+        },
+        {
+          "path": "references/LICENSE",
+          "sha256": "6d4bdc9a9cf30e7beb593475fdcdbf29f981ea6bd7923f202866145409f87b44"
+        },
+        {
+          "path": "references/linear.md",
+          "sha256": "30bd30e72c48a16e4bdbd010f2d1c85fab657c6fae3cc85389399aab10f9cb5f"
+        },
+        {
+          "path": "references/notion.md",
+          "sha256": "fa9d6e78216d8f3e5d3990709ca2de6bc2e268e945bb94f255fd1bfb15455266"
+        }
+      ]
+    },
+    {
+      "id": "design-system-contract",
+      "name": "Design system contract",
+      "description": "Versioned tokens and consistent mocks, code and review.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "b36cf38e74229532d15a38962f5c2c3d22f56e3fa76e68f2d43a6a2831b2a0e7"
+        }
+      ]
+    },
+    {
+      "id": "accessible-product-ui",
+      "name": "Accessible product UI",
+      "description": "Keyboard, names, contrast, zoom and reduced motion.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "1e540e21682f03e85f94d31b4adc05f828101d4395511044410e1c8f4c99e8fa"
+        }
+      ]
+    },
+    {
+      "id": "responsive-mocks",
+      "name": "Responsive mocks",
+      "description": "Self-contained interactive local previews and full flow states.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "03aebea3524a3390330b18b5f24e673ac10935064244c33085b3f884bdd3b1eb"
+        }
+      ]
+    },
+    {
+      "id": "playwright-cli",
+      "name": "Playwright CLI checks",
+      "description": "Installed official browser CLI, scoped flows and durable visual evidence.",
+      "license": "Apache-2.0",
+      "source": "https://github.com/microsoft/playwright-cli",
+      "version": "one-connect-guide-1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "c8c1f3530d371025cc8710c1a84dc0eb3093b6e1d63ae9e97ee55dfe5d6f3930"
+        }
+      ]
+    }
+  ]
+}

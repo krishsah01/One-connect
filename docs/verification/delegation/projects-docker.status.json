@@ -1,0 +1,11 @@
+{
+  "id": "projects-docker",
+  "pid": 59424,
+  "model": "composer-2.5",
+  "state": "finished",
+  "startedAt": "2026-10-07T03:59:54.428Z",
+  "lastOutputAt": "2026-10-07T04:02:46.254Z",
+  "exitCode": 0,
+  "reason": null,
+  "endedAt": "2026-10-07T04:02:46.949Z"
+}

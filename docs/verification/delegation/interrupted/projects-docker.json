@@ -1,0 +1,88 @@
+{
+  "worker": "projects-docker",
+  "status": {
+    "id": "projects-docker",
+    "pid": 20411,
+    "model": "claude-opus-5-5-high",
+    "state": "failed",
+    "startedAt": "2026-10-07T03:24:04.391Z",
+    "lastOutputAt": "2026-10-07T03:55:47.836Z",
+    "exitCode": 1,
+    "reason": null,
+    "endedAt": "2026-10-07T03:56:11.233Z"
+  },
+  "files": [
+    "docs/desktop.md",
+    "docs/one-answer.md",
+    "packages/daemon/src/cli.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/environment/compose.ts",
+    "packages/daemon/src/environment/database.ts",
+    "packages/daemon/src/environment/workbench.ts",
+    "packages/daemon/src/projects/clone.ts",
+    "packages/daemon/src/projects/command.ts",
+    "packages/daemon/src/projects/inspect.ts",
+    "packages/daemon/src/projects/prepare.ts",
+    "packages/daemon/src/projects/safe-git.ts",
+    "packages/daemon/src/server/http.ts",
+    "packages/daemon/src/server/project-routes.ts",
+    "packages/daemon/test/docker-smoke.test.ts",
+    "packages/daemon/test/environment.test.ts",
+    "packages/daemon/test/projects.test.ts",
+    "packages/desktop/src-tauri/src/main.rs",
+    "packages/desktop/src-tauri/src/projects.rs",
+    "packages/desktop/src-tauri/src/terminal.rs",
+    "packages/web/src/App.tsx",
+    "packages/web/src/components/DockerWorkbench.tsx",
+    "packages/web/src/components/NativeTerminal.tsx",
+    "packages/web/src/lib/desktop.ts",
+    "packages/web/src/lib/store.ts",
+    "packages/web/src/pages/Projects.tsx",
+    "packages/web/src/pages/Workspace.tsx",
+    "packages/web/test/projects.test.tsx",
+    "packages/web/test/workbench.test.tsx"
+  ],
+  "checks": [
+    {
+      "command": "DEVELOPER_DIR=/Library/Developer/CommandLineTools CARGO_TARGET_DIR=/private/tmp/one-connect-cursor-Bu9W8J/cargo-target TAURI_CONFIG='{\"build\":{\"frontendDist\":\"/private/tmp/one-connect-cursor-Bu9W8J/cargo-dist\"},\"bundle\":{\"resources\":[]}}' cargo test --offline --locked --manifest-path packages/desktop/src-tauri/Cargo.toml 2>&1 | tail -40",
+      "exitCode": 0,
+      "output": "   Compiling agent-control-center-desktop v0.1.0 (/private/tmp/one-connect-cursor-Bu9W8J/projects-docker/packages/desktop/src-tauri)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.38s\n     Running unittests src/main.rs (/private/tmp/one-connect-cursor-Bu9W8J/cargo-target/debug/deps/agent_control_center_desktop-5de93f4c69109079)\n\nrunning 14 tests\ntest terminal::tests::output_survives_split_unicode_and_invalid_bytes ... ok\ntest projects::tests::ids_match_existing_state_directories ... ok\ntest projects::tests::one_repository_maps_to_one_project_and_running_projects_cannot_be_removed ... ok\ntest projects::tests::approvals_are_digest_bound_single_use_and_expire ... ok\ntest tests::engine_cli_results_are_strict ... ok\ntest tests::project_state_is_isolated_and_stable ... ok\ntest projects::tests::corrupt_registry_is_kept_aside ... ok\ntest tests::proxy_paths_cannot_escape ... ok\ntest projects::tests::registry_survives_restart_with_private_permissions_and_migrates_selected_config ... ok\ntest tests::connections_are_bound_to_one_project ... ok\ntest terminal::tests::terminal_directories_stay_inside_the_project ... ok\ntest terminal::tests::scrollback_is_bounded_on_char_boundaries ... ok\ntest terminal::tests::real_pty_runs_and_resizes ... ok\ntest terminal::tests::sessions_belong_to_one_project ... ok\n\ntest result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s\n\n"
+    },
+    {
+      "command": "pnpm typecheck 2>&1 | tail -40",
+      "exitCode": 0,
+      "output": "\n> one-connect@0.1.0 typecheck /private/tmp/one-connect-cursor-Bu9W8J/projects-docker\n> pnpm -r typecheck\n\nScope: 3 of 4 workspace projects\npackages/core typecheck$ tsc -p tsconfig.json\npackages/core typecheck: Done\npackages/daemon typecheck$ tsc -p tsconfig.json\npackages/web typecheck$ tsc -p tsconfig.json\npackages/web typecheck: Done\npackages/daemon typecheck: Done\n"
+    },
+    {
+      "command": "npx vitest run --project web 2>&1 | tail -60",
+      "exitCode": 0,
+      "output": "\n RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/projects-docker\n\n\n Test Files  3 passed (3)\n      Tests  10 passed (10)\n   Start at  23:52:36\n   Duration  1.21s (environment 57%, import 18%, tests 16%, transform 8%)\n\n"
+    },
+    {
+      "command": "pnpm typecheck 2>&1 | tail -8; npx vitest run 2>&1 | tail -25",
+      "exitCode": 0,
+      "output": "\nScope: 3 of 4 workspace projects\npackages/core typecheck$ tsc -p tsconfig.json\npackages/core typecheck: Done\npackages/daemon typecheck$ tsc -p tsconfig.json\npackages/web typecheck$ tsc -p tsconfig.json\npackages/web typecheck: Done\npackages/daemon typecheck: Done\n\n RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/projects-docker\n\n\n Test Files  20 passed | 1 skipped (21)\n      Tests  159 passed | 1 skipped (160)\n   Start at  23:52:43\n   Duration  26.47s (tests 87%, import 8%, transform 3%, environment 2%)\n\n"
+    },
+    {
+      "command": "git check-ignore -q packages/web/dist && echo ignored; pnpm build 2>&1 | tail -12",
+      "exitCode": 0,
+      "output": "dist/assets/MissionControl-BvriAPSK.js    10.88 kB │ gzip:  3.31 kB │ map:    26.64 kB\ndist/assets/Docs-DmSdW7Ig.js              11.73 kB │ gzip:  3.77 kB │ map:    23.67 kB\ndist/assets/Projects-Dun36RVM.js          13.45 kB │ gzip:  4.18 kB │ map:    32.10 kB\ndist/assets/Workspace-CkHiAmNY.js         18.16 kB │ gzip:  5.50 kB │ map:    42.47 kB\ndist/assets/hooks-Cy3Mrtii.js             21.20 kB │ gzip:  8.08 kB │ map:   274.72 kB\ndist/assets/AgentConsole-BFPG6Hk5.js      23.90 kB │ gzip:  6.59 kB │ map:    63.63 kB\ndist/assets/WorkBoard-CNK-tJ5Q.js         63.82 kB │ gzip: 20.28 kB │ map:   267.64 kB\ndist/assets/src-BqIEQqNk.js              101.23 kB │ gzip: 29.52 kB │ map:   568.79 kB\ndist/assets/index-DLhT68kh.js            242.69 kB │ gzip: 76.78 kB │ map: 1,207.78 kB\ndist/assets/NativeTerminal-Dbr6IAjT.js   335.24 kB │ gzip: 84.67 kB │ map:   712.98 kB\n\n✓ built in 210ms\n"
+    },
+    {
+      "command": "DEVELOPER_DIR=/Library/Developer/CommandLineTools CARGO_TARGET_DIR=/private/tmp/one-connect-cursor-Bu9W8J/cargo-target TAURI_CONFIG='{\"build\":{\"frontendDist\":\"/private/tmp/one-connect-cursor-Bu9W8J/cargo-dist\"},\"bundle\":{\"resources\":[]}}' cargo test --offline --locked --manifest-path packages/desktop/src-tauri/Cargo.toml 2>&1 | grep -E \"warning|error|test result|running\"",
+      "exitCode": 0,
+      "output": "running 14 tests\ntest projects::tests::one_repository_maps_to_one_project_and_running_projects_cannot_be_removed ... ok\ntest result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s\n"
+    },
+    {
+      "command": "pnpm typecheck 2>&1 | tail -3 && npx vitest run --project daemon packages/daemon/test/projects.test.ts 2>&1 | tail -6",
+      "exitCode": 0,
+      "output": "packages/web typecheck$ tsc -p tsconfig.json\npackages/web typecheck: Done\npackages/daemon typecheck: Done\n\n Test Files  1 passed (1)\n      Tests  10 passed (10)\n   Start at  23:54:43\n   Duration  2.13s (tests 77%, transform 12%, import 11%)\n\n"
+    },
+    {
+      "command": "pnpm typecheck 2>&1 | grep -E \"error|Done\" ; npx vitest run 2>&1 | tail -6",
+      "exitCode": 0,
+      "output": "packages/core typecheck: Done\npackages/web typecheck: Done\npackages/daemon typecheck: Done\n\n Test Files  20 passed | 1 skipped (21)\n      Tests  159 passed | 1 skipped (160)\n   Start at  23:55:12\n   Duration  26.80s (tests 87%, import 7%, environment 3%, transform 3%)\n\n"
+    }
+  ],
+  "note": "Worker interrupted by Cursor Opus usage limit; no handoff, incomplete implementation, pipeline exits may mask errors. Evidence requires independent checks."
+}

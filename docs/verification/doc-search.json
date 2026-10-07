@@ -1,0 +1,106 @@
+{
+  "checkedAt": "2026-10-07T02:46:53.633Z",
+  "model": "all-minilm",
+  "modelDigest": "1b226e2802dbb772b5fc32a58f103ca1804ef7501331012de126ab22f67475ef",
+  "platform": "darwin arm64",
+  "notes": 7,
+  "chunks": 37,
+  "vectors": 37,
+  "top1": 5,
+  "top3": 6,
+  "cases": 6,
+  "totalMs": 855,
+  "scope": "Seven disposable English project notes, including dense structured Markdown. Retrieval only; not proof of answer quality or token savings.",
+  "checks": [
+    {
+      "query": "When will I need to authenticate again?",
+      "expected": "Project/Sessions.md",
+      "keywordFirst": null,
+      "semanticFirst": "Project/Sessions.md",
+      "semanticTop3": [
+        "Project/Sessions.md",
+        "Project/Secrets.md",
+        "Project/Reviews.md"
+      ],
+      "top1Correct": true,
+      "top3Correct": true,
+      "contextChars": 440,
+      "elapsedMs": 27
+    },
+    {
+      "query": "Where do we keep confidential account keys?",
+      "expected": "Project/Secrets.md",
+      "keywordFirst": null,
+      "semanticFirst": "Project/Sessions.md",
+      "semanticTop3": [
+        "Project/Sessions.md",
+        "Project/Secrets.md",
+        "Project/Contract.md"
+      ],
+      "top1Correct": false,
+      "top3Correct": true,
+      "contextChars": 449,
+      "elapsedMs": 14
+    },
+    {
+      "query": "What palette and spacing should a mockup use?",
+      "expected": "Project/Design.md",
+      "keywordFirst": "Project/Design.md",
+      "semanticFirst": "Project/Design.md",
+      "semanticTop3": [
+        "Project/Design.md",
+        "Project/Sessions.md",
+        "Project/Database.md"
+      ],
+      "top1Correct": true,
+      "top3Correct": true,
+      "contextChars": 450,
+      "elapsedMs": 14
+    },
+    {
+      "query": "How do we persist relational data in our container environment?",
+      "expected": "Project/Database.md",
+      "keywordFirst": "Project/Database.md",
+      "semanticFirst": "Project/Database.md",
+      "semanticTop3": [
+        "Project/Database.md",
+        "Project/Secrets.md",
+        "Project/Contract.md"
+      ],
+      "top1Correct": true,
+      "top3Correct": true,
+      "contextChars": 634,
+      "elapsedMs": 13
+    },
+    {
+      "query": "Can the person who wrote a change be its only approver?",
+      "expected": "Project/Reviews.md",
+      "keywordFirst": null,
+      "semanticFirst": "Project/Reviews.md",
+      "semanticTop3": [
+        "Project/Reviews.md",
+        "Project/Contract.md",
+        "Project/Contract.md"
+      ],
+      "top1Correct": true,
+      "top3Correct": true,
+      "contextChars": 737,
+      "elapsedMs": 12
+    },
+    {
+      "query": "Can an exhausted plan automatically charge for more work?",
+      "expected": "Project/Billing.md",
+      "keywordFirst": null,
+      "semanticFirst": "Project/Billing.md",
+      "semanticTop3": [
+        "Project/Billing.md",
+        "Project/Sessions.md",
+        "Project/Reviews.md"
+      ],
+      "top1Correct": true,
+      "top3Correct": true,
+      "contextChars": 421,
+      "elapsedMs": 12
+    }
+  ]
+}

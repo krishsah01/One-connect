@@ -1,0 +1,45 @@
+{
+  "at": "2026-10-07T04:23:39.636Z",
+  "authorization": "User: you can also use yourself and boot subagents",
+  "agents": [
+    {
+      "role": "checks-safety",
+      "workspace": "/private/tmp/one-connect-cursor-Bu9W8J/checks-safety",
+      "agent_id": "01a1148f-5072-7cd1-8d8f-916d1818b667",
+      "nickname": "Anscombe"
+    },
+    {
+      "role": "mock-isolation",
+      "workspace": "/private/tmp/one-connect-cursor-Bu9W8J/designer-library",
+      "agent_id": "01a1148a-ccdf-77d1-aeaa-e11b9c7a9ac6",
+      "nickname": "Popper"
+    },
+    {
+      "role": "docker-snapshots",
+      "workspace": "/private/tmp/one-connect-cursor-Bu9W8J/projects-docker",
+      "agent_id": "01a1148a-c9ca-7131-800b-13d0c4656609",
+      "nickname": "Confucius",
+      "state": "completed"
+    },
+    {
+      "role": "context-scope",
+      "workspace": "/private/tmp/one-connect-cursor-Bu9W8J/context-scope",
+      "agent_id": "01a1148a-cafa-78a3-b41c-44f1ffd80c3b",
+      "nickname": "Volta"
+    },
+    {
+      "role": "harness-decisions",
+      "workspace": "/private/tmp/one-connect-cursor-Bu9W8J/native-batch2/harness-decisions",
+      "agent_id": "01a11499-d207-7e90-8ee8-57a6b2ce7665",
+      "nickname": "Ampere",
+      "baseline": "12a1744ead7852e282a0c1915d53a4c3510c8637"
+    },
+    {
+      "role": "release-infra",
+      "workspace": "/private/tmp/one-connect-cursor-Bu9W8J/native-batch2/release-infra",
+      "agent_id": "01a11499-d397-7be1-9d44-44a2d1406faa",
+      "nickname": "Heisenberg",
+      "baseline": "12a1744ead7852e282a0c1915d53a4c3510c8637"
+    }
+  ]
+}

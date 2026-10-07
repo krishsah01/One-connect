@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec node --disable-warning=ExperimentalWarning "$DIR/src/cli.ts" "$@"

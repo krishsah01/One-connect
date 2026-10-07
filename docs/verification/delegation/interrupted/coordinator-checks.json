@@ -1,0 +1,62 @@
+{
+  "at": "2026-10-07T04:00:44.225Z",
+  "scope": "Frozen interrupted worker snapshots, prior to Composer repairs",
+  "checks": {
+    "projects-docker": {
+      "test": {
+        "exitCode": 0,
+        "passed": 159,
+        "skipped": 1,
+        "note": "Real Docker smoke check skipped"
+      },
+      "typecheck": {
+        "exitCode": 0
+      },
+      "webBuild": {
+        "exitCode": 0
+      },
+      "spdx": {
+        "exitCode": 0,
+        "files": 150
+      },
+      "licenses": {
+        "exitCode": 0,
+        "runtimeDependencies": 166
+      },
+      "node24CliImport": {
+        "exitCode": 0
+      },
+      "offlineRust": {
+        "exitCode": 0,
+        "passed": 14,
+        "note": "Includes real PTY run/resize"
+      }
+    },
+    "workflow-review": {
+      "test": {
+        "exitCode": 0,
+        "passed": 158
+      },
+      "typecheck": {
+        "exitCode": 1,
+        "error": "test/review-merge.test.ts(168,12): decision.evidence possibly undefined"
+      },
+      "node24CliImport": {
+        "exitCode": 0
+      }
+    },
+    "designer-library": {
+      "test": {
+        "exitCode": 0,
+        "passed": 141
+      },
+      "typecheck": {
+        "exitCode": 0
+      },
+      "node24CliImport": {
+        "exitCode": 0
+      }
+    }
+  },
+  "note": "Not combined integration or live-provider/native-UX proof. Composer workers resumed and must rerun checks after edits."
+}

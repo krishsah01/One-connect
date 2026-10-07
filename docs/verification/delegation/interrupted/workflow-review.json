@@ -1,0 +1,86 @@
+{
+  "worker": "workflow-review",
+  "status": {
+    "id": "workflow-review",
+    "pid": 19767,
+    "model": "claude-opus-5-5-high",
+    "state": "failed",
+    "startedAt": "2026-10-07T03:23:55.858Z",
+    "lastOutputAt": "2026-10-07T03:55:43.048Z",
+    "exitCode": 1,
+    "reason": null,
+    "endedAt": "2026-10-07T03:56:02.177Z"
+  },
+  "files": [
+    "examples/fake-agent/fake-agent.mjs",
+    "packages/core/src/capacity.ts",
+    "packages/core/src/entities.ts",
+    "packages/core/src/events.ts",
+    "packages/core/src/index.ts",
+    "packages/core/src/models.ts",
+    "packages/core/src/preflight.ts",
+    "packages/core/src/reducer.ts",
+    "packages/core/src/reviews.ts",
+    "packages/core/src/workflows.ts",
+    "packages/core/test/workflow-review.test.ts",
+    "packages/daemon/src/adapters/agents/claude.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/decisions.ts",
+    "packages/daemon/src/docker.ts",
+    "packages/daemon/src/mcp/server.ts",
+    "packages/daemon/src/mcpBridge.ts",
+    "packages/daemon/src/probe.ts",
+    "packages/daemon/src/reviewMerge.ts",
+    "packages/daemon/src/runManager.ts",
+    "packages/daemon/src/server/http.ts",
+    "packages/daemon/src/workflows.ts",
+    "packages/daemon/test/review-merge.test.ts",
+    "packages/daemon/test/workflows.test.ts",
+    "packages/web/src/lib/api.ts",
+    "packages/web/src/pages/Decisions.tsx",
+    "packages/web/src/pages/Workflows.tsx"
+  ],
+  "checks": [
+    {
+      "command": "npx vitest run --project daemon 2>&1 | tail -40",
+      "exitCode": 0,
+      "output": "\n RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/workflow-review\n\n\n Test Files  12 passed (12)\n      Tests  95 passed (95)\n   Start at  23:46:01\n   Duration  26.17s (tests 93%, import 4%, transform 3%)\n\n"
+    },
+    {
+      "command": "npx vitest run --project daemon packages/daemon/test/review-merge.test.ts 2>&1 | tail -80",
+      "exitCode": 0,
+      "output": "\n RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/workflow-review\n\n\n Test Files  1 passed (1)\n      Tests  8 passed (8)\n   Start at  23:49:12\n   Duration  18.17s (tests 98%, transform 1%, import 1%)\n\n"
+    },
+    {
+      "command": "npx vitest run --project daemon packages/daemon/test/review-merge.test.ts --reporter=verbose 2>&1 | grep -E \"✓|✗|×|FAIL|passed|failed\" | head -20",
+      "exitCode": 0,
+      "output": " ✓ |daemon| packages/daemon/test/review-merge.test.ts > independent SHA-bound reviews > reviewer sees the exact SHA, records a typed approval, files findings as linked follow-ups 2081ms\n ✓ |daemon| packages/daemon/test/review-merge.test.ts > independent SHA-bound reviews > a handoff verdict is recorded when the reviewer skips submit_review; changes requested blocks merge 3483ms\n ✓ |daemon| packages/daemon/test/review-merge.test.ts > independent SHA-bound reviews > a new commit invalidates a stale approval and the merge is refused 1971ms\n ✓ |daemon| packages/daemon/test/review-merge.test.ts > human decisions > irreversible answers need a second confirmation; only the human owner can answer; Jev only recommends 102ms\n ✓ |daemon| packages/daemon/test/review-merge.test.ts > integration merge > merges only the approved SHA after a confirmed human decision; post-merge checks; acceptance → Done 2216ms\n ✓ |daemon| packages/daemon/test/review-merge.test.ts > integration merge > refuses dirty or colliding target worktrees without touching them, keeps the user hooks, then merges in place 2236ms\n ✓ |daemon| packages/daemon/test/review-merge.test.ts > integration merge > a failing user hook aborts the merge cleanly; the target is unchanged 2120ms\n ✓ |daemon| packages/daemon/test/review-merge.test.ts > integration merge > refuses stale target SHAs, conflicts and non-green checks 3740ms\n Test Files  1 passed (1)\n      Tests  8 passed (8)\n"
+    },
+    {
+      "command": "npx vitest run --project daemon packages/daemon/test/workflows.test.ts --reporter=verbose 2>&1 | grep -vE \"^\\s*$\" | tail -80",
+      "exitCode": 0,
+      "output": "on| packages/daemon/test/workflows.test.ts > workflow execution > failed checks, changes requested and cancel are durable states; retry reruns through dispatch\nZodError: [\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"lead\",\n      \"engineer\",\n      \"reviewer\",\n      \"qa\",\n      \"researcher\"\n    ],\n    \"path\": [\n      \"agents\",\n      4,\n      \"role\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"lead\\\"|\\\"engineer\\\"|\\\"reviewer\\\"|\\\"qa\\\"|\\\"researcher\\\"\"\n  }\n]\n ❯ parseConfig packages/core/src/config.ts:292:36\n    290|\n    291| export function parseConfig(raw: unknown): ControlCenterConfig {\n    292|   return ControlCenterConfigSchema.parse(raw);\n       |                                    ^\n    293| }\n    294|\n ❯ makeConfig packages/daemon/test/helpers.ts:34:10\n ❯ config packages/daemon/test/workflows.test.ts:18:10\n ❯ packages/daemon/test/workflows.test.ts:157:17\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\nSerialized Error: { _zod: { def: [ { code: 'invalid_value', values: [ 'lead', 'engineer', 'reviewer', 'qa', 'researcher' ], path: [ 'agents', 4, 'role' ], message: 'Invalid option: expected one of \"lead\"|\"engineer\"|\"reviewer\"|\"qa\"|\"researcher\"' } ], constr: 'Function<ZodError>', traits: { constructor: 'Function<Set>', has: 'Function<has>', add: 'Function<add>', delete: 'Function<delete>', difference: 'Function<difference>', clear: 'Function<clear>', entries: 'Function<entries>', forEach: 'Function<forEach>', intersection: 'Function<intersection>', isSubsetOf: 'Function<isSubsetOf>', isSupersetOf: 'Function<isSupersetOf>', isDisjointFrom: 'Function<isDisjointFrom>', size: 2, symmetricDifference: 'Function<symmetricDifference>', union: 'Function<union>', values: 'Function<values>', keys: 'Function<values>' }, message: '[\n  {\n    \"code\": \"invalid_value\",\n    \"values\": [\n      \"lead\",\n      \"engineer\",\n      \"reviewer\",\n      \"qa\",\n      \"researcher\"\n    ],\n    \"path\": [\n      \"agents\",\n      4,\n      \"role\"\n    ],\n    \"message\": \"Invalid option: expected one of \\\"lead\\\"|\\\"engineer\\\"|\\\"reviewer\\\"|\\\"qa\\\"|\\\"researcher\\\"\"\n  }\n]' }, issues: [ { code: 'invalid_value', values: [ 'lead', 'engineer', 'reviewer', 'qa', 'researcher' ], path: [ 'agents', 4, 'role' ], message: 'Invalid option: expected one of \"lead\"|\"engineer\"|\"reviewer\"|\"qa\"|\"researcher\"' } ], format: 'Function<anonymous>', flatten: 'Function<anonymous>', addIssue: 'Function<anonymous>', addIssues: 'Function<anonymous>', isEmpty: false }\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\n Test Files  1 failed (1)\n      Tests  4 failed (4)\n   Start at  23:51:23\n   Duration  664ms (transform 40%, tests 31%, import 29%)\n"
+    },
+    {
+      "command": "npx vitest run --project daemon packages/daemon/test/workflows.test.ts --reporter=verbose 2>&1 | grep -vE \"^\\s*$\" | tail -60",
+      "exitCode": 0,
+      "output": "ow-review\n × |daemon| packages/daemon/test/workflows.test.ts > workflow definitions > rejects cycles, unknown issues or agents, overlapping writers, self-review and code for coordinator-only agents 376ms\n   → expected 400 to be 200 // Object.is equality\n × |daemon| packages/daemon/test/workflows.test.ts > workflow execution > collaborative: code → independent review → dependent code built on the reviewed SHA, all from recorded evidence 328ms\n   → expected 400 to be 200 // Object.is equality\n ✓ |daemon| packages/daemon/test/workflows.test.ts > workflow execution > pause holds promotion across a restart; resume continues; nothing completes on a timer 4424ms\n ✓ |daemon| packages/daemon/test/workflows.test.ts > workflow execution > failed checks, changes requested and cancel are durable states; retry reruns through dispatch 2903ms\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n FAIL  |daemon| packages/daemon/test/workflows.test.ts > workflow definitions > rejects cycles, unknown issues or agents, overlapping writers, self-review and code for coordinator-only agents\nAssertionError: expected 400 to be 200 // Object.is equality\n- Expected\n+ Received\n- 200\n+ 400\n ❯ packages/daemon/test/workflows.test.ts:74:79\n     72|     expect(saved.definition.tasks[1]).toMatchObject({ workItemId: a.id…\n     73|     // Another workflow cannot claim the same issues while this one is…\n     74|     expect((await api(h, 'POST', `/api/workflows/${saved.id}/start`)).…\n       |                                                                               ^\n     75|     expect(await codes({ name: 'again', tasks: [t('z', { allowedPaths:…\n     76|     // Started workflows are not editable.\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n FAIL  |daemon| packages/daemon/test/workflows.test.ts > workflow execution > collaborative: code → independent review → dependent code built on the reviewed SHA, all from recorded evidence\nAssertionError: expected 400 to be 200 // Object.is equality\n- Expected\n+ Received\n- 200\n+ 400\n ❯ packages/daemon/test/workflows.test.ts:98:28\n     96|     const saved = (await api<{ workflow: Workflow }>(h, 'POST', '/api/…\n     97|     const started = await api<{ workflow: Workflow }>(h, 'POST', `/api…\n     98|     expect(started.status).toBe(200);\n       |                            ^\n     99|     expect(started.body.workflow.status).toBe('running');\n    100|     expect(started.body.workflow.tasks.schema.status).toBe('running');\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n Test Files  1 failed (1)\n      Tests  2 failed | 2 passed (4)\n   Start at  23:51:28\n   Duration  8.41s (tests 96%, transform 3%, import 1%)\n"
+    },
+    {
+      "command": "npx vitest run --project daemon packages/daemon/test/workflows.test.ts --reporter=verbose 2>&1 | grep -vE \"^\\s*$\" | tail -60",
+      "exitCode": 0,
+      "output": " RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/workflow-review\n ✓ |daemon| packages/daemon/test/workflows.test.ts > workflow definitions > rejects cycles, unknown issues or agents, overlapping writers, self-review and code for coordinator-only agents 607ms\n ✓ |daemon| packages/daemon/test/workflows.test.ts > workflow execution > collaborative: code → independent review → dependent code built on the reviewed SHA, all from recorded evidence 2823ms\n ✓ |daemon| packages/daemon/test/workflows.test.ts > workflow execution > pause holds promotion across a restart; resume continues; nothing completes on a timer 4338ms\n ✓ |daemon| packages/daemon/test/workflows.test.ts > workflow execution > failed checks, changes requested and cancel are durable states; retry reruns through dispatch 2865ms\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  23:51:42\n   Duration  11.04s (tests 97%, transform 2%, import 1%)\n"
+    },
+    {
+      "command": "npx vitest run --project core packages/core/test/workflow-review.test.ts 2>&1 | grep -vE \"^\\s*$\" | tail -80",
+      "exitCode": 0,
+      "output": " RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/workflow-review\n ❯ |core| packages/core/test/workflow-review.test.ts (13 tests | 1 failed) 13ms\n   ❯ reviews and merge gates (6)\n     × binds merge actions to exact SHAs and records invalidation once 5ms\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n FAIL  |core| packages/core/test/workflow-review.test.ts > reviews and merge gates > binds merge actions to exact SHAs and records invalidation once\nAssertionError: expected { Object (id, workItemId, ...) } to match object { staleReason: 'new commit', …(1) }\n(19 matching properties omitted from actual)\n- Expected\n+ Received\n  {\n-   \"staleAt\": \"2026-01-01T00:00:01Z\",\n-   \"staleReason\": \"new commit\",\n+   \"staleAt\": undefined,\n+   \"staleReason\": \"again\",\n  }\n ❯ packages/core/test/workflow-review.test.ts:206:28\n    204|     s = applyEvent(s, env(1, 'review.invalidated', { reviewId: 'rev1',…\n    205|     s = applyEvent(s, env(2, 'review.invalidated', { reviewId: 'rev1',…\n    206|     expect(s.reviews.rev1).toMatchObject({ staleReason: 'new commit', …\n       |                            ^\n    207|     expect(currentApproval(s, 'wi1', SHA_A)).toBeNull();\n    208|   });\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n Test Files  1 failed (1)\n      Tests  1 failed | 12 passed (13)\n   Start at  23:53:14\n   Duration  217ms (transform 57%, import 32%, tests 9%, worker 2%)\n"
+    },
+    {
+      "command": "npx vitest run --project core 2>&1 | grep -vE \"^\\s*$\" | tail -30",
+      "exitCode": 0,
+      "output": " RUN  v5.0.3 /private/tmp/one-connect-cursor-Bu9W8J/workflow-review\n Test Files  4 passed (4)\n      Tests  49 passed (49)\n   Start at  23:53:25\n   Duration  268ms (transform 51%, import 43%, tests 4%, worker 1%)\n"
+    }
+  ],
+  "note": "Worker interrupted by Cursor Opus usage limit; no handoff, incomplete implementation, pipeline exits may mask errors. Evidence requires independent checks."
+}

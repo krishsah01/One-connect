@@ -1,0 +1,60 @@
+# Example control-center.yaml. Copy it next to your project (or pass --config) and edit.
+# Every agent runs on a subscription you already pay for: billing: subscription is enforced,
+# API-key variables are stripped from agent runs, and paid overage stays off.
+project:
+  name: example-app
+  repo: ~/code/example-app
+  integration_branch: integration          # agents' branches merge here (never straight to main)
+  protected_branches: [main]               # pushes here are blocked by a per-worktree pre-push hook
+  checks: { test: "npm test", typecheck: "./node_modules/.bin/tsc --noEmit", lint: "npm run lint", build: "npm run build" }
+  # This image must already be installed and contain project toolchains/dependencies.
+  # No image pull, network, host node_modules, user home or Docker socket is allowed in checks.
+  check_runtime:
+    mode: docker
+    endpoint: unix:///var/run/docker.sock   # macOS: use your actual local Docker Desktop socket
+    image: example-app-checks:local         # resolved to the installed immutable image ID
+    cpus: 1
+    memory_mb: 512
+    pids: 128
+    workspace_mb: 1024
+    timeout_seconds: 900
+  required_checks: [test, typecheck]       # the control center re-runs these itself after each run
+  categories:                              # label → quality-floor category
+    schema_security: [schema, security, migration]
+    research: [research]
+
+# Pick one tracker. GitHub and Linear stay in dry run until you set live: true.
+tracker: { type: local }
+# Import sources are opt-in and read-only. Imported status changes stay in the local tracker.
+import_sources:
+  - { id: github-import, name: GitHub, type: github, repo: owner/example-app, enabled: false }
+  - { id: linear-import, name: Linear, type: linear, team: ENG, enabled: false }
+# tracker: { type: github, repo: owner/example-app, live: false }             # uses your signed-in `gh` CLI
+# tracker: { type: linear, team: ENG, project: "Example App", live: false }   # key from macOS Keychain or LINEAR_API_KEY
+
+policies:
+  zero_extra_spend: true
+  newest_model_rule: true
+  quality_floor: { code: "sonnet-class high", schema_security: "opus-class high", research: "pro-class" }
+  require_approval: [push_protected, deploy, prod_db_write, migration_apply, publish, send_message]
+  stall: { no_event_minutes: 10, approval_pending_minutes: 15 }
+  redact_env: [DATABASE_URL]               # values of these env vars are redacted everywhere
+
+# Shared context (optional): one Obsidian vault for the team contract, live brief, issues,
+# handoffs and decisions, plus a graphify code graph of the integration branch.
+knowledge:
+  vault: ~/Documents/Obsidian/Work
+  folder: Agent Control Center             # the control center owns <folder>/<project>/
+  context_folders: [Projects/example-app]  # extra folders agents may read; nothing else is visible
+  obsidian_cli: auto                       # official CLI (Obsidian 1.12.4+) when Obsidian is running
+graphify:
+  enabled: true
+  auto_update: true                        # AST-only rebuild, no LLM, no cost
+  semantic: false                          # LLM extraction uses a paid API: needs semantic_opt_in
+
+agents:
+  - { id: lead,   name: "Claude Code", subscription: "Claude Max",    role: lead,       adapter: claude-headless,  mode: coordinator-only, model: newest, model_family: opus }
+  - { id: codex,  name: "Codex",       subscription: "ChatGPT Plus",  role: engineer,   adapter: codex-cli,        model: newest, effort: high }
+  - { id: cursor, name: "Cursor",      subscription: "Cursor Pro",    role: engineer,   adapter: cursor-agent-cli, model: newest, model_family: claude-opus, effort: high, on_demand: false }
+  - { id: ag,     name: "Antigravity", subscription: "Google AI Pro", role: engineer,   adapter: relay }
+  - { id: gemini, name: "Gemini",      subscription: "Google AI Pro", role: researcher, adapter: relay }
