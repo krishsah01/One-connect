@@ -92,7 +92,7 @@ Their answers to my questions:
 | `daemon/test/canvas.test.ts` | 2/2 pass: storage, sanitization, stale write, secret refusal, restart, terminate continuation, engine lock |
 | `scripts/check-spdx.mjs` | 344 files pass |
 | `scripts/licenses.mjs --check` | Passes with the patch applied |
-| Full daemon suite | See "Daemon suite" below |
+| Full daemon suite | 522 pass; 17 failures, all also failing on the primary (see "Daemon suite") |
 
 I ran the flow by hand in the built-in browser against a disposable offline demo (temp data dir, port 7396):
 1. Created a workflow and named it.
@@ -134,4 +134,8 @@ Not done: the native Tauri app was not checked; the coordinator rebuilds it. For
 
 ## Daemon suite
 
-Pending at the time of writing; see the next section.
+`npx vitest run --project daemon` on this branch: 522 pass, 17 fail, 4 skipped (61 files). Both failing files fail the same way on the untouched primary checkout, so neither comes from this work:
+- `opencode-harness.test.ts`: 16 failures, already known.
+- `workflows.test.ts` › "failed checks, changes requested and cancel are durable states": it expects `changes_requested` and gets `blocked`. I reproduced it in the primary on 2026-10-09; it belongs to whoever is changing the workflow engine.
+
+The new `canvas.test.ts` passes.
