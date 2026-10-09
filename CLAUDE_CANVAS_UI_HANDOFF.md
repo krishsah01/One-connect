@@ -139,3 +139,11 @@ Not done: the native Tauri app was not checked; the coordinator rebuilds it. For
 - `workflows.test.ts` › "failed checks, changes requested and cancel are durable states": it expects `changes_requested` and gets `blocked`. I reproduced it in the primary on 2026-10-09; it belongs to whoever is changing the workflow engine.
 
 The new `canvas.test.ts` passes.
+
+## Local app rebundle (2026-10-09, at the owner's request)
+
+- **What was built.** At the owner's request I rebuilt the desktop app from this branch's working tree (shared patch included). The build was an unsigned debug arm64 app, built offline with `--locked`, using the Command Line Tools SDK via `DEVELOPER_DIR`; the Xcode license is not accepted, and I did not accept it.
+- **Identity.** The app keeps the original identity, One Connect / `dev.agentcontrolcenter.desktop`, so it opens the owner's real projects (one-connect, study-bro). The owner wants exactly one app on the machine.
+- **Location.** `dist/macos/One Connect Latest.app`. Engine SHA-256 is `8b2c175be6bf422a2dac7bb618bd169e4173499bc1773c35af902a457a4fd3f0`, and the bundle embeds the canvas web assets. It is installed and running.
+- **Data backup.** Before first launch, the project data (without engines) was copied to `~/Library/Application Support/dev.agentcontrolcenter.desktop.backup-2026-10-09`.
+- **Old builds.** The owner asked to delete the old bundles and packages, but moving them to the Trash was blocked by the permission classifier. A script for the owner to run moves them to the Trash and renames Latest to `One Connect.app`. Until it runs, the old bundles, the Studio and Skills Verification checkpoints, and the old engines are all still present.
