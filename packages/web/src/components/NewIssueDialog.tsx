@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { post } from '../lib/api';
 import { ErrorLine, useAction } from './common';
 
-export function NewIssueDialog({ onClose, trackerTarget }: { onClose: () => void; trackerTarget: string }) {
+export function NewIssueDialog({ onClose, trackerTarget, onCreated }: { onClose: () => void; trackerTarget: string; onCreated?: (item: { id: string }) => void }) {
   const { busy, error, run } = useAction();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -12,13 +12,14 @@ export function NewIssueDialog({ onClose, trackerTarget }: { onClose: () => void
   const [priority, setPriority] = useState(3);
   const submit = () =>
     run(async () => {
-      await post('/api/issues', {
+      const r = await post<{ item: { id: string } }>('/api/issues', {
         title,
         description,
         acceptance: acceptance.split('\n').map((s) => s.replace(/^[-*]\s*/, '').trim()).filter(Boolean),
         labels: labels.split(',').map((s) => s.trim()).filter(Boolean),
         priority,
       });
+      onCreated?.(r.item);
       onClose();
     });
   return (
