@@ -536,7 +536,10 @@ function Inspector({ state, model: m, nodeId, editFrame, actions, onClose }: { s
           ? <label className="col"><span className="small muted">Reviews</span><select value={task.reviewOf ?? ''} onChange={e => patch({ reviewOf: e.target.value || null, workItemId: m.tasks.find(t => t.id === e.target.value)?.workItemId ?? task.workItemId })}><option value="">Choose a build step…</option>{m.tasks.filter(t => t.kind === 'code').map(t => <option key={t.id} value={t.id}>{t.title || t.id}</option>)}</select></label>
           : <label className="col"><span className="small muted">Issue</span><select value={task.workItemId} onChange={e => patch({ workItemId: e.target.value })}><option value="">Choose an issue…</option>{items.map(i => <option key={i.id} value={i.id}>{i.key ?? 'pending'} · {i.title}</option>)}</select></label>}
         {task.kind !== 'review' && <label className="col"><span className="small muted">Allowed paths (empty = whole repo)</span><input value={task.allowedPaths.join(', ')} onChange={e => patch({ allowedPaths: e.target.value.split(/[,\n]/).map(p => p.trim()).filter(Boolean) })} placeholder="src/api/**, docs/api.md" /></label>}
-        <span className="small faint">Starts after: {task.dependsOn.length ? task.dependsOn.join(', ') : 'nothing (connect steps to order them)'}</span>
+        {m.tasks.length > 1 && <fieldset className="cv-visibility"><legend className="small">Starts after</legend>
+          {m.tasks.filter(t => t.id !== task.id).map(t => <label key={t.id}><input type="checkbox" checked={task.dependsOn.includes(t.id) || task.reviewOf === t.id} disabled={task.reviewOf === t.id} onChange={e => patch({ dependsOn: e.target.checked ? [...task.dependsOn, t.id] : task.dependsOn.filter(d => d !== t.id) })} /> {t.title || t.id}</label>)}
+          <span className="small faint">Same as drawing a connection between the two steps.</span>
+        </fieldset>}
         {task.pickup && <div className="cv-pickup-box"><b className="small">Pickup point from the previous attempt</b><pre>{task.pickup}</pre></div>}
         <button type="button" className="btn sm danger" onClick={() => { editFrame(m.id, s => removeTask(s, task.id)); onClose(); }}>Remove step</button>
       </div>}
