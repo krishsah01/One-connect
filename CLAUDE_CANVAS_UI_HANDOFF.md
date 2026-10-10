@@ -6,6 +6,77 @@ On 2026-10-09 the worktree was cut from the primary checkout's HEAD `5543b43`, p
 
 This is not a claim that One Connect is complete.
 
+## Latest round (2026-10-10): read this first
+
+This round is committed as `9c996e5` on this branch, on top of `7281153`. That commit is another Claude session's `CODEX_NODE_WORKFLOW_HANDOFF.md`, which covers the same node-workflow items; this section supersedes its "in progress" notes. The shared patch was regenerated against the primary on 2026-10-10 and covers 15 files; `git apply --check` passes.
+
+### The owner's new decisions
+
+| Topic | Decision |
+|---|---|
+| Look and feel | "Looks like a direct clone of ComfyUI": the owner asked for its own vibe. The approved shape language: round avatars for agents (who), pills for inputs (what they use), cards with a progress bar for steps (work), diamonds for decisions, soft lanes for workflows, joined by dashed hand-off rails. Connections run as rounded right-angle lines. Socket labels show only on hover, on selection, or while connecting. |
+| Theme | Day, Night and Machine (follows the system). Night is **pitch black** (`--bg: #000`). Buttons are bigger and labeled, with strong focus rings. Dark primary buttons use dark text; white on teal was about 1.9:1. |
+| ComfyUI interactions kept | Double-click opens node search; dropping a link on empty space opens a search filtered to compatible nodes; node library; right-click menus; copy and paste; a collapsible bottom **Console** with Terminal and Logs (Ctrl+`). |
+| Workflows | Start with an Agent node. Any number of nodes. Agent↔agent "Talks with" edges let agents consult each other. Workflows chain directly, or through a decision. |
+| JEV gate | Both modes: JEV recommends and you pick (the default), or, per gate and opted in with a recorded confirmation (`confirmedAt`), JEV picks among that gate's "start workflow" options. It never answers merges, releases, publishing, connector or tool access, cost, or anything irreversible. |
+| One Answer | Renamed **One Ask** in the UI. A dock is always on the canvas, and a One Ask node exists. Daemon messages still say "One Answer" (8 strings, with tests); a straight rename at integration is left for you. |
+| Summary agent | The bundled local model, **Qwen3-1.7B** (Apache-2.0). Also bundled: **Qwen3-Embedding-0.6B** (Apache-2.0) for One Ask semantic search, run by llama.cpp `llama-server` b11540 (MIT). The owner approved these downloads; all three files are pinned by SHA-256. See `docs/local-models.md`. |
+| Imports | Any GitHub repo, the official MCP Registry, and the `anthropics/skills` repo (engine work by Codex). The UI calls the contract routes and degrades if a route returns 404. |
+| License | Apache-2.0 + Commons Clause. The relicense script is Codex's item 4; run it once at integration. |
+| Docker sandboxes (new idea, planned) | See "Planned: sandboxes and OS targets" below. |
+
+### What this round added (all in this branch)
+
+- **Graph model** (`core/src/canvas.ts`, v2):
+  - `NODE_SPECS` with typed ports;
+  - `normalizeGraph` (type-checked edges; single-value inputs keep the latest edge);
+  - `compileSketch` → definition plus problems, with the step extras `model`, `effort`, `skills`, `connectors`, `design`, `context`, `pickup` and `consults`;
+  - `deriveGraph`, gates and chains, and migration from v1;
+  - `continuationSketch(…, pickups)` accepts engine-written pickup points.
+- **Canvas UI** (`web/src/pages/Canvas.tsx`, `shell/canvas.css`), in the new shape language with the interactions listed above.
+- **Shell:** `shell/BottomPanel.tsx` (Terminal reuses the exported `ProjectTerminals`; Logs polls `GET /api/canvas/logs`), `shell/OneAskDock.tsx`, `lib/theme.ts`, and labeled top-bar buttons.
+- **Daemon:**
+  - `canvasRoutes.ts` gains `GET /api/canvas/logs`. Terminate calls `d.workflows.terminateWithPickup(id)` when the engine has it (Codex item 1) and falls back to `cancel`.
+  - New `localModels.ts` and `server/localModelRoutes.ts`.
+- **Desktop:**
+  - `scripts/desktop-models.mjs` verifies and stages the models.
+  - In `main.rs`, one added line passes `ACC_LOCAL_MODELS_DIR` when `resources/models/llama` exists. `main.rs` is also being edited by others, so this line is in the shared patch scope: carry it over by hand if the patch drifts.
+  - Build with `--config` adding `{"bundle":{"resources":{"resources/engine.tar.gz":"resources/engine.tar.gz","resources/models/":"resources/models/"}}}`.
+- **Tests:**
+  - core `canvas.test.ts` (8);
+  - daemon `canvas.test.ts` (2) and `local-models.test.ts` (2: needs the exact files, refuses browser origins and foreign hosts, refuses unverified models);
+  - web `shell.test.tsx` (4: routing, Settings dialog, ⌘K, theme cycle, Logs).
+  - Core and web total 265/265.
+
+### Where Codex's engine plugs in (integration checklist)
+
+Codex is working in `../Interface-codex-engine` and had committed `7d33209` (step options), `1076ee7` (durable chains and gates) and `18cc3f9` (marketplace) by 03:30.
+
+1. The canvas already sends the step extras in `definition.tasks[*]`. Once `normalizeWorkflow` keeps them, they reach assignments with no UI change.
+2. **Gates and chains.** The canvas stores them in `layout.gates` and `layout.chains`. Add a sync to Codex's workflow-link API, only for saved workflow ids:
+   - when a gate or chain is edited;
+   - when a sketch is saved (ids are re-keyed in `actions.save`).
+   - Map `chain` → `{ from, to: [to], gate: null }`.
+   - Map `gate` → `{ from, to: options.map(o => o.to), gate: { kind, question, options, jev: autoDecide ? { autoDecide: true, host, maxEvidenceBytes, confirmedAt, confirmedBy: 'owner' } : null } }`.
+3. **Marketplace.** `MarketplaceImport` in `Canvas.tsx` calls the brief's routes. Adjust the field names to whatever Codex shipped.
+4. **Pickup.** `terminateWithPickup` is picked up automatically when present.
+
+### Planned: sandboxes and OS targets (the owner's Docker idea)
+
+My assessment, recorded for planning:
+
+- **Docker** (Linux containers, in a VM on macOS) is a good fit for:
+  - sandboxed agent runs and checks, using the existing `docker.ts` safety rules;
+  - building and testing **Linux** apps, servers, CLIs and Linux desktop builds;
+  - headless browsers;
+  - building Android apps. Running the Android emulator in Docker is not practical on Apple silicon.
+- **macOS and iOS** apps cannot run in Docker, for licensing and technical reasons. Use the host toolchain (Xcode and the iOS Simulator) or macOS VMs through Apple's Virtualization framework.
+- **Windows** containers need a Windows host. Use a Windows VM (UTM or Parallels), cross-compilation where the toolchain supports it, or CI runners. CI runners are outbound and possibly paid, so they need the owner's per-use decision.
+- **Proposed canvas design:**
+  - A **Sandbox** node that plugs into an Agent or a Step: host (current), Docker image, macOS VM or Windows VM. Docker images are pinned by digest, with network off by default and allowed paths mounted read-write only.
+  - A **Targets** field on Build steps (Linux, macOS, Windows, Android, iOS) that routes each target to the right environment and records per-target check evidence.
+- **Engine needs:** a step `sandbox` option (`{ kind: 'host' | 'docker' | 'vm', image?, digest?, network: 'off' | 'allowlist' }`) honored by the run manager and the checks runner, plus per-target evidence.
+
 ## What the owner asked for
 
 The owner asked to simplify a cluttered UI without losing any feature. In their words, it should be "node based as in how comfy ui works, a blank canvas where you should be able to add the architect or design you just generated", so that you can "create a node based issue with all the available features in this app".
