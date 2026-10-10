@@ -1,0 +1,16 @@
+diff --git a/packages/core/test/canvas.test.ts b/packages/core/test/canvas.test.ts
+--- a/packages/core/test/canvas.test.ts
++++ b/packages/core/test/canvas.test.ts
+@@ -42,10 +42,10 @@
+   it('turns a sketch into a workflow definition with the implicit review dependency', () => {
+     const def = sketchDefinition({ id: 's', name: 'N', mode: 'collaborative', workflowId: null, version: null, continues: null, issues: [], updatedAt: at, tasks: [
+       { id: 'b', title: '', kind: 'code', agentId: 'codex', workItemId: 'w1', dependsOn: [], reviewOf: null, allowedPaths: [], pickup: null },
+-      { id: 'r', title: '', kind: 'review', agentId: 'cursor', workItemId: '', dependsOn: [], reviewOf: 'b', allowedPaths: [], pickup: 'ignored by the engine' },
++      { id: 'r', title: '', kind: 'review', agentId: 'cursor', workItemId: '', dependsOn: [], reviewOf: 'b', allowedPaths: [], pickup: 'Resume the review' },
+     ] });
+     expect(def.tasks[1]).toMatchObject({ reviewOf: 'b', dependsOn: ['b'], workItemId: 'w1' });
+-    expect(JSON.stringify(def)).not.toContain('pickup');
++    expect(def.tasks[1].pickup).toBe('Resume the review');
+   });
+ 
+   it('locks every workflow that is not a draft', () => {

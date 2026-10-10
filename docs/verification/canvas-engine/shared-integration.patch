@@ -1,0 +1,295 @@
+diff --git a/packages/core/src/entities.ts b/packages/core/src/entities.ts
+--- a/packages/core/src/entities.ts
++++ b/packages/core/src/entities.ts
+@@ -6,2 +6,3 @@
+ import type { Workflow } from './workflows.ts';
++import type { WorkflowLink } from './workflowLinks.ts';
+ import type { IntegrationMerge, ReviewRecord } from './reviews.ts';
+@@ -194,2 +195,7 @@
+   skills?: SkillRef[];
++  connectors?: string[];
++  consults?: string[];
++  workflowContext?: string | null;
++  pickup?: string | null;
++  mockBinding?: { artifactId: string; rev: number; hash: string };
+   preflight: PreflightResult | null;
+@@ -581,2 +587,3 @@
+   workflows: Record<string, Workflow>;
++  workflowLinks?: Record<string, WorkflowLink>;
+   reviews: Record<string, ReviewRecord>;
+@@ -616,2 +623,3 @@
+     workflows: {},
++    workflowLinks: {},
+     reviews: {},
+diff --git a/packages/core/src/events.ts b/packages/core/src/events.ts
+--- a/packages/core/src/events.ts
++++ b/packages/core/src/events.ts
+@@ -35,2 +35,3 @@
+ import type { Workflow, WorkflowStatus, WorkflowTaskState } from './workflows.ts';
++import type { WorkflowLink } from './workflowLinks.ts';
+ import type { IntegrationMerge, MergeGate, ReviewRecord } from './reviews.ts';
+@@ -86,2 +87,4 @@
+   'decision.consumed': { decisionId: string; outcome: string };
++  'workflow.defaults_saved': { connectors: string[] };
++  'workflow_link.saved': { link: WorkflowLink };
+   'workflow.saved': { workflow: Workflow };
+diff --git a/packages/core/src/reducer.ts b/packages/core/src/reducer.ts
+--- a/packages/core/src/reducer.ts
++++ b/packages/core/src/reducer.ts
+@@ -348,2 +348,5 @@
+       break;
++    case 'workflow_link.saved':
++      s.workflowLinks = put(s.workflowLinks ?? {}, e.data.link.id, e.data.link);
++      break;
+     case 'workflow.saved':
+diff --git a/packages/core/src/index.ts b/packages/core/src/index.ts
+--- a/packages/core/src/index.ts
++++ b/packages/core/src/index.ts
+@@ -17,2 +17,3 @@
+ export * from './design.ts';
++export * from './workflowLinks.ts';
+ export * from './workflows.ts';
+diff --git a/packages/core/src/connectors.ts b/packages/core/src/connectors.ts
+--- a/packages/core/src/connectors.ts
++++ b/packages/core/src/connectors.ts
+@@ -37,3 +37,3 @@
+     args: z.array(z.string().max(500).refine(s => !s.includes('\0'))).max(32).default([]),
+-    tools: z.array(toolName).min(1).max(32),
++    tools: z.array(toolName).max(32),
+     read_roots: z.array(absolute).max(8).default([]),
+diff --git a/packages/daemon/src/daemon.ts b/packages/daemon/src/daemon.ts
+--- a/packages/daemon/src/daemon.ts
++++ b/packages/daemon/src/daemon.ts
+@@ -61,2 +61,4 @@
+ import { WorkflowEngine } from './workflows.ts';
++import { WorkflowLinks } from './workflowLinks.ts';
++import { workflowPrompt } from './workflowOptions.ts';
+ import { SkillLibrary } from './skills.ts';
+@@ -155,2 +157,3 @@
+   readonly workflows: WorkflowEngine;
++  readonly workflowLinks: WorkflowLinks;
+   readonly skillLib: SkillLibrary;
+@@ -225,2 +228,3 @@
+     this.workflows = new WorkflowEngine(this);
++    this.workflowLinks = new WorkflowLinks(this);
+     this.skillLib = new SkillLibrary(this);
+@@ -287,2 +291,3 @@
+     this.workflows.start();
++    this.workflowLinks.start();
+     this.team.start();
+@@ -301,2 +306,3 @@
+     await this.connectors.toolActions.close();
++    this.workflowLinks.stop();
+     this.workflows.stop();
+@@ -653,3 +659,3 @@
+     const agent = this.state.agents[a.agentId];
+-    if (a.kind === 'review' && a.review) return this.reviewMerge.reviewText(a, relay) + this.designer.prompt(a);
++    if (a.kind === 'review' && a.review) return this.reviewMerge.reviewText(a, relay) + this.designer.prompt(a) + workflowPrompt(a);
+     return generateAssignmentText({
+@@ -668,3 +674,3 @@
+       context: this.context?.templateContext(),
+-    })+this.connectors.promptNote(item)+this.designer.prompt(a);
++    })+this.connectors.promptNote(item)+this.designer.prompt(a)+workflowPrompt(a);
+   }
+diff --git a/packages/daemon/src/workflows.ts b/packages/daemon/src/workflows.ts
+--- a/packages/daemon/src/workflows.ts
++++ b/packages/daemon/src/workflows.ts
+@@ -9,2 +9,3 @@
+ import { CommandError, type Daemon } from './daemon.ts';
++import { applyWorkflowOptions, terminateWithPickup } from './workflowOptions.ts';
+ 
+@@ -71,3 +72,3 @@
+     const definition = normalizeWorkflow(input);
+-    const issues = validateWorkflow(definition, this.d.state, { workflowId: o.workflowId ?? null, forStart: o.forStart, projectChecks: this.d.config.project.checks });
++    const issues = validateWorkflow(definition, this.d.state, { workflowId: o.workflowId ?? null, forStart: o.forStart, projectChecks: this.d.config.project.checks, builtinSkills: this.d.designer.skills().map(s => s.id), denylist: this.d.denylist() });
+     if (o.forStart) {
+@@ -108,3 +109,3 @@
+ 
+-  async launch(id: string, actor: Actor = HUMAN): Promise<Workflow> {
++  async launch(id: string, actor: Actor = HUMAN, extra: NewEvent[] = []): Promise<Workflow> {
+     const w = this.get(id);
+@@ -113,3 +114,3 @@
+     if (issues.length) throw new CommandError(issues.map((i) => i.message).join(' '), 422, issues);
+-    this.d.commit([{ type: 'workflow.status', actor, data: { workflowId: id, status: 'running', reason: `started by ${actor.type === 'human' ? 'the owner' : actor.id}` } }]);
++    this.d.commit([{ type: 'workflow.status', actor, data: { workflowId: id, status: 'running', reason: `started by ${actor.type === 'human' ? 'the owner' : actor.id}` } }, ...extra]);
+     await this.evaluate(id);
+@@ -169,2 +170,7 @@
+     return this.get(id);
++  }
++
++  /** Capture bounded pickup points before cancellation; no provider fallback. */
++  terminateWithPickup(id: string, actor: Actor = HUMAN): Promise<Record<string, string | null>> {
++    return terminateWithPickup(this.d, id, actor);
+   }
+@@ -422,2 +428,8 @@
+     }
++    try { a = applyWorkflowOptions(d, a, t); }
++    catch (e) {
++      this.cancelQuietly(a, SYSTEM);
++      d.commit([this.taskEvent(w.id, taskId, { status: 'blocked', reason: (e as Error).message })]);
++      return;
++    }
+     d.commit([this.taskEvent(w.id, taskId, { status: 'queued', assignmentId: a.id, attempts: st.attempts + 1, reason: null, completedSha: null, evidenceIds: [], reviewId: null })]);
+diff --git a/packages/daemon/src/decisions.ts b/packages/daemon/src/decisions.ts
+--- a/packages/daemon/src/decisions.ts
++++ b/packages/daemon/src/decisions.ts
+@@ -130,3 +130,3 @@
+   answer(id: string, answer: string, o: AnswerOptions = {}, actor: Actor = HUMAN): Decision {
+-    if (['settings:decision:', 'agent-cost:', 'connector:decision:', 'connector-tool:', 'env-action:', 'docker:', 'remote:decision:', 'notify:decision:', 'release:', 'release-rollback:', 'release-inspect:'].some(prefix => this.d.store.kvGet(`${prefix}${id}`))) {
++    if (['workflow-link:decision:', 'settings:decision:', 'agent-cost:', 'connector:decision:', 'connector-tool:', 'env-action:', 'docker:', 'remote:decision:', 'notify:decision:', 'release:', 'release-rollback:', 'release-inspect:'].some(prefix => this.d.store.kvGet(`${prefix}${id}`))) {
+       throw new CommandError('Answer this bound action through its action executor', 409);
+@@ -139,2 +139,7 @@
+     this.validateAnswer(id, answer, o, actor);
++    const workflowLinkId = this.d.store.kvGet(`workflow-link:decision:${id}`);
++    if (workflowLinkId) {
++      const link = await this.d.workflowLinks.decide(workflowLinkId, answer, actor, o);
++      return { decision: this.d.state.decisions[id], link };
++    }
+     if (this.d.store.kvGet(`settings:decision:${id}`)) {
+diff --git a/packages/daemon/src/jev.ts b/packages/daemon/src/jev.ts
+--- a/packages/daemon/src/jev.ts
++++ b/packages/daemon/src/jev.ts
+@@ -254,4 +254,31 @@
+ 
+-  private async requestOnce(id: string, input: { inputHash?: string; confirm?: JevConfirm }, actor: Actor = HUMAN): Promise<Decision> {
+-    this.requireHuman(actor);
++  assertWorkflowGate(linkId: string): void {
++    const link = this.d.workflowLinks.get(linkId), policy = link.gate?.jev;
++    const dec = link.decisionId ? this.openDecision(link.decisionId) : null;
++    const config = this.config();
++    if (link.status !== 'open' || link.gate?.kind !== 'jev' || !policy || !policy.confirmedAt || !policy.confirmedBy || !config.enabled || policy.host !== new URL(config.endpoint).host || !config.confirmations.includes('cost') || !config.confirmations.includes('network') || !config.confirmations.includes('data')) throw new CommandError('No current owner-confirmed Jev workflow policy', 409);
++    if (!dec || dec.kind !== 'question' || dec.irreversible || dec.action || dec.risk !== 'low' || dec.confirmOptions?.length || this.d.store.kvGet(`workflow-link:decision:${dec.id}`) !== linkId || dec.question !== link.gate.question || JSON.stringify(dec.options) !== JSON.stringify(link.gate.options.map(o => o.label)) || this.d.workflows.get(link.from).status !== 'completed') throw new CommandError('Jev can route only the bound low-risk workflow question', 403);
++    const bytes = Buffer.byteLength(JSON.stringify(systemOneRequest(this.buildEvidence(dec).payload)));
++    if (bytes > policy.maxEvidenceBytes) throw new CommandError('Gate evidence exceeds the owner-confirmed byte limit', 409);
++    for (const id of link.to) {
++      const target = this.d.workflows.get(id);
++      if (target.status !== 'draft' || target.version !== link.targetVersions[id]) throw new CommandError('Workflow gate target changed', 409);
++    }
++  }
++
++  async requestWorkflowGate(linkId: string): Promise<Decision> {
++    this.assertWorkflowGate(linkId);
++    const link = this.d.workflowLinks.get(linkId), policy = link.gate!.jev!;
++    const preview = await this.preview(link.decisionId!);
++    if (!preview.canRequest) throw new CommandError(preview.blocked ?? 'Jev is not configured', 409);
++    this.d.commit([{ type: 't.system', actor: JEV_ACTOR, data: { text: JSON.stringify({ kind: 'workflow-gate-jev-preview', linkId, host: preview.host, inputHash: preview.inputHash, requestBody: preview.requestBody, confirmedAt: policy.confirmedAt, confirmedBy: policy.confirmedBy, maxEvidenceBytes: policy.maxEvidenceBytes }) } }]);
++    const id = link.decisionId!;
++    if (this.inFlight.has(id)) throw new CommandError('Jev request already in flight', 409);
++    this.inFlight.add(id);
++    try { return await this.requestOnce(id, { inputHash: preview.inputHash, confirm: { host: policy.host, cost: true, network: true, data: true } }, JEV_ACTOR, linkId); }
++    finally { this.inFlight.delete(id); }
++  }
++
++  private async requestOnce(id: string, input: { inputHash?: string; confirm?: JevConfirm }, actor: Actor = HUMAN, workflowLinkId?: string): Promise<Decision> {
++    if (workflowLinkId) this.assertWorkflowGate(workflowLinkId); else this.requireHuman(actor);
+     const dec = this.openDecision(id);
+@@ -305,2 +332,3 @@
+     // A late network response must never advise on a different action or a closed decision.
++    if (workflowLinkId) this.assertWorkflowGate(workflowLinkId);
+     const current = this.openDecision(id);
+diff --git a/packages/daemon/src/skills.ts b/packages/daemon/src/skills.ts
+--- a/packages/daemon/src/skills.ts
++++ b/packages/daemon/src/skills.ts
+@@ -218,5 +218,5 @@
+   /** Exact versions an assignment may use, decided once at creation (and on agent reassignment). */
+-  freeze(agentId: string, workItemId: string): SkillRef[] {
++  freeze(agentId: string, workItemId: string, extra: string[] = []): SkillRef[] {
+     const cfg = this.d.state.agents[agentId]?.config, item = this.d.state.workItems[workItemId];
+-    const ids = new Set(cfg?.skills ?? []);
++    const ids = new Set([...(cfg?.skills ?? []), ...extra]);
+     for (const id of this.d.designer.defaultSkillIds(item)) ids.add(id);
+diff --git a/packages/daemon/src/connectors.ts b/packages/daemon/src/connectors.ts
+--- a/packages/daemon/src/connectors.ts
++++ b/packages/daemon/src/connectors.ts
+@@ -383,2 +383,3 @@
+     if (!this.bound(c)) throw new CommandError('Project or release configuration changed. Save matching settings before requesting a new Decision.', 409);
++    if (c.config.kind === 'mcp' && !c.config.tools.length) throw new CommandError('Review and configure the actual tool names before activation.', 428);
+     if (c.disabled) throw new CommandError('Enable this connection first.', 409);
+@@ -662,2 +663,7 @@
+   requestToolCall(id: string, tool: string, args: Record<string, unknown> = {}, o: { runId?: string | null; workItemId?: string | null; requester?: Actor } = {}) {
++    if (o.runId) {
++      const run = this.d.state.runs[o.runId];
++      const a = run && this.d.state.assignments[run.assignmentId];
++      if (a?.connectors !== undefined && !a.connectors.includes(id)) throw new CommandError('This connector is not attached to your workflow assignment', 403);
++    }
+     return this.toolActions.request(id, tool, args, o);
+@@ -682,4 +688,4 @@
+   /** Approved tool connections an agent may call, with the descriptions it needs. */
+-  toolsForAgents() {
+-    return Object.values(this.all()).filter(c => c.config.kind === 'mcp' && connectorAllows(c, 'execute')).map(c => ({ connector: c.id, name: c.name, tools: c.config.kind === 'mcp' ? c.config.tools : [] }));
++  toolsForAgents(assignmentId?: string) {
++    return Object.values(this.all()).filter(c => c.config.kind === 'mcp' && connectorAllows(c, 'execute') && (assignmentId === undefined || this.d.state.assignments[assignmentId]?.connectors === undefined || this.d.state.assignments[assignmentId].connectors!.includes(c.id))).map(c => ({ connector: c.id, name: c.name, tools: c.config.kind === 'mcp' ? c.config.tools : [] }));
+   }
+diff --git a/packages/daemon/src/team.ts b/packages/daemon/src/team.ts
+--- a/packages/daemon/src/team.ts
++++ b/packages/daemon/src/team.ts
+@@ -46,2 +46,7 @@
+       if (!run || (sender.type === 'agent' && run.agentId !== sender.id) || (workItemId && run.workItemId !== workItemId)) throw new CommandError('run reference does not belong to sender and issue', 403);
++    }
++    if (sender.type === 'agent') {
++      if (!runId && Object.values(this.d.state.assignments).some(a => a.agentId === sender.id && a.consults !== undefined && ['now', 'next'].includes(a.position))) throw new CommandError('A workflow message requires its authenticated run', 403);
++      const assignment = runId ? this.d.state.assignments[this.d.state.runs[runId].assignmentId] : null;
++      if (assignment?.consults !== undefined && recipients.some(id => !assignment.consults!.includes(id))) throw new CommandError('This peer is not connected to your workflow assignment', 403);
+     }
+diff --git a/packages/daemon/src/mcpBridge.ts b/packages/daemon/src/mcpBridge.ts
+--- a/packages/daemon/src/mcpBridge.ts
++++ b/packages/daemon/src/mcpBridge.ts
+@@ -147,3 +147,3 @@
+       case 'list_connector_tools':
+-        return { connectors: d.connectors.toolsForAgents() };
++        return { connectors: d.connectors.toolsForAgents(run.assignmentId) };
+       case 'call_connector_tool': {
+diff --git a/packages/daemon/src/mocks.ts b/packages/daemon/src/mocks.ts
+--- a/packages/daemon/src/mocks.ts
++++ b/packages/daemon/src/mocks.ts
+@@ -647,3 +647,6 @@
+     const a = this.get(id), r = this.rev(a, rev);
+-    if (!this.d.designer.studio.reviewJobFor(assignmentId, a.id)) this.assertAgentAccess(a, assignmentId);
++    const binding = this.d.state.assignments[assignmentId]?.mockBinding;
++    if (binding?.artifactId === id) {
++      if (binding.rev !== r.rev || binding.hash !== r.hash) throw new CommandError('Read only the approved workflow design revision', 403);
++    } else if (!this.d.designer.studio.reviewJobFor(assignmentId, a.id)) this.assertAgentAccess(a, assignmentId);
+     const meta = { artifactId: a.id, title: a.title, dir: a.dir, rev: r.rev, hash: r.hash, designRevision: r.designRevision, files: r.files.map(f => ({ path: f.path, kind: f.kind, bytes: f.bytes, sha256: f.sha256 })), findings: r.findings.filter(f => f.severity !== 'info').map(f => `${f.rule}: ${f.message}`).slice(0, 20), handoff: r.handoff ?? null };
+diff --git a/packages/daemon/src/egress.ts b/packages/daemon/src/egress.ts
+--- a/packages/daemon/src/egress.ts
++++ b/packages/daemon/src/egress.ts
+@@ -40,3 +40,3 @@
+ 
+-export type Fetch = (url: string, init?: RequestInit & { notificationPermit?: string }) => Promise<Response>;
++export type Fetch = (url: string, init?: RequestInit & { notificationPermit?: string; marketplacePermit?: string }) => Promise<Response>;
+ 
+@@ -47,2 +47,4 @@
+   authorizeNotification?: (token: string, url: string, init?: RequestInit) => boolean;
++  /** Exact one-shot public catalog GETs minted only inside marketplace HTTP routes. */
++  authorizeMarketplace?: (token: string, url: string, init?: RequestInit) => boolean;
+   /** Every request made, for the audit view and tests. */
+@@ -55,7 +57,8 @@
+   const isAllowed = (u: URL) => allowed.includes(u.host) || allowed.includes(u.hostname);
+-  const guarded = (async (url: string, init?: RequestInit & { purpose?: string; notificationPermit?: string }) => {
++  const guarded = (async (url: string, init?: RequestInit & { purpose?: string; notificationPermit?: string; marketplacePermit?: string }) => {
+     const u = new URL(url);
+     const token = init?.notificationPermit;
+-    const ok = token !== undefined ? Boolean(egress.authorizeNotification?.(token, url, init)) : isAllowed(u);
+-    log.push({ at: new Date().toISOString(), host: u.host, method: init?.method ?? 'GET', purpose: token !== undefined ? 'notification delivery' : init?.purpose ?? '', allowed: ok });
++    const market = init?.marketplacePermit;
++    const ok = market !== undefined ? Boolean(egress.authorizeMarketplace?.(market, url, init)) : token !== undefined ? Boolean(egress.authorizeNotification?.(token, url, init)) : isAllowed(u);
++    log.push({ at: new Date().toISOString(), host: u.host, method: init?.method ?? 'GET', purpose: market !== undefined ? 'marketplace preview/import' : token !== undefined ? 'notification delivery' : init?.purpose ?? '', allowed: ok });
+     if (log.length > 500) log.splice(0, log.length - 500);
+@@ -63,3 +66,3 @@
+     // A configured host cannot redirect a request (or credentials) to another host.
+-    const { notificationPermit: _permit, purpose: _purpose, ...request } = init ?? {};
++    const { notificationPermit: _permit, marketplacePermit: _market, purpose: _purpose, ...request } = init ?? {};
+     return underlying(url, { ...request, redirect: 'error' });
+diff --git a/packages/daemon/src/server/http.ts b/packages/daemon/src/server/http.ts
+--- a/packages/daemon/src/server/http.ts
++++ b/packages/daemon/src/server/http.ts
+@@ -19,2 +19,4 @@
+ import { registerProjectRoutes } from './project-routes.ts';
++import { registerWorkflowLinkRoutes } from './workflowLinkRoutes.ts';
++import { registerMarketplaceRoutes } from './marketplaceRoutes.ts';
+ import { registerLibraryRoutes } from './libraryRoutes.ts';
+@@ -208,2 +210,4 @@
+ 
++  registerWorkflowLinkRoutes(app, d);
++  registerMarketplaceRoutes(app, d);
+   registerLibraryRoutes(app, d);

@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-10",
+  "branch": "codex/canvas-engine",
+  "baseline": "30eaab7472dbecd85f9bc4d066b4147a6a9da0ba",
+  "engineCommits": [
+    "7d33209",
+    "1076ee7",
+    "18cc3f9",
+    "bcdee47"
+  ],
+  "sharedFiles": [
+    "packages/core/src/entities.ts",
+    "packages/core/src/events.ts",
+    "packages/core/src/reducer.ts",
+    "packages/core/src/index.ts",
+    "packages/core/src/connectors.ts",
+    "packages/daemon/src/daemon.ts",
+    "packages/daemon/src/workflows.ts",
+    "packages/daemon/src/decisions.ts",
+    "packages/daemon/src/jev.ts",
+    "packages/daemon/src/skills.ts",
+    "packages/daemon/src/connectors.ts",
+    "packages/daemon/src/team.ts",
+    "packages/daemon/src/mcpBridge.ts",
+    "packages/daemon/src/mocks.ts",
+    "packages/daemon/src/egress.ts",
+    "packages/daemon/src/server/http.ts"
+  ],
+  "checks": [
+    {
+      "commands": [
+        "./node_modules/.bin/tsc -p packages/core",
+        "./node_modules/.bin/tsc -p packages/daemon",
+        "./node_modules/.bin/tsc -p packages/web"
+      ],
+      "result": "passed"
+    },
+    {
+      "command": "./node_modules/.bin/vitest run packages/core/test/workflow-options.test.ts packages/daemon/test/workflow-options.test.ts packages/daemon/test/workflow-links.test.ts packages/daemon/test/workflow-link-routes.test.ts packages/daemon/test/marketplace.test.ts",
+      "passed": 27,
+      "failed": 0,
+      "files": 5
+    },
+    {
+      "command": "./node_modules/.bin/vitest run --project core --project web",
+      "passed": 264,
+      "failed": 0,
+      "files": 33
+    },
+    {
+      "command": "./node_modules/.bin/vitest run packages/daemon/test/workflows.test.ts packages/daemon/test/workflow-invalidation.test.ts packages/daemon/test/canvas.test.ts packages/daemon/test/mocks.test.ts packages/daemon/test/designer-studio.test.ts packages/daemon/test/jev.test.ts packages/daemon/test/decision-actions.test.ts packages/daemon/test/connector-tool-actions.test.ts packages/daemon/test/connectors.test.ts packages/daemon/test/skills.test.ts packages/daemon/test/team.test.ts",
+      "passed": 92,
+      "failed": 1,
+      "files": 11
+    },
+    {
+      "command": "./packages/web/node_modules/.bin/vite build packages/web --config packages/web/vite.config.ts",
+      "result": "passed",
+      "modules": 445
+    },
+    {
+      "command": "git apply --check /Users/krishkumarsah/Docs/Projects/Interface-codex-engine/docs/verification/canvas-engine/shared-integration.patch",
+      "cwd": "/Users/krishkumarsah/Docs/Projects/Interface",
+      "result": "passed",
+      "applied": false
+    }
+  ],
+  "baselineFailure": {
+    "file": "packages/daemon/test/workflows.test.ts:178",
+    "test": "failed checks, changes requested and cancel are durable states; retry reruns through dispatch",
+    "expected": "changes_requested",
+    "actual": "blocked",
+    "reproducedOnUntouchedBaseline": true,
+    "baselineExtraction": "/tmp/canvas-engine-baseline-check"
+  },
+  "notVerified": [
+    "Full daemon suite",
+    "Live upstream marketplace services",
+    "Paid or live provider calls",
+    "Native desktop UI",
+    "Claude Phase 2 typed graph UI"
+  ],
+  "scope": [
+    "Brief item 1",
+    "Brief item 2",
+    "Brief item 3"
+  ],
+  "relicensingPerformed": false
+}
