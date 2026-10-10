@@ -25,7 +25,13 @@ import { writePrivate } from './paths.ts';
 
 export const MCP_SERVER_PATH = fileURLToPath(new URL('./mcp/server.ts', import.meta.url));
 const IGNORED_PATHS = [CURSOR_MCP_FILE];
-const SAFE_BASH = ['git status', 'git diff', 'git log', 'git show', 'git add', 'git commit', 'git restore', 'git rev-parse', 'git branch', 'ls', 'cat', 'head', 'tail', 'wc', 'pwd', 'grep', 'rg', 'find', 'echo'];
+/**
+ * Shell commands an agent may run without a prompt (as `Bash(<prefix>:*)`). A prefix approves every
+ * argument, so nothing here may delete files or rewrite shared git state: `find` (-delete, -exec)
+ * and `git branch` (-D on refs the worktree shares with the repository) are deliberately absent;
+ * agents have Glob/Grep and `git rev-parse --abbrev-ref HEAD` instead.
+ */
+export const SAFE_BASH: readonly string[] = ['git status', 'git diff', 'git log', 'git show', 'git add', 'git commit', 'git restore', 'git rev-parse', 'ls', 'cat', 'head', 'tail', 'wc', 'pwd', 'grep', 'rg', 'echo'];
 
 interface RunCtx {
   parser: StreamParser;
