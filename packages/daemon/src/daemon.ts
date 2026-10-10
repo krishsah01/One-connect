@@ -48,6 +48,7 @@ import { IssueImports } from './imports.ts';
 import { Team } from './team.ts';
 import { Designer } from './designer.ts';
 import { Decisions } from './decisions.ts';
+import { decisionExecutors } from './decisionExecutors.ts';
 import { AgentCosts, needsCostApproval } from './agentCosts.ts';
 import type { AnswerOptions } from './decisions.ts';
 import { Settings, settingsConfig, type SettingsDraft } from './settings.ts';
@@ -246,6 +247,7 @@ export class Daemon {
     this.infra = new InfraHealth(this);
     this.releasePlans = new ReleasePlans(this);
     this.findings = new ReleaseFindings(this);
+    this.decisions.register(...decisionExecutors(this));
     this.refreshEgress();
   }
 
