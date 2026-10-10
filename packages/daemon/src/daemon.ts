@@ -232,11 +232,7 @@ export class Daemon {
     this.connectors = new Connectors(this);
     // MCP transports belong to individual calls, not to the detached agent runner. Stop them
     // before runner shutdown can wait on a vendor; keep this hook scoped to this project engine.
-    const stopRun = this.runs.stop.bind(this.runs);
-    this.runs.stop = async (...args: Parameters<RunManager['stop']>) => {
-      await this.connectors.toolActions.stopRun(args[0]);
-      await stopRun(...args);
-    };
+    this.runs.onBeforeStop((runId) => this.connectors.toolActions.stopRun(runId));
     this.mocks = new DesignMocks(this);
     this.remote = new RemoteAccess(this);
     this.notifications = new Notifications(this);
@@ -305,35 +301,48 @@ export class Daemon {
   }
 
   async shutdown(): Promise<void> {
-    await this.connectors.toolActions.close();
-    this.workflowLinks.stop();
-    this.workflows.stop();
-    await this.designer.studio.close();
-    this.reviewMerge.stop();
-    this.rules.stop();
-    this.outbox.stop();
-    this.poller.stop();
-    this.runs.supervisor.stopPolling();
-    this.watcher.closeAll();
-    this.context.stop();
-    this.team.stop();
-    this.notifications.stop();
-    await this.remote.shutdown();
-    await this.environment.close();
-    this.context.flush();
-    await this.context.answer.close();
-    await this.context.docs?.close();
+    // Every step is isolated: one failing service must never leave the event store open or
+    // unsnapshotted. Failures are reported together once everything that can stop has stopped.
+    const failures: string[] = [];
+    const step = async (name: string, fn: () => unknown) => {
+      try {
+        await fn();
+      } catch (e) {
+        failures.push(`${name}: ${(e as Error).message}`);
+      }
+    };
+    await step('connector tools', () => this.connectors.toolActions.close());
+    await step('workflow links', () => this.workflowLinks.stop());
+    await step('workflows', () => this.workflows.stop());
+    await step('designer studio', () => this.designer.studio.close());
+    await step('review/merge', () => this.reviewMerge.stop());
+    await step('rules', () => this.rules.stop());
+    await step('outbox', () => this.outbox.stop());
+    await step('tracker poller', () => this.poller.stop());
+    await step('run supervisor', () => this.runs.supervisor.stopPolling());
+    await step('worktree watcher', () => this.watcher.closeAll());
+    await step('context sync', () => this.context.stop());
+    await step('team', () => this.team.stop());
+    await step('notifications', () => this.notifications.stop());
+    await step('remote access', () => this.remote.shutdown());
+    await step('environment', () => this.environment.close());
+    await step('context flush', () => this.context.flush());
+    await step('context answers', () => this.context.answer.close());
+    await step('context docs', () => this.context.docs?.close());
     // Let in-flight finalizers/checks land (bounded), then refuse further writes.
-    let finalizerTimeout:NodeJS.Timeout|undefined;
-    try{
-      await Promise.race([Promise.allSettled([...this.runs.inflight]),new Promise(r=>{finalizerTimeout=setTimeout(r,20_000);})]);
-    }finally{if(finalizerTimeout)clearTimeout(finalizerTimeout);}
+    let finalizerTimeout: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([Promise.allSettled([...this.runs.inflight]), new Promise((r) => { finalizerTimeout = setTimeout(r, 20_000); })]);
+    } finally {
+      if (finalizerTimeout) clearTimeout(finalizerTimeout);
+    }
     this.closed = true;
     // Agent runs keep going: they are detached and reattached on the next start.
-    this.store.saveSnapshot(this.state);
-    this.store.close();
-    (this.tracker as { close?: () => void }).close?.();
+    await step('snapshot', () => this.store.saveSnapshot(this.state));
+    await step('event store', () => this.store.close());
+    await step('tracker', () => (this.tracker as { close?: () => void }).close?.());
     this.started = false;
+    if (failures.length) throw new Error(`shutdown finished with errors: ${failures.join('; ')}`);
   }
 
   /** Bring agents/project/policies in the event log in line with control-center.yaml. */

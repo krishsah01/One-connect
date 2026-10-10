@@ -617,7 +617,15 @@ export class RunManager {
 
   // ---- control -----------------------------------------------------------------------------
 
+  private readonly beforeStop: ((runId: string) => Promise<void> | void)[] = [];
+
+  /** Run `hook` before any stop, pause or kill of a run (e.g. to close that run's tool transports). */
+  onBeforeStop(hook: (runId: string) => Promise<void> | void): void {
+    this.beforeStop.push(hook);
+  }
+
   async stop(runId: string, reason: string, actor: Actor = HUMAN, kind: 'stopped' | 'killed' = 'stopped', pause = false): Promise<void> {
+    for (const hook of this.beforeStop) await hook(runId);
     const run = this.d.state.runs[runId];
     if (!run) throw new CommandError(`unknown run ${runId}`, 404);
     if (!isActiveRun(run)) return;
