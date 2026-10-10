@@ -1,0 +1,20 @@
+{
+  "repo": { "default_branch": "main" },
+  "commit": { "sha": "1111111111111111111111111111111111111111" },
+  "files": {
+    "LICENSE": "MIT License\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software.\n",
+    "skills/planning/SKILL.md": "---\nname: planning\ndescription: Use when planning a bounded coding workflow.\nlicense: MIT\n---\nRead references/guide.md and plan the work.\n",
+    "skills/planning/references/guide.md": "Keep every approval and verify current evidence.\n",
+    "skills/review/SKILL.md": "---\nname: review\ndescription: Use when reviewing a workflow change.\n---\nInspect the recorded evidence.\n"
+  },
+  "registry": {
+    "servers": [{
+      "server": {
+        "name": "io.example/notes", "version": "1.2.3", "description": "An offline fixture MCP notes server.",
+        "packages": [{ "registryType": "npm", "identifier": "@example/notes", "version": "1.2.3", "transport": { "type": "stdio" } }]
+      },
+      "_meta": { "io.modelcontextprotocol.registry/official": { "status": "active" } }
+    }],
+    "metadata": { "count": 1 }
+  }
+}
