@@ -31,6 +31,7 @@ import type {
   DictionaryStatus,
 } from './entities.ts';
 import type { BlockedOn, LifecycleState } from './lifecycle.ts';
+import { ellipsize } from './text.ts';
 import type { DesignRevision } from './design.ts';
 import type { Workflow, WorkflowStatus, WorkflowTaskState } from './workflows.ts';
 import type { WorkflowLink } from './workflowLinks.ts';
@@ -233,7 +234,7 @@ export const agentActor = (id: string): Actor => ({ type: 'agent', id });
 /** Summary line used for "last meaningful event"; null for noise (usage, raw, reasoning). */
 export function meaningfulSummary(e: { type: string; data: unknown }): string | null {
   const d = e.data as Record<string, unknown>;
-  const clip = (s: string, n = 140) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+  const clip = (s: string, n = 140) => ellipsize(s, n);
   switch (e.type) {
     case 't.message':
       return d.role === 'assistant' ? clip(String(d.text).replace(/\s+/g, ' ').trim()) : null;

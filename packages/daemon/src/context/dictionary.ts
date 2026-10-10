@@ -7,7 +7,6 @@
 // immutable generation atomically, then bring keyword, vector and Graphify stages to the same
 // revision. Every stage reports the revision it was built from; nothing is green unless all of
 // them match. Jobs coalesce, can be cancelled, and resume after a restart.
-import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import type { DocAnswer,DocSearchResult,DictionaryChanges,DictionaryJob,DictionaryStage,DictionaryStageName,DictionaryStatus } from '@acc/core';
@@ -21,8 +20,8 @@ import { redactMetadata,sourcePath } from './redaction.ts';
 import { AnswerManifest,PIPELINE_VERSION,pathKey,type BlobRow,type Generation,type SnapshotRow } from './manifest.ts';
 import { analyzeStructure } from './structure.ts';
 import { mentions,type Expansion,type Ranked } from './retrieval.ts';
+import { sha256 } from '../util/hash.ts';
 
-const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
 const literal=(s:string)=>s.replace(/[\\`*_{}\[\]()#+.!|<>]/g,'\\$&');
 const fence=(s:string)=>'~'.repeat(Math.max(3,...[...s.matchAll(/~+/g)].map(m=>m[0].length+1)));
 const tick=()=>new Promise<void>(r=>setImmediate(r));
@@ -38,7 +37,7 @@ export function renderNote(file:{path:string;language:string;content:string}):st
 }
 /** Real source line count: a final newline does not start another line. */
 export const lineCount=(content:string)=>content===''?0:content.replace(/\n$/,'').split('\n').length;
-export const noteName=(safePath:string)=>hash(safePath)+'.md';
+export const noteName=(safePath:string)=>sha256(safePath)+'.md';
 
 interface Source {path:string;revision:string;hash:string;noteHash:string;lines:number;}
 class Cancelled extends Error {}
@@ -179,8 +178,8 @@ export class Dictionary {
     const repo=this.d.config.project.repo;
     return await projectCommit(repo,`refs/heads/${this.d.config.project.integration_branch}`)??await projectCommit(repo,'HEAD');
   }
-  private policy():string { return hash(`${PIPELINE_VERSION}\n${JSON.stringify([...this.d.denylist()].sort())}\n${JSON.stringify(this.limits)}`); }
-  private scope(ref:string):string { return hash(`${this.vault.root}\n${this.vault.folder}\n${ref}\n${this.d.redactText(this.d.config.project.name)}`); }
+  private policy():string { return sha256(`${PIPELINE_VERSION}\n${JSON.stringify([...this.d.denylist()].sort())}\n${JSON.stringify(this.limits)}`); }
+  private scope(ref:string):string { return sha256(`${this.vault.root}\n${this.vault.folder}\n${ref}\n${this.d.redactText(this.d.config.project.name)}`); }
 
   private async run(force:boolean,reason:Reason):Promise<void> {
     if(this.ctrl.signal.aborted&&!this.stopped)this.ctrl=new AbortController();
@@ -208,7 +207,7 @@ export class Dictionary {
     const ref=this.d.redactText(integration?branch:'HEAD');
     if(!sha)throw new Error('Commit the project before indexing it. One Ask reads exact committed revisions.');
     job.revision=sha;this.saveJob(job,true);
-    const policy=this.policy(),scope=this.scope(ref),generationId=hash(`${sha}\n${policy}\n${scope}`);
+    const policy=this.policy(),scope=this.scope(ref),generationId=sha256(`${sha}\n${policy}\n${scope}`);
     const current=this.manifest.current();
     if(this.graph&&(!current||current.policy!==policy||current.scope!==scope))this.graph.invalidateSourcePolicy();
     if(!force&&current?.id===generationId&&this.notesIntact(current)) {
@@ -253,7 +252,7 @@ export class Dictionary {
       if(used.has(safe)||total+blob.bytes>this.limits.totalBytes){excluded++;truncated=true;continue;}
       used.add(safe);total+=blob.bytes;
       const language=languageOf(e.path),note=renderNote({path:safe,language,content:blob.content});
-      rows.push({key:pathKey(e.path),path:safe,oid:e.oid,language,bytes:blob.bytes,hash:blob.hash,lines:blob.lines,noteHash:hash(note)});
+      rows.push({key:pathKey(e.path),path:safe,oid:e.oid,language,bytes:blob.bytes,hash:blob.hash,lines:blob.lines,noteHash:sha256(note)});
       files.push({path:safe,language,content:blob.content});languages[language]=(languages[language]??0)+1;
     }
     const changes=this.diff(current,rows,sha,policy,scope);
@@ -280,7 +279,7 @@ export class Dictionary {
     const stages=this.initialStages(sha);
     const generation:Generation={id:generationId,revision:sha,policy,scope,createdAt:this.d.nowIso(),files:rows.length,totalFiles:entries.length,excludedFiles:excluded,truncated,languages,stages,changes};
     this.manifest.publish(generation,rows,structure);
-    this.manifest.setMeta('overview-hash',hash(overview));
+    this.manifest.setMeta('overview-hash',sha256(overview));
     // Legacy (v3) keys are superseded by the manifest. 'answer:sources' stays as a read-only mirror
     // of the attribution registry for older readers; the manifest is authoritative.
     for(const k of ['answer:source-key','answer:overview-hash'])this.d.store.kvDelete(k);
@@ -358,7 +357,7 @@ export class Dictionary {
       const rows=this.manifest.snapshot(g.id);
       if(Object.keys(registry).filter(n=>n!=='Overview.md').length!==rows.length)return false;
       for(const r of rows)if(registry[noteName(r.path)]!==r.noteHash)return false;
-      for(const [name,digest] of Object.entries(registry))if(hash(this.vault.read(this.vault.notePath(COLLECTION,name)))!==digest)return false;
+      for(const [name,digest] of Object.entries(registry))if(sha256(this.vault.read(this.vault.notePath(COLLECTION,name)))!==digest)return false;
       return true;
     } catch { return false; }
   }
@@ -419,7 +418,7 @@ export class Dictionary {
     return {...result,citations:result.citations.map(c=>{
       const {projectSource:previous,...plain}=c;
       const s=this.sources[c.path];if(!s||s.revision!==this.status.notesRevision||(previous&&previous.revision!==s.revision)||!this.docs.validCitation(c))return plain;
-      try{if(hash(this.vault.read(c.path))!==s.noteHash)return plain;}catch{return plain;}
+      try{if(sha256(this.vault.read(c.path))!==s.noteHash)return plain;}catch{return plain;}
       if(c.endLine<=NOTE_HEADER_LINES||c.line>NOTE_HEADER_LINES+s.lines)return plain;
       const excerpt=this.clean(c)||c.excerpt;
       return {...c,excerpt,projectSource:{path:s.path,revision:s.revision,hash:s.hash,line:Math.max(1,c.line-NOTE_HEADER_LINES),endLine:Math.min(s.lines,Math.max(1,c.endLine-NOTE_HEADER_LINES))}};

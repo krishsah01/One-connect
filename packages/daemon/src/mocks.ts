@@ -8,7 +8,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import {
   agentActor, artifactStatus, authorOf, briefPages, compareRevisions, containsSecret, designCss, designMarkdown, DesignHandoffSchema, designPalette, designSpecimenHtml,
   designTokensJson, HUMAN, inScope, isActiveRun, lineDiff, mockGate, MOCK_DIR_RE, MOCK_EXTENSIONS, MOCK_IFRAME_SANDBOX, MOCK_LIMITS, MOCK_PREVIEW_CSP,
@@ -18,8 +17,8 @@ import {
 } from '@acc/core';
 import { headSha } from './adapters/vcs/git.ts';
 import { CommandError, type Daemon } from './daemon.ts';
+import { sha256 } from './util/hash.ts';
 
-const sha = (b: string | Buffer) => createHash('sha256').update(b).digest('hex');
 const TEXT_KINDS = new Set(['html', 'css', 'js', 'svg', 'json', 'md']);
 const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json' };
 const IGNORED = new Set(['.DS_Store']);
@@ -69,12 +68,12 @@ export function lintMock(files: { path: string; kind: MockFile['kind']; text: st
       const v = r.value.split(/\s+/)[0];
       if (!v || v.startsWith('#') || v.startsWith('data:') || v.startsWith('blob:') || /^javascript:\s*void/i.test(v)) continue;
       if (REMOTE.test(v) || (SCHEME.test(v) && !/^(?:mailto|tel):/i.test(v))) {
-        findings.push({ id: `remote:${f.path}:${sha(v).slice(0, 10)}`, severity: 'error', rule: 'remote-resource', message: `Remote or external reference ${v.slice(0, 120)}. Mocks must be self-contained; the preview blocks it.`, file: f.path, line: lineOf(t, r.index) });
+        findings.push({ id: `remote:${f.path}:${sha256(v).slice(0, 10)}`, severity: 'error', rule: 'remote-resource', message: `Remote or external reference ${v.slice(0, 120)}. Mocks must be self-contained; the preview blocks it.`, file: f.path, line: lineOf(t, r.index) });
         continue;
       }
       if (/^(?:mailto|tel):/i.test(v)) continue;
       const target = path.posix.normalize(path.posix.join(path.posix.dirname(f.path), v.split(/[?#]/)[0]));
-      if (target.startsWith('..')) findings.push({ id: `outside:${f.path}:${sha(v).slice(0, 10)}`, severity: 'error', rule: 'outside-folder', message: `${v} points outside the mock folder.`, file: f.path, line: lineOf(t, r.index) });
+      if (target.startsWith('..')) findings.push({ id: `outside:${f.path}:${sha256(v).slice(0, 10)}`, severity: 'error', rule: 'outside-folder', message: `${v} points outside the mock folder.`, file: f.path, line: lineOf(t, r.index) });
       else if (!names.has(target)) findings.push({ id: `missing:${f.path}:${target}`, severity: 'warn', rule: 'missing-asset', message: `${v} is not in this mock folder.`, file: f.path, line: lineOf(t, r.index) });
     }
     for (const m of t.matchAll(/\b(fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts|RTCPeerConnection)\s*\(/g)) {
@@ -85,7 +84,7 @@ export function lintMock(files: { path: string; kind: MockFile['kind']; text: st
     }
     if (f.kind === 'css' || f.kind === 'html' || f.kind === 'svg') {
       const off = hexes(t).filter(h => !palette.has(h));
-      if (design && off.length) findings.push({ id: `palette:${f.path}:${sha(off.sort().join(',')).slice(0, 10)}`, severity: 'warn', rule: 'off-token-color', message: `${off.length} color${off.length === 1 ? '' : 's'} outside the contract palette: ${off.slice(0, 8).join(', ')}${off.length > 8 ? '…' : ''}. Use --design-* tokens or record an exception.`, file: f.path });
+      if (design && off.length) findings.push({ id: `palette:${f.path}:${sha256(off.sort().join(',')).slice(0, 10)}`, severity: 'warn', rule: 'off-token-color', message: `${off.length} color${off.length === 1 ? '' : 's'} outside the contract palette: ${off.slice(0, 8).join(', ')}${off.length > 8 ? '…' : ''}. Use --design-* tokens or record an exception.`, file: f.path });
     }
     if (f.kind === 'html' && /<meta[^>]+http-equiv\s*=\s*["']?refresh/i.test(t)) findings.push({ id: `refresh:${f.path}`, severity: 'error', rule: 'navigation', message: 'meta refresh navigates away; removed from previews.', file: f.path });
   }
@@ -94,7 +93,7 @@ export function lintMock(files: { path: string; kind: MockFile['kind']; text: st
   if (html?.text && !/<html[^>]*\blang\s*=/i.test(html.text)) findings.push({ id: `lang:${entry}`, severity: 'warn', rule: 'document-language', message: 'Set <html lang> for screen readers.', file: entry });
   if (design && !usesTokens) findings.push({ id: 'tokens-unused', severity: 'warn', rule: 'tokens', message: 'No var(--design-*) token is used. Include the contract tokens.css and reference its variables.' });
   const tokens = files.find(f => f.path === 'tokens.css');
-  if (design && tokens?.text && tokens.text.trim() !== designCss(design.system).trim()) findings.push({ id: `tokens-stale:${sha(tokens.text).slice(0, 10)}`, severity: 'warn', rule: 'tokens', message: `tokens.css differs from contract v${design.version}.`, file: 'tokens.css' });
+  if (design && tokens?.text && tokens.text.trim() !== designCss(design.system).trim()) findings.push({ id: `tokens-stale:${sha256(tokens.text).slice(0, 10)}`, severity: 'warn', rule: 'tokens', message: `tokens.css differs from contract v${design.version}.`, file: 'tokens.css' });
   findings.push({ id: 'static-only', severity: 'info', rule: 'scope', message: 'Static checks cannot prove visual compliance. Review the preview at phone, tablet and desktop widths and attach executed evidence.' });
   return [...new Map(findings.map(f => [f.id, f])).values()];
 }
@@ -272,7 +271,7 @@ export class DesignMocks {
   }
 
   private putBlob(content: Buffer): string {
-    const h = sha(content);
+    const h = sha256(content);
     const file = path.join(this.blobDir(), h);
     if (!fs.existsSync(file)) {
       fs.mkdirSync(this.blobDir(), { recursive: true, mode: 0o700 });
@@ -287,7 +286,7 @@ export class DesignMocks {
     const file = path.join(this.blobDir(), h);
     if (!/^[a-f0-9]{64}$/.test(h) || !fs.existsSync(file)) throw new CommandError(`Stored content for ${label} is missing`, 410);
     const b = fs.readFileSync(file);
-    if (sha(b) !== h) throw new CommandError(`Stored content for ${label} failed its integrity check`, 409);
+    if (sha256(b) !== h) throw new CommandError(`Stored content for ${label} failed its integrity check`, 409);
     return b;
   }
   private blob(f: MockFile): Buffer { return this.blobBySha(f.sha256, f.path); }
@@ -338,11 +337,11 @@ export class DesignMocks {
       const kind = MOCK_EXTENSIONS[path.extname(f.rel).toLowerCase()]!;
       const text = TEXT_KINDS.has(kind) ? content.toString('utf8') : null;
       if (text !== null && containsSecret(text, { denylist: this.d.denylist() }).length) throw new CommandError(`${f.rel} contains a credential; remove it before capture`, 400);
-      files.push({ path: f.rel, sha256: sha(content), bytes: content.length, kind });
+      files.push({ path: f.rel, sha256: sha256(content), bytes: content.length, kind });
       texts.push({ path: f.rel, kind, text });
     }
     files.sort((x, y) => x.path.localeCompare(y.path));
-    const hash = sha(files.map(f => `${f.path}\0${f.sha256}`).join('\n'));
+    const hash = sha256(files.map(f => `${f.path}\0${f.sha256}`).join('\n'));
     const continued = this.d.designer.studio.continuedArtifact(a.id, dir);
     const existing = (continued ? this.all()[continued] : undefined) ?? Object.values(this.all()).find(m => m.assignmentId === a.id && m.dir === dir);
     if (existing && existing.revisions.at(-1)?.hash === hash) return { artifact: this.view(existing), revision: existing.revisions.at(-1)!, unchanged: true };
@@ -476,7 +475,7 @@ export class DesignMocks {
     if (process.platform === 'darwin') {
       if (expectedSha === null) throw new CommandError('Choose an existing captured file to edit', 400);
       const current = this.nativeFile('read', root, rel, MOCK_LIMITS.fileBytes);
-      if (sha(current) !== expectedSha) throw new CommandError('The file changed since you opened it. Reload before saving.', 409);
+      if (sha256(current) !== expectedSha) throw new CommandError('The file changed since you opened it. Reload before saving.', 409);
       const size = Buffer.alloc(8); size.writeBigUInt64LE(BigInt(current.length));
       this.nativeFile('write', root, rel, MOCK_LIMITS.fileBytes, Buffer.concat([size, current, Buffer.from(content)]));
       return this.capture(asg.id, a.dir, HUMAN, edit);
@@ -497,7 +496,7 @@ export class DesignMocks {
         offset += n;
       }
       const after = fs.fstatSync(fd);
-      if (offset !== st.size || after.size !== st.size || after.ctimeMs !== st.ctimeMs || (expectedSha !== null && sha(current) !== expectedSha)) throw new CommandError('The file changed since you opened it. Reload before saving.', 409);
+      if (offset !== st.size || after.size !== st.size || after.ctimeMs !== st.ctimeMs || (expectedSha !== null && sha256(current) !== expectedSha)) throw new CommandError('The file changed since you opened it. Reload before saving.', 409);
       fs.ftruncateSync(fd, 0);
       const bytes = Buffer.from(content);
       for (let offset = 0; offset < bytes.length;) offset += fs.writeSync(fd, bytes, offset, bytes.length - offset, offset);

@@ -124,6 +124,4 @@ export interface VendorAdapter {
 
 export const unknownUsage = (source: string): UsageInfo => ({ windows: [], status: 'unknown', checkedAt: new Date().toISOString(), source });
 
-export function clip(s: string, n = 2000): string {
-  return s.length > n ? s.slice(0, n) + `… [${s.length - n} more chars]` : s;
-}
+export { clip } from '@acc/core';

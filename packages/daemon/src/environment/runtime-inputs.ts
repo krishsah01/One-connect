@@ -3,8 +3,8 @@
 // and daemon restarts; temporary approval/build snapshots cannot own their lifetime.
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 import { readScopedBytes, scopedPath } from './compose.ts';
+import { sha256 } from '../util/hash.ts';
 
 export class RuntimeInputs {
   private root: string;
@@ -28,7 +28,7 @@ export class RuntimeInputs {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     scopedPath(this.root, dir);
     fs.chmodSync(dir, 0o700);
-    const file = path.join(dir, createHash('sha256').update(bytes).digest('hex'));
+    const file = path.join(dir, sha256(bytes));
     try { fs.writeFileSync(file, bytes, { flag: 'wx', mode: 0o400 }); }
     catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
     if (!readScopedBytes(dir, file, 1024 * 1024).equals(bytes)) throw new Error('A retained runtime input changed; refusing to launch');

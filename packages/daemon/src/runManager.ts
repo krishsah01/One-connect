@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Actor, AgentState, Assignment, Evidence, ExitReason, Handoff, NewEvent, Run, RunState, TestCounts } from '@acc/core';
-import { agentActor, branchName, formatHandoff, HUMAN, isActiveRun, newId, outOfScope, parseHandoff, redact, slugify, SYSTEM } from '@acc/core';
+import { agentActor, branchName, formatHandoff, HUMAN, isActiveRun, newId, outOfScope, parseHandoff, redact, shellQuote, slugify, SYSTEM } from '@acc/core';
 import { CURSOR_MCP_FILE } from './adapters/agents/cursor.ts';
 import { sanitizeEnv } from './adapters/agents/env.ts';
 import { classifyFailure, type Failure } from './adapters/agents/failures.ts';
@@ -220,7 +220,6 @@ export class RunManager {
     }
     const checkConfigPath = path.join(runDir, 'project-checks.json');
     writePrivate(checkConfigPath, JSON.stringify({ project, policies: { redact_env: d.config.policies.redact_env }, agents: [{ id: 'checks', name: 'Project checks', role: 'qa', adapter: 'relay' }] }));
-    const shellQuote = (s: string) => "'" + s.replaceAll("'", "'\\''") + "'";
     const checkCommand = `${shellQuote(process.execPath)} ${shellQuote(fileURLToPath(new URL('./cli.ts', import.meta.url)))} check --config ${shellQuote(checkConfigPath)} --worktree ${shellQuote(asg.worktree!)}`;
     const runtimeInstruction = project.check_runtime?.mode === 'host-fixture'
       ? 'HOST FIXTURE (unsandboxed; disposable tests/demo only).'

@@ -4,6 +4,7 @@
 import type { CodeHostCheck, CodeHostPull, CodeHostSnapshot, ReleaseCapability } from '@acc/core';
 import type { Fetch } from '../../egress.ts';
 import { ProviderRefused, fixtureUrl, liveUrl, readJson } from './http.ts';
+import { asRecord } from '@acc/core';
 
 export interface HostReadOpt {
   headers?: Record<string, string>;
@@ -23,10 +24,6 @@ export async function readCapability(fetch: Fetch, base: string, route: string, 
   const result = await readJson(fetch, endpoint(base, route, opt.live), opt);
   if (opt.live) opt.authorize!(capability);
   return result;
-}
-
-function asRecord(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
 
 function checkStatus(status: unknown, conclusion: unknown): CodeHostCheck['status'] {

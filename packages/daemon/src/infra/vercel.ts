@@ -5,10 +5,7 @@ import type { Fetch } from '../egress.ts';
 import { ProviderRefused } from '../adapters/hosts/http.ts';
 import type { HostReadOpt } from '../adapters/hosts/github.ts';
 import { readCapability } from '../adapters/hosts/github.ts';
-
-function asRecord(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-}
+import { asRecord } from '@acc/core';
 
 export async function readVercel(fetch: Fetch, base: string, project: string, opt: HostReadOpt = {}): Promise<InfraHealthReport['vercel']> {
   const source = opt.live ? 'live' as const : 'fixture' as const;

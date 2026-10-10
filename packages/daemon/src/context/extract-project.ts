@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Read immutable Git blobs only. No checkout, project command, hook, install or remote fetch.
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { redactJsonStrings,sourcePath } from './redaction.ts';
 import { analyzeStructure } from './structure.ts';
+import { sha256 } from '../util/hash.ts';
 
 export interface ProjectFile { path:string;language:string;bytes:number;hash:string;content:string; }
 export interface ProjectPackage { path:string;name:string|null;dependencies:string[];scripts:Record<string,string>;ecosystem?:string; }
@@ -15,7 +15,6 @@ export interface ProjectExtraction {
 export interface ExtractLimits { files:number;fileBytes:number;totalBytes:number; }
 /** Defaults sized for a real mid-sized repository; anything beyond is reported as partial. */
 export const DEFAULT_LIMITS:ExtractLimits={files:2000,fileBytes:64*1024,totalBytes:16*1024*1024};
-const hash=(b:string)=>createHash('sha256').update(b).digest('hex');
 export const LANGUAGES:Record<string,string>={ts:'TypeScript',tsx:'TypeScript',mts:'TypeScript',cts:'TypeScript',js:'JavaScript',jsx:'JavaScript',mjs:'JavaScript',cjs:'JavaScript',py:'Python',pyi:'Python',rs:'Rust',go:'Go',swift:'Swift',kt:'Kotlin',kts:'Kotlin',java:'Java',cs:'C#',cpp:'C++',cc:'C++',hpp:'C++',c:'C',h:'C',m:'Objective-C',rb:'Ruby',php:'PHP',sql:'SQL',sh:'Shell',bash:'Shell',zsh:'Shell',md:'Markdown',mdx:'Markdown',yaml:'YAML',yml:'YAML',json:'JSON',toml:'TOML',ini:'INI',cfg:'INI',css:'CSS',scss:'CSS',html:'HTML',vue:'Vue',svelte:'Svelte',xml:'XML',graphql:'GraphQL',proto:'Protobuf',tf:'Terraform',prisma:'Prisma'};
 export function languageOf(file:string):string { return LANGUAGES[path.extname(file).slice(1).toLowerCase()]??'Configuration'; }
 
@@ -117,7 +116,7 @@ export function decodeBlob(blob:Buffer,redact:(s:string)=>string,maxBytes:number
   try{raw=new TextDecoder('utf-8',{fatal:true}).decode(blob);}catch{return {ok:false,reason:'encoding'};}
   const content=redact(redactJsonStrings(raw,redact)),bytes=Buffer.byteLength(content);
   if(bytes>maxBytes)return {ok:false,reason:'size'};
-  return {ok:true,content,raw,bytes,hash:hash(content)};
+  return {ok:true,content,raw,bytes,hash:sha256(content)};
 }
 
 const MANIFEST=/(^|\/)(package\.json|cargo\.toml|pyproject\.toml|requirements[\w.-]*\.txt|go\.mod|package\.swift|gemfile|dockerfile(?:\..*)?|(?:docker-)?compose(?:\.[\w-]+)?\.ya?ml)$/i;

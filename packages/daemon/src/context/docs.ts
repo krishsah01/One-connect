@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Scoped, redacted local retrieval. SQLite FTS5 works without an AI provider; optional
 // embeddings and answers use only a user-selected, already-installed local Ollama model.
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -10,6 +9,7 @@ import { bestPassage,evidence,fuse,order,queryTerms,select,type Candidate,type E
 import type { Fetch } from '../egress.ts';
 import type { Vault } from './vault.ts';
 import { redactJsonStrings,redactMetadata,sourcePath } from './redaction.ts';
+import { sha256 } from '../util/hash.ts';
 
 interface Chunk { id: string; path: string; title: string; content: string; line: number; endLine: number; }
 interface Row { id: string; path: string; title: string; content: string; start_line: number; end_line: number; vector: string | null; model: string | null; }
@@ -17,7 +17,6 @@ class LocalModelError extends Error {
   readonly contextLength:boolean;
   constructor(message:string,contextLength=false) {super(message);this.contextLength=contextLength;}
 }
-const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const tick = () => new Promise<void>(r => setImmediate(r));
 const normalize = (v: number[]) => { const len = Math.hypot(...v); if (!len) throw new Error('embedding model returned a zero vector'); return v.map(x => x / len); };
 const terms=queryTerms;
@@ -41,7 +40,7 @@ export function docChunks(rel: string, text: string, maxChars=800): Chunk[] {
     const content=parts.slice(start,i).map((p,k)=>(k>0&&!p.cont?'\n':'')+p.text).join('');
     if(content.trim()) {
       const line=parts[start].line,endLine=parts[i-1].line;
-      out.push({id:hash(`${rel}\n${line}\n${endLine}\n${content}`),path:rel,title:path.basename(rel,'.md'),content,line,endLine});
+      out.push({id:sha256(`${rel}\n${line}\n${endLine}\n${content}`),path:rel,title:path.basename(rel,'.md'),content,line,endLine});
     }
     if(i<parts.length && i-start>2 && parts[i-1].text.length<250) i--;
   }
@@ -83,7 +82,7 @@ export class AskDocs {
       CREATE TABLE IF NOT EXISTS chunks(id TEXT PRIMARY KEY,path TEXT,title TEXT,content TEXT,start_line INTEGER,end_line INTEGER,vector TEXT,model TEXT);
       CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5(id UNINDEXED,title,content);
       CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT);`);
-    const scope=hash(JSON.stringify({version:2,root:vault.root,owner:vault.owner,folders:vault.readableFolders()}));
+    const scope=sha256(JSON.stringify({version:2,root:vault.root,owner:vault.owner,folders:vault.readableFolders()}));
     if(this.meta('scope')!==scope) {
       this.db.exec('DELETE FROM chunks; DELETE FROM search; DELETE FROM meta;');
       this.setMeta('scope',scope);
@@ -127,7 +126,7 @@ export class AskDocs {
       const details=await this.json('/api/show',{model});
       if(!Array.isArray(details.capabilities) || !details.capabilities.includes('embedding')) throw new Error(`${model} does not report embedding support. Choose an embedding model.`);
     }
-    return hash(`${this.cfg.endpoint}\n${exact}\n${found.digest ?? ''}`);
+    return sha256(`${this.cfg.endpoint}\n${exact}\n${found.digest ?? ''}`);
   }
   private async signature():Promise<string> {
     if(this.modelCache && Date.now()-this.modelCache.at<30000) return this.modelCache.signature;

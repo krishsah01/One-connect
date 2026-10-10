@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Human decisions bound to one exact action. Irreversible or outward options need a second,
 // single-use confirmation; only a human actor can answer; recommendations (e.g. Jev) are advisory.
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { Actor, Decision, EventEnvelope, NewEvent } from '@acc/core';
 import { HUMAN, newId } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';
+import { sha256 } from './util/hash.ts';
 
 const CONFIRM_TTL_MS = 2 * 60_000;
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 export interface AnswerOptions { nonce?: string | null; channel?: string }
 
 export type NewDecision = Pick<Decision, 'question' | 'options'> &
@@ -93,7 +93,7 @@ export class Decisions {
     const nonce = randomBytes(18).toString('hex');
     const expiresAt = new Date(this.d.now().getTime() + CONFIRM_TTL_MS).toISOString();
     this.d.commit([{ type: 'decision.confirmation_requested', actor, workItemId: dec.workItemId ?? null, data: { decisionId: id, answer, expiresAt } }], [], () =>
-      this.d.store.kvSet(`decision-confirm:${id}`, JSON.stringify({ nonce: sha(nonce), answer, expiresAt })),
+      this.d.store.kvSet(`decision-confirm:${id}`, JSON.stringify({ nonce: sha256(nonce), answer, expiresAt })),
     );
     return { confirm: true, nonce, expiresAt };
   }
@@ -107,7 +107,7 @@ export class Decisions {
     if (confirm) {
       const raw = this.d.store.kvGet(`decision-confirm:${id}`);
       const pending = raw ? (JSON.parse(raw) as { nonce: string; answer: string; expiresAt: string }) : null;
-      if (!pending || !o.nonce || pending.nonce !== sha(o.nonce) || pending.answer !== answer) throw new CommandError('confirm this irreversible action on the confirmation step first', 428);
+      if (!pending || !o.nonce || pending.nonce !== sha256(o.nonce) || pending.answer !== answer) throw new CommandError('confirm this irreversible action on the confirmation step first', 428);
       if (Date.parse(pending.expiresAt) < this.d.now().getTime()) throw new CommandError('the confirmation expired; start again', 410);
     }
     return { decision: dec, confirmed: confirm };

@@ -1,25 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { z } from 'zod';
-import { ConnectorDraftSchema, containsSecret, type ConnectorDraft } from '@acc/core';
+import { ConnectorDraftSchema, containsSecret, type ConnectorDraft, canonicalJson } from '@acc/core';
 import { CommandError } from '../daemon.ts';
 import { whichAll } from '../adapters/agents/detect.ts';
-import { hash } from './github.ts';
+import { sha256 } from '../util/hash.ts';
 import { jsonResponse, type MarketplaceFetch } from './transport.ts';
 const Name = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,179}$/);
 const Version = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,63}$/).refine(v => !['latest', 'next', 'stable'].includes(v), 'Choose an exact version');
 const Server = z.object({ name: Name, version: Version, description: z.string().max(2000).optional(), packages: z.array(z.unknown()).max(16).optional(), remotes: z.array(z.unknown()).max(16).optional() }).passthrough();
 export interface RegistryEntry { name: string; version: string; description: string; sha256: string; server: z.infer<typeof Server>; untrusted: true }
-function canonical(v: unknown): string {
-  if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']';
-  if (v && typeof v === 'object') return '{' + Object.entries(v).sort(([a],[b]) => a.localeCompare(b)).map(([k,v]) => JSON.stringify(k) + ':' + canonical(v)).join(',') + '}';
-  return JSON.stringify(v) ?? 'null';
-}
 export function registryEntry(raw: unknown, denylist: string[] = []): RegistryEntry {
   const wrapper = raw as { server?: unknown };
   const parsed = Server.safeParse(wrapper?.server ?? raw);
   if (!parsed.success) throw new CommandError('Registry server metadata is invalid', 502);
   if (containsSecret(JSON.stringify(parsed.data), { denylist }).length) throw new CommandError('Registry metadata contains credentials');
-  return { name: parsed.data.name, version: parsed.data.version, description: parsed.data.description ?? '', sha256: hash(canonical(parsed.data)), server: parsed.data, untrusted: true };
+  return { name: parsed.data.name, version: parsed.data.version, description: parsed.data.description ?? '', sha256: sha256(canonicalJson(parsed.data)), server: parsed.data, untrusted: true };
 }
 export async function searchRegistry(q: unknown, fetcher: MarketplaceFetch, denylist: string[] = []): Promise<{ servers: RegistryEntry[]; nextCursor: string | null }> {
   if (typeof q !== 'string' || q.length > 200 || containsSecret(q, { denylist }).length) throw new CommandError('Use a bounded search query without credentials');
@@ -44,6 +39,6 @@ export function registryConnectorDraft(entry: RegistryEntry, envPath?: string): 
     if (!npx) break;
     command = npx; args = ['--yes', `${p.identifier}@${p.version}`]; setupRequired = false; break;
   }
-  const draft = ConnectorDraftSchema.parse({ id: 'mcp-' + hash(entry.name + '@' + entry.version).slice(0,16), name: entry.name.slice(0,100), config: { kind: 'mcp', command, args, tools: [], read_roots: [] } });
+  const draft = ConnectorDraftSchema.parse({ id: 'mcp-' + sha256(entry.name + '@' + entry.version).slice(0,16), name: entry.name.slice(0,100), config: { kind: 'mcp', command, args, tools: [], read_roots: [] } });
   return { draft, setupRequired, note: setupRequired ? 'Saved disabled. This registry transport needs a local stdio command. Configure it and review actual tool names before approval.' : 'Saved disabled with an exact npm package version. Review the command, required inputs and actual tool names before enabling. No package was downloaded or run.' };
 }

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Account payment settings remain vendor-owned. A human's time-bounded attestation is distinct
 // from detected billing; it never changes an unknown vendor setting into "off".
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import { HUMAN, type Actor, type AgentState } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';
+import { sha256 } from './util/hash.ts';
 
 interface Confirmation { binding: string; session: string; at: string; expiresAt: string }
 const TTL_MS = 12 * 60 * 60_000;
@@ -19,7 +20,7 @@ export class SubscriptionSafety {
       try { const s = fs.statSync(a.binary.path); binary = [fs.realpathSync(a.binary.path), a.binary.version, s.dev, s.ino, s.size, s.mtimeMs]; }
       catch { binary = 'missing'; }
     }
-    return createHash('sha256').update(JSON.stringify({ id: a.id, adapter: a.config.adapter, provider: a.config.provider, binary, configuredBinary: a.config.binary, subscription: a.config.subscription, billing: a.config.billing, meteredOptIn: a.config.metered_opt_in, auth: a.auth, detectedBilling: a.billing, probedAt: a.probedAt })).digest('hex');
+    return sha256(JSON.stringify({ id: a.id, adapter: a.config.adapter, provider: a.config.provider, binary, configuredBinary: a.config.binary, subscription: a.config.subscription, billing: a.config.billing, meteredOptIn: a.config.metered_opt_in, auth: a.auth, detectedBilling: a.billing, probedAt: a.probedAt }));
   }
 
   status(agentId: string) {

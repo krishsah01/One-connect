@@ -2,7 +2,7 @@
 // Local HTTP + WebSocket API. Binds 127.0.0.1 only. Every request needs a session cookie (from a
 // one-time code), the install token, or (MCP bridge only) a per-run token. Host and Origin are
 // checked against DNS rebinding and cross-site requests.
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
@@ -28,10 +28,10 @@ import { registerDictionaryRoutes } from './dictionaryRoutes.ts';
 import { remoteGate, remotePrincipal } from '../phone/gate.ts';
 import { registerPhoneHooks, registerPhoneRoutes } from '../phone/routes.ts';
 import { deleteSecret, hasSecret, providerSecretFor, SECRET_NAMES, setSecret, type SecretName } from '../secrets.ts';
+import { sha256 } from '../util/hash.ts';
 
 const WEB_DIST = fileURLToPath(new URL('../../../web/dist/', import.meta.url));
 const SESSION_COOKIE = 'acc_session';
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
 export function loadOrCreateInstallToken(file: string): string {
   try {
@@ -90,7 +90,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
     const auth = req.headers.authorization;
     if (auth?.startsWith('Bearer ') && safeEq(auth.slice(7), installToken)) return true;
     const s = cookie(req, SESSION_COOKIE);
-    return Boolean(s && d.store.kvGet(`session:${sha(s)}`));
+    return Boolean(s && d.store.kvGet(`session:${sha256(s)}`));
   };
 
   app.addHook('onRequest', async (req, reply) => {
@@ -134,7 +134,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
     codes.delete(code);
     if (!exp || exp < Date.now()) return reply.code(401).type('text/plain').send('This sign-in link expired or was already used. Run `acc open` again.');
     const session = randomBytes(32).toString('hex');
-    d.store.kvSet(`session:${sha(session)}`, new Date().toISOString());
+    d.store.kvSet(`session:${sha256(session)}`, new Date().toISOString());
     reply.header('set-cookie', `${SESSION_COOKIE}=${session}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${60 * 60 * 24 * 30}`);
     return reply.redirect('/');
   });

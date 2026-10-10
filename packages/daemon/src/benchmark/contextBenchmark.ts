@@ -3,7 +3,6 @@
 // runs the REAL Dictionary intake (and Graphify, if installed) in an isolated temporary daemon, and
 // compares retrieval against a full-context baseline on labelled questions. No inference, no
 // network and no model download: token figures are bytes/4 estimates and provider tokens stay null.
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -14,6 +13,7 @@ import { run } from '../exec.ts';
 import { Daemon } from '../daemon.ts';
 import { BENCH_QUESTIONS, BENCH_SKILLS, corpusChangesV2, corpusFilesV1, CORPUS_NAME, CORPUS_VERSION, SCOPE_CANARIES, type BenchQuestion } from './corpus.ts';
 import { evidence } from '../context/retrieval.ts';
+import { sha256 } from '../util/hash.ts';
 
 type RetrievalArm = 'dictionary' | 'keyword_only' | 'hybrid';
 const ARM_OPTIONS: Record<RetrievalArm, { semantic: boolean; expand: boolean }> = { dictionary: { semantic: false, expand: true }, keyword_only: { semantic: false, expand: false }, hybrid: { semantic: true, expand: true } };
@@ -29,7 +29,6 @@ export interface BenchmarkOptions {
 const GENERIC = new Set('how what when where which who whom whose why does do did can could should would will many much long often most maximum minimum about from with that this have has for the and are was were its our your their there them then than into over under each per any'.split(' '));
 const stem = (w: string) => w.slice(0, 5);
 const words = (s: string) => s.toLowerCase().match(/[a-z0-9]{3,}/g) ?? [];
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const compact = (s: string) => s.replace(/\s+/g, '');
 const bytes = (s: string) => Buffer.byteLength(s);
 
@@ -78,7 +77,7 @@ async function citationMatchesCommit(repo: string, c: Citation): Promise<boolean
   let src: string;
   try { src = await git(repo, 'show', `${ps.revision}:${ps.path}`); } catch { return false; }
   // `git show` drops one trailing newline; the committed blob hash covers the original bytes.
-  if (sha(src) !== ps.hash && sha(src + '\n') !== ps.hash) return false;
+  if (sha256(src) !== ps.hash && sha256(src + '\n') !== ps.hash) return false;
   const slice = src.split('\n').slice(ps.line - 1, ps.endLine).join('\n');
   return c.excerpt.length > 0 && slice.includes(c.excerpt);
 }

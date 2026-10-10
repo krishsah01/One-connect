@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // A paid configuration is a draft until its exact settings are approved by the owner.
-import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { HUMAN, PAID_PROVIDERS, type Actor, type AgentConfig, type NewEvent } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';
 import type { AnswerOptions } from './decisions.ts';
+import { sha256 } from './util/hash.ts';
 
 interface PendingCost {
   config: AgentConfig;
@@ -14,7 +14,7 @@ interface PendingCost {
 }
 const PREFIX = 'agent-cost:';
 const TTL_MS = 15 * 60_000;
-const hash = (config: AgentConfig, expected: AgentConfig | null) => createHash('sha256').update(JSON.stringify({ config, expected })).digest('hex');
+const hash = (config: AgentConfig, expected: AgentConfig | null) => sha256(JSON.stringify({ config, expected }));
 export const needsCostApproval = (cfg: AgentConfig) => PAID_PROVIDERS.includes(cfg.provider) || cfg.billing === 'metered' || cfg.metered_opt_in || cfg.on_demand;
 
 export class AgentCosts {

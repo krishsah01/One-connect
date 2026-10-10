@@ -4,7 +4,6 @@
 // A restart marks an in-progress write uncertain and does not repeat it.
 import path from 'node:path';
 import fs from 'node:fs';
-import { createHash } from 'node:crypto';
 import type { Decision, IntegrationMerge, NewEvent, ReleaseAction, ReleasePlan, ReleaseStep, ReleaseStepKind } from '@acc/core';
 import {
   HUMAN,
@@ -17,6 +16,7 @@ import {
   defaultReleaseSteps,
   newId,
   productionBranchOf,
+  shellQuote,
 } from '@acc/core';
 import type { OutboxOp } from '../store/eventStore.ts';
 import { CommandError, type Daemon } from '../daemon.ts';
@@ -26,6 +26,7 @@ import { run } from '../exec.ts';
 import { safeGitEnv } from '../adapters/vcs/git-policy.ts';
 import { getSecret } from '../secrets.ts';
 import { allowlistedPr, allowlistedPush, configuredCommand, executeReleaseStep, verifyReleaseStep, reviewedHost, isProtectedBranch, type ProjectCommandResult, type ReleaseCommandContext, type ReleaseExec, type StepRunResult, type VerificationRequest, type ReleaseProof } from './runner.ts';
+import { sha256 } from '../util/hash.ts';
 
 const KINDS = new Set<string>(RELEASE_STEP_KINDS);
 
@@ -97,7 +98,7 @@ export class ReleasePlans {
   }
 
   create(input: { name?: string; workItemId?: string | null }): ReleasePlan {
-    const name = clip(input.name?.trim() || 'Release', 120);
+    const name = input.name?.trim() || 'Release'.slice(0, 120);
     const bound = this.bindSha(input.workItemId ?? null);
     const now = this.d.nowIso();
     const branch = productionBranchOf(this.d.config.project);
@@ -179,7 +180,7 @@ export class ReleasePlans {
       const nextStep = steps.find(s => s.id === action.stepId);
       if (!nextStep || nextStep.status === 'pending' && !nextStep.decisionId) drop.push(dec.id);
     }
-    const next: ReleasePlan = { ...plan, name: input.name !== undefined ? clip(input.name.trim(), 120) : plan.name, ...bound, steps, updatedAt: this.d.nowIso() };
+    const next: ReleasePlan = { ...plan, name: input.name !== undefined ? input.name.trim().slice(0, 120) : plan.name, ...bound, steps, updatedAt: this.d.nowIso() };
     if (!next.name) throw new CommandError('a release plan needs a name');
     const events: NewEvent[] = [{ type: 'release.saved', actor: HUMAN, workItemId: next.workItemId, data: { plan: next } }];
     for (const decisionId of new Set(drop)) {
@@ -528,11 +529,11 @@ export class ReleasePlans {
 
   private hash(plan: ReleasePlan, step: ReleaseStep, kind: ReleaseAction['kind']): string {
     const phase = kind === 'release_rollback' ? 'rollback' : kind === 'release_inspect' ? 'inspect' : 'run';
-    return createHash('sha256').update(JSON.stringify({ kind, planId: plan.id, workItemId: plan.workItemId, mergeId: plan.mergeId, stepId: step.id, stepKind: step.kind, command: restores(step, phase) ? step.rollback : step.command, target: step.target, environment: step.environment, check: step.check, rollback: step.rollback, rollbackCheck: step.rollbackCheck, recoveryPhase: kind === 'release_inspect' ? step.recoveryPhase ?? 'run' : null, sha: plan.sha, order: step.order, configHash: this.configHash(), productionBranch: plan.productionBranch, title: step.kind === 'pr' ? step.title : null })).digest('hex');
+    return sha256(JSON.stringify({ kind, planId: plan.id, workItemId: plan.workItemId, mergeId: plan.mergeId, stepId: step.id, stepKind: step.kind, command: restores(step, phase) ? step.rollback : step.command, target: step.target, environment: step.environment, check: step.check, rollback: step.rollback, rollbackCheck: step.rollbackCheck, recoveryPhase: kind === 'release_inspect' ? step.recoveryPhase ?? 'run' : null, sha: plan.sha, order: step.order, configHash: this.configHash(), productionBranch: plan.productionBranch, title: step.kind === 'pr' ? step.title : null }));
   }
 
   private configHash(): string {
-    return createHash('sha256').update(JSON.stringify([this.d.config, this.d.connectors.approvedReleaseConfig(), Object.values(this.d.state.connectors ?? {}).filter(c => ['github', 'gitlab', 'vercel', 'supabase'].includes(c.kind)).map(c => ({ id: c.id, configHash: c.configHash, disabled: c.disabled, approvals: c.approvals }))])).digest('hex');
+    return sha256(JSON.stringify([this.d.config, this.d.connectors.approvedReleaseConfig(), Object.values(this.d.state.connectors ?? {}).filter(c => ['github', 'gitlab', 'vercel', 'supabase'].includes(c.kind)).map(c => ({ id: c.id, configHash: c.configHash, disabled: c.disabled, approvals: c.approvals }))]));
   }
 
   private environment(): string {
@@ -635,20 +636,16 @@ function toDraft(step: ReleaseStep): StepDraft {
 function normalizeDraft(input: StepDraft, environment: string): Required<Omit<StepDraft, 'id' | 'rollbackCheck'>> & { id?: string; rollbackCheck?: string } {
   const kind = String(input.kind ?? '');
   if (!KINDS.has(kind)) throw new CommandError(`unknown step kind ${kind}`);
-  const title = clip(String(input.title ?? '').trim(), 120);
-  const command = clip(String(input.command ?? '').trim(), 500);
-  const check = clip(String(input.check ?? '').trim(), 500);
-  const rollback = clip(String(input.rollback ?? '').trim(), 500);
-  const rollbackCheck = input.rollbackCheck ? clip(String(input.rollbackCheck).trim(), 500) : undefined;
-  const owner = clip(String(input.owner ?? 'owner').trim() || 'owner', 80);
-  const target = clip(String(input.target ?? '').trim(), 200);
-  const env = clip(String(input.environment ?? environment).trim() || environment, 500);
+  const title = String(input.title ?? '').trim().slice(0, 120);
+  const command = String(input.command ?? '').trim().slice(0, 500);
+  const check = String(input.check ?? '').trim().slice(0, 500);
+  const rollback = String(input.rollback ?? '').trim().slice(0, 500);
+  const rollbackCheck = input.rollbackCheck ? String(input.rollbackCheck).trim().slice(0, 500) : undefined;
+  const owner = (String(input.owner ?? 'owner').trim() || 'owner').slice(0, 80);
+  const target = String(input.target ?? '').trim().slice(0, 200);
+  const env = (String(input.environment ?? environment).trim() || environment).slice(0, 500);
   if (!title || !command || !check || !rollback || !target) throw new CommandError('each step needs a title, command, target, check and rollback');
   return { id: input.id, kind: kind as ReleaseStepKind, title, owner, command, check, rollback, rollbackCheck, target, environment: env };
-}
-
-function clip(s: string, n: number): string {
-  return s.length > n ? s.slice(0, n) : s;
 }
 
 function releaseComment(plan: ReleasePlan, step: ReleaseStep): string {
@@ -658,4 +655,3 @@ function releaseComment(plan: ReleasePlan, step: ReleaseStep): string {
   return lines.filter(Boolean).join('\n');
 }
 
-function shellQuote(s: string): string { return "'" + s.replaceAll("'", "'\"'\"'") + "'"; }

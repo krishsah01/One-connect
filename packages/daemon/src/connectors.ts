@@ -4,12 +4,12 @@
 // editing the configuration voids it. Imported text is untrusted data, never instructions.
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 import {
   CONNECTOR_DESCRIPTORS, RELEASE_CONNECTOR_DEFAULTS, RELEASE_CONNECTOR_KINDS, connectorAllows, connectorState, ConnectorDraftSchema, containsSecret, HUMAN, newId, isReleaseConnector, productionBranchOf,
   type Actor, type Connector, type ConnectorAction, type ConnectorAvailability, type Decision, type TrackerCategory, type WorkItem,
   type ReleaseConnectorConfig, type ReleaseConnectorKind, type ReleaseCapability,
   type ControlCenterConfig,
+  canonicalJson,
 } from '@acc/core';
 import { GitHubTracker, LinearTracker, type TrackerIssue } from './adapters/trackers/index.ts';
 import { ConnectorToolActions, type ConnectorToolRequest } from './connectorToolActions.ts';
@@ -17,13 +17,8 @@ import { EgressDenied } from './egress.ts';
 import { getSecret, hasSecret } from './secrets.ts';
 import { CommandError, type Daemon } from './daemon.ts';
 import type { AnswerOptions } from './decisions.ts';
+import { sha256 } from './util/hash.ts';
 
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
-function stable(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
-  if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${stable(v)}`).join(',')}}`;
-  return JSON.stringify(value) ?? 'null';
-}
 const DECISION_TTL_MS = 15 * 60_000;
 const PREVIEW_TTL_MS = 10 * 60_000;
 const MAX_PREVIEW_PAGE = 10_000;
@@ -47,7 +42,7 @@ function findBin(name: string, env: NodeJS.ProcessEnv): string | null {
 function isExecutable(p: string): boolean {
   try { const st = fs.statSync(p); if (!st.isFile()) return false; fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; }
 }
-const redactedIssueHash = (d: Daemon, i: TrackerIssue) => sha(JSON.stringify([
+const redactedIssueHash = (d: Daemon, i: TrackerIssue) => sha256(JSON.stringify([
   d.redactText(i.title), d.redactText(i.description), i.acceptance.map(a => d.redactText(a)), i.labels.map(l => d.redactText(l)),
   i.priority, i.parentKey, i.status.category, i.updatedAt,
 ]));
@@ -103,13 +98,13 @@ export class Connectors {
   private binding(kind: ReleaseConnectorKind) {
     const project = this.d.config.project;
     const settingsDecisionId = Object.values(this.d.state.decisions).filter(decision => decision.kind === 'settings' && decision.answer === 'save' && decision.answeredAt).at(-1)?.id ?? null;
-    return { projectRepo: path.resolve(project.repo), projectName: project.name, productionBranch: productionBranchOf(project), configuredHash: sha(stable({ connection: this.configured(kind), project, settingsDecisionId })) };
+    return { projectRepo: path.resolve(project.repo), projectName: project.name, productionBranch: productionBranchOf(project), configuredHash: sha256(canonicalJson({ connection: this.configured(kind), project, settingsDecisionId })) };
   }
 
   private projectHash(): string {
     const project = this.d.config.project;
     const settingsDecisionId = Object.values(this.d.state.decisions).filter(decision => decision.kind === 'settings' && decision.answer === 'save' && decision.answeredAt).at(-1)?.id ?? null;
-    return sha(stable({ projectRepo: path.resolve(project.repo), projectName: project.name, tracker: this.d.config.tracker, settingsDecisionId }));
+    return sha256(canonicalJson({ projectRepo: path.resolve(project.repo), projectName: project.name, tracker: this.d.config.tracker, settingsDecisionId }));
   }
 
   private importBinding(c: Connector): ImportBinding {
@@ -180,14 +175,14 @@ export class Connectors {
     if (!current) return true;
     if ('provider' in current && current.provider !== config.kind) return false;
     if (current.host && current.host.toLowerCase() !== config.host) return false;
-    if (current.scopes.length && stable([...current.scopes].sort()) !== stable([...config.scopes].sort())) return false;
+    if (current.scopes.length && canonicalJson([...current.scopes].sort()) !== canonicalJson([...config.scopes].sort())) return false;
     if (config.kind === 'github') return 'repo' in current && current.repo === config.repo;
     if (config.kind === 'gitlab' || config.kind === 'vercel') return 'project' in current && current.project === config.project;
     return 'project_ref' in current && current.project_ref === config.project_ref && current.migrations_dir === config.migrations_dir;
   }
 
   private bound(c: Connector): boolean {
-    return !isReleaseConnector(c.config) || (c.configHash === sha(JSON.stringify(c.config)) && stable(c.config.binding) === stable(this.binding(c.config.kind)) && this.matches(c.config));
+    return !isReleaseConnector(c.config) || (c.configHash === sha256(JSON.stringify(c.config)) && canonicalJson(c.config.binding) === canonicalJson(this.binding(c.config.kind)) && this.matches(c.config));
   }
 
   private allows(c: Connector, action: ConnectorAction): boolean {
@@ -227,7 +222,7 @@ export class Connectors {
     if (!raw) return false;
     const marker = JSON.parse(raw) as { connectorId: string; configHash: string; evidenceHash: string };
     const access = this.releaseAccess(kind, marker.connectorId);
-    if (!access || access.connection.configHash !== marker.configHash || marker.evidenceHash !== sha(stable(this.evidence(kind)))) return false;
+    if (!access || access.connection.configHash !== marker.configHash || marker.evidenceHash !== sha256(canonicalJson(this.evidence(kind)))) return false;
     try { if (capability) access.authorize(capability); } catch { return false; }
     return true;
   }
@@ -302,7 +297,7 @@ export class Connectors {
     const cur = this.all()[draft.id];
     if ((cur?.configHash ?? null) !== expectedHash) throw new CommandError(cur ? 'This connection changed. Reload before saving.' : 'This connection no longer exists. Reload.', 409);
     if (cur && cur.kind !== draft.config.kind) throw new CommandError('A connection cannot change its type. Add a new connection instead.', 409);
-    const configHash = sha(JSON.stringify(draft.config));
+    const configHash = sha256(JSON.stringify(draft.config));
     const now = this.d.nowIso();
     if (cur && cur.configHash === configHash && cur.name === draft.name) return this.view(cur);
     this.d.commit([{ type: 'connector.saved', actor: HUMAN, data: { connector: { id: draft.id, name: draft.name, kind: draft.config.kind, config: draft.config, configHash, disabled: cur?.disabled ?? false, createdAt: cur?.createdAt ?? now, updatedAt: now } } }]);
@@ -563,7 +558,7 @@ export class Connectors {
     }
     const filtered = issues.filter(i => !['done', 'canceled'].includes(i.status.category) && (!query || `${i.key} ${i.title} ${i.labels.join(' ')}`.toLowerCase().includes(query.toLowerCase())));
     const withHash = filtered.map(i => this.sanitizeIssue(i));
-    const snapshotHash = sha(stable({ binding, query, issues: withHash.map(i => ({ id: i.id, contentHash: i.contentHash, sourceRevision: i.sourceRevision })) }));
+    const snapshotHash = sha256(canonicalJson({ binding, query, issues: withHash.map(i => ({ id: i.id, contentHash: i.contentHash, sourceRevision: i.sourceRevision })) }));
     const token = newId('preview');
     const snapshot: PreviewSnapshot = { binding, query, issues: withHash, snapshotHash, createdAt: nowMs, expiresAt: nowMs + PREVIEW_TTL_MS };
     this.previews.set(token, snapshot);
@@ -586,7 +581,7 @@ export class Connectors {
     const probe = c.kind === 'github' || c.kind === 'gitlab' ? ('source' in result ? result : null) : 'vercel' in result ? c.kind === 'vercel' ? result.vercel : result.migrations : null;
     const detail = probe && 'detail' in probe ? probe.detail : probe && 'protectionDetail' in probe ? probe.protectionDetail : 'Read result unavailable.';
     const ok = Boolean(probe && probe.source === 'live' && ('error' in probe ? !probe.error : probe.state !== 'error' && probe.state !== 'unchecked'));
-    if (probe?.source === 'live') this.d.store.kvSet(`connector:read:${c.config.kind}`, JSON.stringify({ connectorId: c.id, configHash: c.configHash, evidenceHash: sha(stable(this.evidence(c.config.kind))) }));
+    if (probe?.source === 'live') this.d.store.kvSet(`connector:read:${c.config.kind}`, JSON.stringify({ connectorId: c.id, configHash: c.configHash, evidenceHash: sha256(canonicalJson(this.evidence(c.config.kind))) }));
     this.record(c, 'read', ok, detail, { status: ok ? 'available' : probe?.source === 'live' ? 'error' : 'not_checked', checkedAt: this.d.nowIso(), detail });
     return { connection: this.view(this.get(id)), result };
   }

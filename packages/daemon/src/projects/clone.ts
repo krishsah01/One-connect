@@ -2,17 +2,17 @@
 // Clone and initialize are planned first and executed only with the plan's digest, which the
 // native shell hands over after a human approves that exact plan. Re-planning at execution time
 // means a changed URL, destination or argument list cannot ride on an earlier approval.
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { redact } from '@acc/core';
 import { run } from '../exec.ts';
 import { assertProjectFolder, inspectProject, ProjectIntakeError, type ProjectInspection } from './inspect.ts';
 import { SAFE_GIT_FLAGS, safeGitEnv } from './safe-git.ts';
+import { sha256 } from '../util/hash.ts';
 
 export interface GitActionPlan { kind: 'clone' | 'git-init'; argv: string[]; target: string; network: boolean; summary: string; digest: string; url?: string }
 
-const digest = (p: Omit<GitActionPlan, 'digest'>) => createHash('sha256').update(JSON.stringify([p.kind, p.argv, p.target])).digest('hex');
+const digest = (p: Omit<GitActionPlan, 'digest'>) => sha256(JSON.stringify([p.kind, p.argv, p.target]));
 
 export function parseCloneUrl(input: string): { url: string; network: boolean; name: string } {
   const url = String(input ?? '').trim();

@@ -5,7 +5,8 @@ import { invoke } from '@tauri-apps/api/core';
 import type { AgentState, ControlState } from '@acc/core';
 const NativeTerminal = lazy(() => import('../components/NativeTerminal').then(m => ({ default: m.NativeTerminal })));
 import { Badge, ErrorLine, useAction } from '../components/common';
-import { DockerWorkbench, shellQuote } from '../components/DockerWorkbench';
+import { DockerWorkbench } from '../components/DockerWorkbench';
+import { shellJoin } from '@acc/core';
 import { isDesktop, useActiveProject } from '../lib/desktop';
 import { post } from '../lib/api';
 import { LOGIN_ARGS, loginBinaryPath, loginBinaryStaleReason } from '../lib/onboarding';
@@ -74,7 +75,7 @@ export function ProjectTerminals({ state, command, demo }: { state: ControlState
   const chosenAgent = loginAgents.find(a => a.id === agent) ?? loginAgents[0];
   const loginStale = chosenAgent ? loginBinaryStaleReason(chosenAgent) : null;
   const loginBinary = chosenAgent ? loginBinaryPath(chosenAgent) : null;
-  const loginCommand = chosenAgent && loginBinary ? shellQuote([loginBinary, ...LOGIN_ARGS[chosenAgent.config.adapter]]) : null;
+  const loginCommand = chosenAgent && loginBinary ? shellJoin([loginBinary, ...LOGIN_ARGS[chosenAgent.config.adapter]]) : null;
   const [assignment, setAssignment] = useState('');
   const worktrees = Object.values(state.assignments).filter(a => a.worktree);
   const chosenAssignment = worktrees.find(a => a.id === assignment);

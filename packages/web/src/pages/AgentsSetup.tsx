@@ -9,7 +9,7 @@ import { api, post } from '../lib/api';
 import { ago } from '../lib/format';
 import { isDesktop, useActiveProject } from '../lib/desktop';
 import { useOnline } from '../lib/offline';
-import { shellQuote } from '../components/DockerWorkbench';
+import { shellJoin } from '@acc/core';
 import { JevSettings } from '../components/Jev';
 import {
   agentNewerBinary,
@@ -39,7 +39,7 @@ function LoginAction({ adapter, binary, project, name, agentId, demo, blocked }:
   if (demo) return <p className="small muted">The offline demo uses sample connections. Add a real project to sign in to your account.</p>;
   if (blocked) return <p className="small muted">{blocked}</p>;
   if (!binary) return <p className="small muted">Scan installed tools to locate this runtime before preparing its login.</p>;
-  const command = shellQuote([binary, ...args]);
+  const command = shellJoin([binary, ...args]);
   return <div className="setup-login col">
     <code className="setup-command">{command}</code>
     <div className="row wrap">{isDesktop && project && <Link className="btn sm" to="/workspace" state={{ terminalRequest: { project, command, label: `${name} sign-in`, agentId, login: true } }}>Prepare sign-in in terminal</Link>}<Copy text={command} label="Copy login command" /></div>

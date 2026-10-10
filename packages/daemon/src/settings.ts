@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
-import { createHash } from 'node:crypto';
 import { containsSecret, GraphifyConfigSchema, HUMAN, isActiveRun, parseConfig, type CodeHostConfig, type ControlCenterConfig, type GraphifyConfig, type InfraConfig, type NewEvent, type Policy, type ProjectConfig } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';
 import type { AnswerOptions } from './decisions.ts';
+import { sha256 } from './util/hash.ts';
 
 export interface SettingsDraft { project: ProjectConfig; policies: Policy; code_host: CodeHostConfig | null; infra: InfraConfig | null; graphify: GraphifyConfig }
-const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const digest = (value: unknown) => sha256(JSON.stringify(value));
 const PREFIX = 'settings:decision:';
 export function settingsSnapshot(config: ControlCenterConfig): SettingsDraft { return { project: config.project, policies: config.policies, code_host: config.code_host ?? null, infra: config.infra ?? null, graphify: config.graphify ?? GraphifyConfigSchema.parse({}) }; }
 export function settingsConfig(base: ControlCenterConfig, value: SettingsDraft) { return parseConfig({ ...base, project: value.project, policies: value.policies, code_host: value.code_host ?? undefined, infra: value.infra ?? undefined, graphify: value.graphify ?? base.graphify }); }

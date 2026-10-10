@@ -3,7 +3,7 @@
 // the owner enables it, reviews the exact plan and answers a recorded Decision for that launch.
 // A phone pairs once with an expiring single-use token, receives a scoped, HttpOnly session
 // cookie bound to this one project, and can only call the routes its granted scopes allow.
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Actor, RemoteConfig, RemoteScope } from '@acc/core';
 import { defaultRemoteConfig, HUMAN, newId, REMOTE_SCOPE_INFO, REMOTE_SCOPES, RemoteConfigSchema, SYSTEM } from '@acc/core';
 import type { Decision } from '@acc/core';
@@ -11,8 +11,8 @@ import { CommandError, type Daemon } from '../daemon.ts';
 import { projectNamespace } from '../context/vault.ts';
 import { assertPrivatePlan, FixtureAdapter, TailscaleAdapter, type TunnelAdapter, type TunnelPlan, type TunnelState } from './tunnel.ts';
 import { phoneEvents, phoneMessages, phoneState } from './projection.ts';
+import { sha256 } from '../util/hash.ts';
 
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const DECISION_TTL_MS = 10 * 60_000;
 const PAIR_FAILS = { max: 5, windowMs: 10 * 60_000, lockMs: 15 * 60_000 };
 const COOKIE_FAILS = { max: 40, windowMs: 5 * 60_000, lockMs: 5 * 60_000 };
@@ -108,7 +108,7 @@ export class RemoteAccess {
   scopeReview() {
     return REMOTE_SCOPES.map(s => ({ scope: s, ...REMOTE_SCOPE_INFO[s], granted: this.config.scopes.includes(s) }));
   }
-  private scopeHash(c = this.config) { return sha(JSON.stringify({ ...c, scopes: [...c.scopes].sort() })); }
+  private scopeHash(c = this.config) { return sha256(JSON.stringify({ ...c, scopes: [...c.scopes].sort() })); }
 
   async configure(patch: unknown, actor: Actor = HUMAN): Promise<RemoteConfig> {
     if (actor.type !== 'human') throw new CommandError('Only the owner can change remote access', 403);
@@ -348,7 +348,7 @@ export class RemoteAccess {
   authenticate(cookieValue: string | null): RemoteAuth {
     if (!cookieValue) return { ok: false, status: 401, error: 'Not paired. Open a fresh pairing link from the Mac.' };
     if (this.locked('cookie')) return { ok: false, status: 429, error: 'Too many invalid attempts. Try again later.' };
-    const h = sha(cookieValue);
+    const h = sha256(cookieValue);
     const s = Object.values(this.sessions).find(x => { const a = Buffer.from(x.hash), b = Buffer.from(h); return a.length === b.length && timingSafeEqual(a, b); });
     const now = this.now();
     const bad = (error: string, status = 401): RemoteAuth => { this.fail('cookie', error); return { ok: false, status, error }; };
@@ -388,7 +388,7 @@ export class RemoteAccess {
     for (const [k, p] of Object.entries(this.pairings)) if (Date.parse(p.expiresAt) < now - 3_600_000 || p.consumedAt) delete this.pairings[k];
     const token = randomBytes(32).toString('base64url');
     const rec: PairingRecord = { id: newId('pair'), scopes: [...this.config.scopes], createdAt: this.iso(now), expiresAt: this.iso(now + this.config.pairingTtlSeconds * 1000), consumedAt: null };
-    this.pairings[sha(token)] = rec;
+    this.pairings[sha256(token)] = rec;
     // Issuing a link is an owner action on the Mac and clears a pairing lock.
     this.lockedUntil.pair = 0;
     this.pairFails = [];
@@ -403,14 +403,14 @@ export class RemoteAccess {
     if (this.locked('pair')) throw new CommandError('Pairing is locked after repeated failures. Create a new link on the Mac.', 429);
     const generic = () => { const locked = this.fail('pair', 'invalid, expired or reused pairing token'); throw new CommandError(locked ? 'Pairing is locked after repeated failures. Create a new link on the Mac.' : 'This pairing link is invalid, expired or already used.', locked ? 429 : 401); };
     if (typeof token !== 'string' || token.length < 40 || token.length > 128) return generic();
-    const key = sha(token);
+    const key = sha256(token);
     const rec = this.pairings[key];
     if (!rec || rec.consumedAt || Date.parse(rec.expiresAt) <= this.now()) return generic();
     if (this.activeSessions().length >= this.config.maxSessions) throw new CommandError('The limit of paired phones was reached. Revoke one on the Mac.', 409);
     rec.consumedAt = this.iso();
     const cookie = randomBytes(32).toString('base64url');
     const now = this.now();
-    const session: SessionRecord = { id: newId('phone'), hash: sha(cookie), label: `Phone ${Object.keys(this.sessions).length + 1}`, scopes: rec.scopes.filter(s => this.config.scopes.includes(s)), project: this.project, pairingId: rec.id, createdAt: this.iso(now), expiresAt: this.iso(now + this.config.sessionTtlHours * 3_600_000), lastSeenAt: this.iso(now), revokedAt: null, revokedReason: null };
+    const session: SessionRecord = { id: newId('phone'), hash: sha256(cookie), label: `Phone ${Object.keys(this.sessions).length + 1}`, scopes: rec.scopes.filter(s => this.config.scopes.includes(s)), project: this.project, pairingId: rec.id, createdAt: this.iso(now), expiresAt: this.iso(now + this.config.sessionTtlHours * 3_600_000), lastSeenAt: this.iso(now), revokedAt: null, revokedReason: null };
     this.sessions[session.id] = session;
     this.d.commit([{ type: 'remote.paired', actor: SYSTEM, data: { sessionId: session.id, pairingId: rec.id, scopes: session.scopes, expiresAt: session.expiresAt, label: session.label } }], [], () => { this.save('remote:pairings', this.pairings); this.save('remote:sessions', this.sessions); });
     const { hash: _h, ...view } = session;

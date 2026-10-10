@@ -25,6 +25,7 @@ import {
   requiredCheckNames,
   reviewsForItem,
   SYSTEM,
+  ellipsize,
 } from '@acc/core';
 import { git, mergeConflicts, removeWorktree, revParse } from './adapters/vcs/git.ts';
 import { runChecks } from './checks.ts';
@@ -49,7 +50,6 @@ export interface MergeOutcome {
 
 const MERGE_OPTION = 'merge';
 const REJECT_OPTION = 'reject';
-const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 const short = (s: string | null | undefined) => (s ? s.slice(0, 10) : 'unknown');
 
 export class ReviewMerge {
@@ -214,8 +214,8 @@ export class ReviewMerge {
     const findings: ReviewFinding[] = i.findings.slice(0, 50).map((f) => ({
       id: newId('fnd'),
       severity: normalizeSeverity(f.severity),
-      title: clip(String(f.title ?? f.body ?? 'Finding').trim() || 'Finding', 140),
-      body: clip(String(f.body ?? f.title ?? '').trim(), 4000),
+      title: ellipsize(String(f.title ?? f.body ?? 'Finding').trim() || 'Finding', 140),
+      body: ellipsize(String(f.body ?? f.title ?? '').trim(), 4000),
       path: typeof f.path === 'string' && f.path.trim() ? f.path.trim() : null,
       line: typeof f.line === 'number' && Number.isFinite(f.line) ? Math.trunc(f.line) : null,
       followUpWorkItemId: null,
@@ -234,7 +234,7 @@ export class ReviewMerge {
       workflowId: i.assignment?.workflowId ?? null,
       taskId: i.assignment?.taskId ?? null,
       verdict: i.verdict,
-      summary: clip(i.summary.trim(), 2000),
+      summary: ellipsize(i.summary.trim(), 2000),
       findings,
       evidenceIds: checks.flatMap((c) => (c.evidence ? [c.evidence.id] : [])),
       source: i.source,
@@ -249,7 +249,7 @@ export class ReviewMerge {
       if (f.severity === 'nit') continue;
       const fu = d.buildIssue(
         {
-          title: clip(`Review: ${f.title}`, 200),
+          title: ellipsize(`Review: ${f.title}`, 200),
           description: [f.body, '', `Found in the ${i.verdict === 'approve' ? 'approving' : 'change-requesting'} review ${review.id} of ${item.key ?? item.title} at \`${short(i.targetSha)}\`${f.path ? ` (${f.path}${f.line ? `:${f.line}` : ''})` : ''}.`].join('\n'),
           labels: ['review-finding', f.severity],
           priority: f.severity === 'blocker' ? 1 : f.severity === 'major' ? 2 : 3,
@@ -429,7 +429,7 @@ export class ReviewMerge {
     const events: NewEvent[] = [{ type: 'merge.refused', actor, workItemId, data: { workItemId, decisionId, reason, gates } }];
     if (consume && decisionId && !d.state.decisions[decisionId]?.consumedAt) events.push({ type: 'decision.consumed', actor: SYSTEM, workItemId, data: { decisionId, outcome: `refused: ${reason}` } });
     d.commit(events);
-    d.alert({ kind: 'merge', severity: 'warn', workItemId, message: `Merge of ${d.state.workItems[workItemId]?.key ?? workItemId} refused: ${reason}`, dedupeKey: `merge-refused:${decisionId ?? workItemId}:${clip(reason, 60)}` });
+    d.alert({ kind: 'merge', severity: 'warn', workItemId, message: `Merge of ${d.state.workItems[workItemId]?.key ?? workItemId} refused: ${reason}`, dedupeKey: `merge-refused:${decisionId ?? workItemId}:${ellipsize(reason, 60)}` });
     return { merged: false, reason, gates };
   }
 
@@ -527,7 +527,7 @@ export class ReviewMerge {
       const r = await git(wt, [...id, 'merge', '--no-ff', '-m', message, a.sourceSha], { allowFail: true, timeoutMs: 120_000 });
       if (r.code !== 0) {
         await git(wt, ['merge', '--abort'], { allowFail: true });
-        return { ok: false, permanent: true, reason: `git merge failed (repository hooks disabled): ${clip((r.stderr || r.stdout).trim(), 300)}` };
+        return { ok: false, permanent: true, reason: `git merge failed (repository hooks disabled): ${ellipsize((r.stderr || r.stdout).trim(), 300)}` };
       }
       const mergeSha = await revParse(wt, 'HEAD');
       return mergeSha ? { ok: true, mergeSha, method: 'worktree' } : { ok: false, permanent: true, reason: 'merge produced no commit' };
@@ -535,13 +535,13 @@ export class ReviewMerge {
     const scratch = path.join(d.paths.root, 'merge-scratch', newId('mg'));
     fs.mkdirSync(path.dirname(scratch), { recursive: true });
     const add = await git(this.repo, ['worktree', 'add', '--detach', scratch, a.targetSha], { allowFail: true });
-    if (add.code !== 0) return { ok: false, permanent: false, reason: `could not create a scratch worktree: ${clip(add.stderr.trim(), 200)}` };
+    if (add.code !== 0) return { ok: false, permanent: false, reason: `could not create a scratch worktree: ${ellipsize(add.stderr.trim(), 200)}` };
     try {
       const id = await this.identityArgs(scratch);
       const r = await git(scratch, [...id, 'merge', '--no-ff', '-m', message, a.sourceSha], { allowFail: true, timeoutMs: 120_000 });
       if (r.code !== 0) {
         await git(scratch, ['merge', '--abort'], { allowFail: true });
-        return { ok: false, permanent: true, reason: `git merge failed (repository hooks disabled): ${clip((r.stderr || r.stdout).trim(), 300)}` };
+        return { ok: false, permanent: true, reason: `git merge failed (repository hooks disabled): ${ellipsize((r.stderr || r.stdout).trim(), 300)}` };
       }
       const mergeSha = await revParse(scratch, 'HEAD');
       if (!mergeSha) return { ok: false, permanent: true, reason: 'merge produced no commit' };
@@ -592,7 +592,7 @@ export class ReviewMerge {
     if (!merge) throw new CommandError('no recorded integration merge', 409);
     if (merge.postChecks.status !== 'passed') throw new CommandError(`post-merge checks are ${merge.postChecks.status}; Done needs them green`, 409);
     const env = input.env && ['local', 'ci', 'production', 'device'].includes(input.env) ? input.env : 'local';
-    const evidence: Evidence = { id: newId('evd'), kind: 'acceptance', summary: clip(summary, 500), sha: merge.mergeSha, branch: merge.target, env, verified: true, at: d.nowIso() };
+    const evidence: Evidence = { id: newId('evd'), kind: 'acceptance', summary: ellipsize(summary, 500), sha: merge.mergeSha, branch: merge.target, env, verified: true, at: d.nowIso() };
     const events: NewEvent[] = [{ type: 'work_item.evidence_added', actor, workItemId, data: { evidence } }];
     const outbox: OutboxOp[] = [{ workItemId, op: 'comment', payload: { body: `**Accepted by the owner** (${env}) at \`${short(merge.mergeSha)}\`: ${evidence.summary}` } }];
     const check = canTransition(item.state, 'verified', { evidence: [...item.evidence, evidence], requiresProductionVerification: item.requiresProductionVerification });

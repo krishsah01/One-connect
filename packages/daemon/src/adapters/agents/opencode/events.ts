@@ -2,6 +2,7 @@
 // Pure mapping from OpenCode server-sent events to the bridge's line format. No I/O: the bridge
 // feeds it events and acts on what it returns (permission / question requests, completion).
 import type { BridgeLine } from './protocol.ts';
+import { clip } from '@acc/core';
 
 export interface OcEvent { id?: string; type: string; properties?: Record<string, unknown> }
 
@@ -20,7 +21,6 @@ type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Obj) : {});
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : v === undefined || v === null ? d : String(v));
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}… [${s.length - n} more chars]` : s);
 
 /** Keep tool input small and JSON-safe; commands and paths survive, bulky bodies are summarised. */
 function smallInput(tool: string, input: unknown): unknown {

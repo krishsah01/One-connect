@@ -2,7 +2,7 @@
 // Project Docker workbench: only this project's Compose binding, honest readiness from real
 // healthchecks, and every change gated by a single-use approval for the exact command shown.
 import { useEffect, useState } from 'react';
-import type { Decision } from '@acc/core';
+import { shellJoin, type Decision } from '@acc/core';
 import { Badge, ErrorLine, useAction } from './common';
 import { api, post } from '../lib/api';
 import type { Tone } from '../lib/format';
@@ -35,7 +35,6 @@ interface DatabasePlan {
 const READY_TONE: Record<Service['readiness'], Tone> = { ready: 'ok', 'running-unchecked': 'info', starting: 'warn', unhealthy: 'crit', stopped: 'idle', 'not-created': 'idle' };
 const READY_LABEL: Record<Service['readiness'], string> = { ready: 'ready', 'running-unchecked': 'running · no healthcheck', starting: 'starting', unhealthy: 'unhealthy', stopped: 'stopped', 'not-created': 'not created' };
 /** POSIX shell rendering of an argv, used for previews and terminal pre-fill. */
-export const shellQuote = (argv: string[]) => argv.map(a => /^[\w@%+=:,./-]+$/.test(a) ? a : `'${a.replaceAll("'", `'\\''`)}'`).join(' ');
 
 export function DockerWorkbench({ onTerminal }: { onTerminal?: (command: string) => void }) {
   const [status, setStatus] = useState<EnvironmentStatus | null>(null);
@@ -93,7 +92,7 @@ export function DockerWorkbench({ onTerminal }: { onTerminal?: (command: string)
     {pending && <PendingAction pending={pending} confirming={Boolean(confirmation)} busy={busy} onResolve={resolve} onCancel={() => { setPending(null); setConfirmation(null); }} onTerminal={onTerminal} />}
     {status?.foreign.length ? <div className="col small"><b>Not controlled here</b><span className="muted">These containers use the Compose name <code>{status.project}</code> but belong to another directory, so One Connect leaves them alone.</span>{status.foreign.map(f => <span key={f.id}><code>{f.name}</code> · {f.workingDir ?? 'unknown directory'}</span>)}</div> : null}
     {logService && logs && <div className="col"><div className="row"><b>{logs.service} logs</b><span className="small faint">{logs.limit} · refreshes every 3 seconds{logs.truncated ? ' · truncated' : ''}</span></div><pre style={{ maxHeight: 280, overflow: 'auto', whiteSpace: 'pre-wrap' }}>{logs.text || '(empty)'}</pre></div>}
-    {status?.jobs.length ? <div className="col small"><b>Recent actions</b>{status.jobs.map(j => <details key={j.id}><summary><Badge tone={j.state === 'succeeded' ? 'ok' : j.state === 'running' ? 'info' : 'crit'}>{j.state}</Badge> <code>{j.action}{j.services.length ? ` ${j.services.join(' ')}` : ''}</code>{j.exitCode !== null && ` · exit ${j.exitCode}`}</summary><pre style={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>{shellQuote(j.argv)}{'\n\n'}{j.output || '(no output)'}</pre></details>)}</div> : null}
+    {status?.jobs.length ? <div className="col small"><b>Recent actions</b>{status.jobs.map(j => <details key={j.id}><summary><Badge tone={j.state === 'succeeded' ? 'ok' : j.state === 'running' ? 'info' : 'crit'}>{j.state}</Badge> <code>{j.action}{j.services.length ? ` ${j.services.join(' ')}` : ''}</code>{j.exitCode !== null && ` · exit ${j.exitCode}`}</summary><pre style={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>{shellJoin(j.argv)}{'\n\n'}{j.output || '(no output)'}</pre></details>)}</div> : null}
     <ErrorLine error={error} />
     {status && <DatabaseWizard status={status} usable={usable} busy={busy} onRequest={request} onTerminal={onTerminal} onCreated={() => void refresh(true)} />}
   </div></section>;
@@ -103,7 +102,7 @@ function PendingAction({ pending, confirming, busy, onResolve, onCancel, onTermi
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   const left = pending.expiresAt ? Math.max(0, Math.round((Date.parse(pending.expiresAt) - now) / 1000)) : 0;
-  const command = shellQuote(pending.argv);
+  const command = shellJoin(pending.argv);
   return <div className="banner col" role="dialog" aria-label="Approve Docker action">
     <b>{pending.decision ? 'Approve this exact command?' : 'This action cannot run yet'}</b>
     <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{command}</pre>
@@ -141,7 +140,7 @@ function DatabaseWizard({ status, usable, busy, onRequest, onTerminal, onCreated
       {plan.warnings.map(x => <span key={x} className="small banner tone-warn">{x}</span>)}
       <b className="small">Files</b>
       {plan.files.map(f => <details key={f.path} open={Boolean(f.contents)}><summary className="small"><code>{f.path}</code> · {f.mode} · {f.note}</summary>{f.contents && <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 260, overflow: 'auto' }}>{f.contents}</pre>}</details>)}
-      {plan.steps.length > 0 && <><b className="small">Steps after the files exist (each needs its own approval)</b>{plan.steps.map(s => <div key={s.id} className="col small"><span>{s.title}{s.network && <> <Badge tone="warn">network</Badge></>}{!s.needed && <> <Badge tone="ok">not needed</Badge></>}</span><code style={{ whiteSpace: 'pre-wrap' }}>{shellQuote(s.argv)}</code></div>)}</>}
+      {plan.steps.length > 0 && <><b className="small">Steps after the files exist (each needs its own approval)</b>{plan.steps.map(s => <div key={s.id} className="col small"><span>{s.title}{s.network && <> <Badge tone="warn">network</Badge></>}{!s.needed && <> <Badge tone="ok">not needed</Badge></>}</span><code style={{ whiteSpace: 'pre-wrap' }}>{shellJoin(s.argv)}</code></div>)}</>}
       {plan.volume && <span className="small faint">Data lives in Docker volume <code>{plan.volume}</code>, kept across restarts and <code>down</code>.</span>}
       <div className="row"><button className="btn primary" disabled={w.busy || created} onClick={() => void w.run(async () => { await post('/api/environment/database/create', spec()); setCreated(true); onCreated(); })}>{created ? 'Files created' : 'Create these files'}</button></div>
       {created && plan.spec.kind === 'postgres' && <div className="row wrap">{plan.steps.filter(s => s.needed).map(s => <button key={s.id} className="btn sm" disabled={busy || !usable} onClick={() => onRequest(s.action, [String(plan.spec.service)])}>{s.action === 'pull' ? 'Request image pull' : 'Request start'}</button>)}</div>}
@@ -157,6 +156,6 @@ function ConnectionCard({ c, usable, busy, onRequest, onTerminal }: { c: Connect
     <span>Password: hidden · stored in <code>{c.passwordFile}</code> (owner-only)</span>
     <span>URL <code>{c.url}</code></span>
     <span className="faint">Volume <code>{c.volume}</code></span>
-    <div className="row wrap"><button className="btn sm" disabled={busy || !usable} onClick={() => onRequest('up', [c.service])}>Start</button>{onTerminal && <button className="btn sm" onClick={() => onTerminal(shellQuote(c.shell))}>Open psql in terminal</button>}</div>
+    <div className="row wrap"><button className="btn sm" disabled={busy || !usable} onClick={() => onRequest('up', [c.service])}>Start</button>{onTerminal && <button className="btn sm" onClick={() => onTerminal(shellJoin(c.shell))}>Open psql in terminal</button>}</div>
   </div>;
 }

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable local alerts. JSON gateway/chat deliveries each need a human Decision for the exact
 // payload, URL and configuration. Endpoint reviews never authorize messages or add egress hosts.
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { Actor, Decision, EventEnvelope, NotificationCandidate, NotificationChannel, NotificationConfig, NotificationRecord } from '@acc/core';
 import { candidatesFromEvents, candidatesFromTick, defaultNotificationConfig, HUMAN, infraFailuresRecovered, inQuietHours, isInfraFailureFingerprint, newId, NOTIFICATION_CHANNEL_LABEL, NotificationConfigSchema, SYSTEM, validTimezone, type InfraHealthReport } from '@acc/core';
 import { CommandError, type Daemon } from '../daemon.ts';
 import { projectNamespace } from '../context/vault.ts';
 import { run } from '../exec.ts';
+import { sha256 } from '../util/hash.ts';
 
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const DECISION_TTL_MS = 10 * 60_000;
 const MAX_SUPPRESSION_KEYS = 2000;
 const SUPPRESSION_RETENTION_MS = 7 * 24 * 3_600_000;
@@ -186,9 +186,9 @@ export class Notifications {
     });
   }
   private save(id: string, p: PendingNotification) { this.d.store.kvSet(`notify:decision:${id}`, JSON.stringify(p)); }
-  private configHash() { return sha(JSON.stringify(this.config)); }
+  private configHash() { return sha256(JSON.stringify(this.config)); }
   private actionHash(p: Omit<PendingNotification, 'actionHash' | 'consumed' | 'state' | 'transportUsed'>) {
-    return sha(JSON.stringify([p.version, p.type, p.channel, p.urlHash, p.configHash, p.revision, p.boot, p.notificationId, p.payloadHash, p.expires]));
+    return sha256(JSON.stringify([p.version, p.type, p.channel, p.urlHash, p.configHash, p.revision, p.boot, p.notificationId, p.payloadHash, p.expires]));
   }
   useAdapter(a: NotificationAdapter): void { this.adapters[a.id] = a; }
   getConfig(): NotificationConfig { return structuredClone(this.config); }
@@ -283,7 +283,7 @@ export class Notifications {
       const p = this.pending(dec.id);
       if (p && !dec.answeredAt && !dec.consumedAt && p.state === 'pending' && p.channel === channel && p.notificationId === notificationId && !this.problem(dec.id, p)) return dec;
     }
-    const base = { version: 2 as const, type: payload ? 'delivery' as const : 'endpoint' as const, channel, endpoint, urlHash: sha(endpoint), host, configHash: this.configHash(), revision: this.revision, boot: this.boot, notificationId, payload, payloadHash: sha(JSON.stringify(payload)), expires: this.d.now().getTime() + DECISION_TTL_MS };
+    const base = { version: 2 as const, type: payload ? 'delivery' as const : 'endpoint' as const, channel, endpoint, urlHash: sha256(endpoint), host, configHash: this.configHash(), revision: this.revision, boot: this.boot, notificationId, payload, payloadHash: sha256(JSON.stringify(payload)), expires: this.d.now().getTime() + DECISION_TTL_MS };
     const pending: PendingNotification = { ...base, actionHash: this.actionHash(base), consumed: false, state: 'pending', transportUsed: false };
     return this.d.decisions.createBound({
       question: payload ? `Send this one ${payload.kind} message to ${host} (${NOTIFICATION_CHANNEL_LABEL[channel]})?` : `Review ${host} as the configured ${NOTIFICATION_CHANNEL_LABEL[channel]} endpoint? This sends nothing; each message needs its own Decision.`,
@@ -307,7 +307,7 @@ export class Notifications {
     if (p.boot !== this.boot) return 'daemon restarted; request a fresh Decision';
     if (p.expires <= this.d.now().getTime()) return 'message approval expired';
     if (p.revision !== this.revision || p.configHash !== this.configHash() || this.config.channels[p.channel].endpoint !== p.endpoint) return 'notification settings changed';
-    if (sha(p.endpoint) !== p.urlHash || sha(JSON.stringify(p.payload)) !== p.payloadHash || this.actionHash(p) !== p.actionHash || !this.d.state.decisions[id]?.evidence?.some(e => e.label === 'Action SHA-256' && e.detail === p.actionHash)) return 'exact payload or URL binding changed';
+    if (sha256(p.endpoint) !== p.urlHash || sha256(JSON.stringify(p.payload)) !== p.payloadHash || this.actionHash(p) !== p.actionHash || !this.d.state.decisions[id]?.evidence?.some(e => e.label === 'Action SHA-256' && e.detail === p.actionHash)) return 'exact payload or URL binding changed';
     if (p.type === 'delivery' && (!p.payload || p.payload.id !== p.notificationId || !this.config.channels[p.channel].enabled || !this.config.kinds[p.payload.kind as NotificationCandidate['kind']])) return 'channel or alert kind disabled';
     if (p.type === 'delivery' && inQuietHours(this.config.quietHours, this.d.now())) return 'quiet hours';
     return null;
