@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CANVAS_LIMITS, compileSketch, continuationSketch, DEFAULT_SHOW_WHEN, deriveGraph, emptyTaskState, frameVisible, isWorkflowLocked, normalizeCanvas, normalizeGraph,
-  pickupPoint, workflowAttention, type CanvasGraph, type ControlState, type Workflow,
+  pickupPoint, workflowAttention, linkBodyFor, linkMatches, type CanvasGate, type CanvasGraph, type ControlState, type Workflow,
 } from '../src/index.ts';
 
 const at = '2026-10-10T00:00:00.000Z';
@@ -39,7 +39,7 @@ describe('canvas layout', () => {
     expect(s.graph.nodes.map(n => n.id).sort()).toEqual(['a:codex', 'i:w1', 'i:w9', 't:build']);
     expect(s.graph.nodes.find(n => n.id === 't:build')!.data).toMatchObject({ kind: 'code', taskId: 'build' });
     expect(String(s.graph.nodes.find(n => n.id === 't:build')!.data.pickup)).toHaveLength(CANVAS_LIMITS.pickup);
-    expect(l.gates.g1).toEqual({ id: 'g1', x: 0, y: 0, from: 'wf1', kind: 'jev', question: 'Which next?', options: [{ label: 'Backend', to: 'wf2' }], autoDecide: true, confirmedAt: '2026-10-10T00:00:00.000Z' });
+    expect(l.gates.g1).toEqual({ id: 'g1', x: 0, y: 0, from: 'wf1', kind: 'jev', question: 'Which next?', options: [{ label: 'Backend', to: 'wf2' }], autoDecide: true, confirmedAt: '2026-10-10T00:00:00.000Z', maxEvidenceBytes: 8000 });
     // JEV never decides on its own without the owner's recorded confirmation.
     expect(l.gates.g0).toMatchObject({ autoDecide: false, confirmedAt: null });
     expect(Object.keys(l.chains)).toEqual(['c2']);
@@ -162,5 +162,27 @@ describe('terminate and continue', () => {
     expect(steps.find(n => n.data.taskId === 'review')!.data.pickup).toBe('Agent wrote: re-run the review once docs land');
     // The finished build stays on the original; nothing depends on it in the continuation.
     expect(s.graph.edges.some(e => e.from === 't:build')).toBe(false);
+  });
+});
+
+describe('canvas links become engine workflow links', () => {
+  const saved = (id: string) => ['wf-fe', 'wf-be', 'wf-qa'].includes(id);
+  const gate = (p: Partial<CanvasGate> = {}): CanvasGate => ({ id: 'g1', x: 0, y: 0, from: 'wf-fe', kind: 'human', question: 'Ready for the backend?', options: [{ label: 'Backend', to: 'wf-be' }, { label: 'More QA', to: 'wf-qa' }], autoDecide: false, confirmedAt: null, maxEvidenceBytes: 8000, ...p });
+
+  it('activates a chain only between saved workflows', () => {
+    expect(linkBodyFor({ kind: 'chain', chain: { id: 'c1', from: 'wf-fe', to: 'sketch-1' } }, saved, null)).toEqual({ body: null, waiting: 'Save both workflows to activate this hand-off.' });
+    expect(linkBodyFor({ kind: 'chain', chain: { id: 'c1', from: 'wf-fe', to: 'wf-be' } }, saved, null).body).toEqual({ id: 'canvas-chain-c1', from: 'wf-fe', to: ['wf-be'], gate: null });
+  });
+
+  it('says what a decision is missing, and needs a confirmed JEV policy even to recommend', () => {
+    expect(linkBodyFor({ kind: 'gate', gate: gate({ options: [{ label: 'Backend', to: 'wf-be' }] }) }, saved, null).waiting).toBe('A decision needs at least two options.');
+    expect(linkBodyFor({ kind: 'gate', gate: gate({ options: [{ label: 'A', to: 'wf-be' }, { label: 'A', to: 'wf-qa' }] }) }, saved, null).waiting).toBe('Give each option a different label.');
+    expect(linkBodyFor({ kind: 'gate', gate: gate({ kind: 'jev' }) }, saved, 'api.typesafe.ai').waiting).toBe('Confirm what JEV may receive before it can advise.');
+    expect(linkBodyFor({ kind: 'gate', gate: gate({ kind: 'jev', confirmedAt: '2026-10-10T00:00:00.000Z' }) }, saved, null).waiting).toBe('Turn JEV on in Settings first, or let you decide.');
+    const { body } = linkBodyFor({ kind: 'gate', gate: gate({ kind: 'jev', autoDecide: true, confirmedAt: '2026-10-10T00:00:00.000Z', maxEvidenceBytes: 4000 }) }, saved, 'api.typesafe.ai');
+    expect(body).toEqual({ id: 'canvas-gate-g1', from: 'wf-fe', to: ['wf-be', 'wf-qa'], gate: { kind: 'jev', question: 'Ready for the backend?', options: [{ label: 'Backend', to: 'wf-be' }, { label: 'More QA', to: 'wf-qa' }], jev: { autoDecide: true, host: 'api.typesafe.ai', maxEvidenceBytes: 4000, confirmedAt: '2026-10-10T00:00:00.000Z', confirmedBy: 'owner' } } });
+    // The engine stamps its own confirmation time and owner; a match ignores those.
+    expect(linkMatches({ ...body!, gate: { ...body!.gate!, jev: { ...body!.gate!.jev!, confirmedAt: '2026-10-11T00:00:00.000Z', confirmedBy: 'krish' } } }, body!)).toBe(true);
+    expect(linkMatches({ ...body!, to: ['wf-be'] }, body!)).toBe(false);
   });
 });

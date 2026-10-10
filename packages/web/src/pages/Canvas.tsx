@@ -13,10 +13,10 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type {
-  CanvasFrame, CanvasGate, CanvasGraph, CanvasLayout, CanvasShowWhen, CanvasSketch, ControlState, GraphNode, GraphNodeType, PortSpec, PortType, Workflow, WorkflowTaskStatus,
+  CanvasFrame, CanvasGate, CanvasGraph, CanvasLayout, CanvasShowWhen, CanvasSketch, ControlState, GraphNode, GraphNodeType, PortSpec, PortType, Workflow, WorkflowLink, WorkflowTaskStatus,
 } from '@acc/core';
 import {
-  compileSketch, DEFAULT_SHOW_WHEN, deriveGraph, EFFORTS, emptyCanvas, frameVisible, isWorkflowLocked, mockGate, NODE_SPECS, NODE_TYPES, nodeData, normalizeGraph, portSpec,
+  canvasLinkId, compileSketch, DEFAULT_JEV_EVIDENCE_BYTES, DEFAULT_SHOW_WHEN, deriveGraph, EFFORTS, linkBodyFor, linkMatches, emptyCanvas, frameVisible, isWorkflowLocked, mockGate, NODE_SPECS, NODE_TYPES, nodeData, normalizeGraph, portSpec,
   sketchFromWorkflow, stepTaskId, validateWorkflow, workflowAttention, workflowProgress,
 } from '@acc/core';
 import { Badge, ErrorLine, useAction } from '../components/common';
@@ -79,6 +79,60 @@ function useCanvasLayout() {
   return { layout, update, adopt, error };
 }
 
+// ---- engine links: canvas hand-offs and decisions become durable workflow links --------------------
+
+interface LinkState { link: WorkflowLink | null; waiting: string | null; error: string | null }
+
+/** JEV's configured host when JEV is on; decisions JEV advises on need it. */
+function useJevHost(): string | null {
+  const [host, setHost] = useState<string | null>(null);
+  useEffect(() => { void api<{ enabled: boolean; host: string }>('/api/jev').then(s => setHost(s.enabled ? s.host : null)).catch(() => setHost(null)); }, []);
+  return host;
+}
+
+/**
+ * Keeps the engine's workflow links in step with the canvas. A chain or decision becomes active once
+ * both ends are saved workflows and it is complete; edits sync while the link is still waiting; a
+ * deleted chain or decision cancels its waiting link. Status comes back live through the event log.
+ */
+function useLinkSync(state: ControlState, layout: CanvasLayout | null): (kind: 'chain' | 'gate', id: string) => LinkState {
+  const jevHost = useJevHost();
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
+  const sending = useRef(new Set<string>());
+  const saved = useCallback((id: string) => Boolean(state.workflows?.[id]), [state.workflows]);
+  const items = useMemo(() => layout ? [
+    ...Object.values(layout.chains).map(chain => ({ key: canvasLinkId('chain', chain.id), ...linkBodyFor({ kind: 'chain', chain }, saved, jevHost) })),
+    ...Object.values(layout.gates).map(gate => ({ key: canvasLinkId('gate', gate.id), ...linkBodyFor({ kind: 'gate', gate }, saved, jevHost) })),
+  ] : [], [layout, saved, jevHost]);
+  const links = state.workflowLinks ?? {};
+  useEffect(() => {
+    if (!layout) return;
+    const t = setTimeout(() => {
+      for (const it of items) {
+        if (!it.body || sending.current.has(it.key)) continue;
+        const existing = links[it.key];
+        if (existing && (existing.status !== 'waiting' || linkMatches(existing, it.body))) continue;
+        sending.current.add(it.key);
+        void post('/api/workflow-links', it.body)
+          .then(() => setErrors(e => ({ ...e, [it.key]: null })))
+          .catch(err => setErrors(e => ({ ...e, [it.key]: err instanceof Error ? err.message : String(err) })))
+          .finally(() => sending.current.delete(it.key));
+      }
+      const live = new Set(items.map(i => i.key));
+      for (const l of Object.values(links)) {
+        if (!l.id.startsWith('canvas-') || live.has(l.id) || l.status !== 'waiting' || sending.current.has(l.id)) continue;
+        sending.current.add(l.id);
+        void post(`/api/workflow-links/${encodeURIComponent(l.id)}/cancel`).catch(() => {}).finally(() => sending.current.delete(l.id));
+      }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [items, links, layout]);
+  return (kind, id) => { const key = canvasLinkId(kind, id); const it = items.find(i => i.key === key); return { link: links[key] ?? null, waiting: it?.waiting ?? null, error: errors[key] ?? null }; };
+}
+
+const LINK_STATUS: Record<WorkflowLink['status'], string> = { waiting: 'armed', open: 'waiting on you', decided: 'decided', started: 'started', canceled: 'canceled' };
+const linkLabel = (s: LinkState) => s.error ? 'not active: see inspector' : s.link ? LINK_STATUS[s.link.status] : s.waiting ? 'not active yet' : 'activating…';
+
 // ---- frame model ---------------------------------------------------------------------------------------
 
 interface FrameModel {
@@ -139,7 +193,7 @@ function autoPositions(g: CanvasGraph): Map<string, { x: number; y: number }> {
 
 type FrameData = { model: FrameModel; width: number; height: number };
 type GData = { frameId: string; node: GraphNode; editable: boolean; problems: number; connected: string[] };
-type GateData = { gate: CanvasGate };
+type GateData = { gate: CanvasGate; status?: string };
 
 function portOf(nodes: Node[], nodeId: string, handle: string | null | undefined): PortType | 'workflow' | null {
   if (!handle) return null;
@@ -379,6 +433,7 @@ function GateNode({ data, selected }: NodeProps<Node<GateData>>) {
         <span>{g.kind === 'jev' ? (g.autoDecide ? 'decides' : 'recommends') : 'decide'}</span>
       </div>
       <div className="cv-gate-q ellipsis2">{g.question || 'What decides the next workflow?'}</div>
+      {data.status && <span className="cv-link-status">{data.status}</span>}
       <div className="cv-gate-options">
         {g.options.map((o, i) => <div key={i} className="cv-gate-opt"><span className="ellipsis">{o.label}</span><Handle type="source" position={Position.Right} id={`out:opt:${i}`} className="cv-sock e-right" style={{ ['--sock' as string]: 'var(--accent)' }} aria-label={`Option ${o.label}`} /></div>)}
         {g.options.length === 0 && <span className="small faint">Add options in the inspector</span>}
@@ -484,13 +539,23 @@ function CanvasInner({ state }: { state: ControlState }) {
   const clipboard = useRef<{ nodes: GraphNode[]; edges: CanvasGraph['edges'] } | null>(null);
   const models = useMemo(() => layout ? frameModels(state, layout) : [], [state, layout]);
   const graph = useMemo(() => layout ? buildGraph(layout, models) : { nodes: [], edges: [], nextY: 0, bounds: new Map<string, { x: number; y: number; w: number; h: number }>() }, [layout, models]);
+  const linkState = useLinkSync(state, layout);
+  const shownEdges = useMemo(() => graph.edges.map(e => {
+    const d = e.data as { kind?: string; chain?: string } | undefined;
+    return d?.kind === 'chain' ? { ...e, label: `then · ${linkLabel(linkState('chain', d.chain!))}` } : e;
+  }), [graph.edges, linkState]);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   useEffect(() => {
     setNodes(prev => {
       const byId = new Map(prev.map(n => [n.id, n]));
-      return graph.nodes.map(n => { const p = byId.get(n.id); return p ? { ...n, position: p.dragging ? p.position : n.position, measured: p.measured, selected: p.selected } : n; });
+      return graph.nodes.map(n => {
+        const withStatus = n.type === 'gate' ? { ...n, data: { ...(n.data as GateData), status: linkLabel(linkState('gate', (n.data as GateData).gate.id)) } } : n;
+        const p = byId.get(n.id);
+        return p ? { ...withStatus, position: p.dragging ? p.position : n.position, measured: p.measured, selected: p.selected } : withStatus;
+      });
     });
-  }, [graph.nodes, setNodes]);
+    // linkState changes identity every render; the link map and layout drive it through graph.nodes and state.
+  }, [graph.nodes, setNodes, state.workflowLinks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const frameOf = (nodeId: string) => models.find(m => nodeId === `f:${m.id}` || nodeId.startsWith(`${m.id}/`));
   const editFrame = useCallback((frameId: string, fn: (s: CanvasSketch) => CanvasSketch) => update(l => withSketch(l, state, frameId, fn)), [update, state]);
@@ -525,7 +590,7 @@ function CanvasInner({ state }: { state: ControlState }) {
     if (item.kind === 'gate-jev' || item.kind === 'gate-human') {
       const id = newId('gate');
       const fromFrame = from?.type === 'workflow' && from.side === 'source' && from.nodeId.startsWith('f:') ? from.nodeId.slice(2) : selected?.startsWith('f:') ? selected.slice(2) : '';
-      update(l => ({ ...l, gates: { ...l.gates, [id]: { id, x: Math.round(at.x), y: Math.round(at.y), from: fromFrame, kind: item.kind === 'gate-jev' ? 'jev' : 'human', question: '', options: [{ label: 'Continue', to: '' }], autoDecide: false, confirmedAt: null } } }));
+      update(l => ({ ...l, gates: { ...l.gates, [id]: { id, x: Math.round(at.x), y: Math.round(at.y), from: fromFrame, kind: item.kind === 'gate-jev' ? 'jev' : 'human', question: '', options: [{ label: 'Option 1', to: '' }, { label: 'Option 2', to: '' }], autoDecide: false, confirmedAt: null, maxEvidenceBytes: DEFAULT_JEV_EVIDENCE_BYTES } } }));
       select(`gate:${id}`);
       return;
     }
@@ -751,7 +816,7 @@ function CanvasInner({ state }: { state: ControlState }) {
       <CanvasContext.Provider value={{ state, actions }}>
         <ReactFlow
           nodes={nodes}
-          edges={graph.edges}
+          edges={shownEdges}
           nodeTypes={NODE_COMPONENTS}
           onNodesChange={onNodesChange}
           onConnect={onConnect}
@@ -792,7 +857,7 @@ function CanvasInner({ state }: { state: ControlState }) {
         onDuplicate={() => { const id = menu.nodeId!; const m = frameOf(id); const n = m?.graph.nodes.find(x => `${m.id}/${x.id}` === id); if (m?.editable && n) editFrame(m.id, s => ({ ...s, graph: { ...s.graph, nodes: [...s.graph.nodes, newGraphNode(s.graph, n.type, n.type === 'step' ? { ...n.data, taskId: '' } : n.data)] } })); setMenu(null); }}
         onDelete={() => { const n = nodes.find(x => x.id === menu.nodeId); if (n) onNodesDelete([n]); setMenu(null); }} />}
       <OneAskDock onAdd={addAsk} />
-      {selected && (selModel || selGate) && <Inspector state={state} model={selModel} gate={selGate} nodeId={selected} models={models} editFrame={editFrame} update={update} actions={actions} onDesign={() => navigate('/designer')} onClose={() => select(null)} />}
+      {selected && (selModel || selGate) && <Inspector state={state} model={selModel} gate={selGate} gateLink={selGate ? linkState('gate', selGate.id) : undefined} chainLinks={selModel ? Object.values(layout?.chains ?? {}).filter(c => c.from === selModel.id || c.to === selModel.id).map(c => ({ chain: c, state: linkState('chain', c.id), other: models.find(m => m.id === (c.from === selModel.id ? c.to : c.from))?.name ?? 'a workflow' })) : []} nodeId={selected} models={models} editFrame={editFrame} update={update} actions={actions} onDesign={() => navigate('/designer')} onClose={() => select(null)} />}
     </div>
   );
 }
@@ -827,12 +892,13 @@ function ContextMenu({ menu, model, actions, onClose, onAdd, onNewWorkflow, onDe
 
 interface InspectorProps {
   state: ControlState; model?: FrameModel; gate?: CanvasGate; nodeId: string; models: FrameModel[];
+  gateLink?: LinkState; chainLinks: { chain: { id: string; from: string; to: string }; state: LinkState; other: string }[];
   editFrame: (frameId: string, fn: (s: CanvasSketch) => CanvasSketch) => void;
   update: (fn: (l: CanvasLayout) => CanvasLayout) => void;
   actions: FrameActions; onDesign: () => void; onClose: () => void;
 }
 
-function Inspector({ state, model: m, gate, nodeId, models, editFrame, update, actions, onDesign, onClose }: InspectorProps) {
+function Inspector({ state, model: m, gate, gateLink, chainLinks, nodeId, models, editFrame, update, actions, onDesign, onClose }: InspectorProps) {
   const { busy, error, run } = useAction();
   const gn = m && !nodeId.startsWith('f:') ? m.graph.nodes.find(n => `${m.id}/${n.id}` === nodeId) : undefined;
   const editable = Boolean(m?.editable);
@@ -843,9 +909,10 @@ function Inspector({ state, model: m, gate, nodeId, models, editFrame, update, a
     <aside className="cv-inspector" aria-label="Inspector">
       <div className="row"><b className="grow">{title}</b><button type="button" className="btn sm ghost" onClick={onClose} aria-label="Close inspector"><Icon name="close" size={14} /></button></div>
       {m && !editable && !gate && <p className="small faint"><Icon name="lock" size={12} /> Finalized. Terminate the workflow to change it.</p>}
-      {gate && <GateEditor gate={gate} models={models} update={update} />}
+      {gate && <GateEditor gate={gate} link={gateLink} models={models} update={update} />}
       {gn && m && <NodeEditor state={state} model={m} node={gn} editable={editable} patch={patch} onDesign={onDesign} busy={busy} run={run} />}
       {m && !gn && !gate && <FrameEditor model={m} editFrame={editFrame} actions={actions} />}
+      {m && !gn && !gate && chainLinks.length > 0 && <div className="cv-visibility"><span className="small muted">Hand-offs</span>{chainLinks.map(c => <LinkLine key={c.chain.id} label={c.chain.from === m.id ? `Then starts ${c.other}` : `Starts after ${c.other}`} s={c.state} />)}</div>}
       {problems.length > 0 && <ul className="cv-problems">{problems.map((p, i) => <li key={i} className="small crit-text">{p.message}</li>)}</ul>}
       <ErrorLine error={error} />
     </aside>
@@ -860,7 +927,7 @@ function FrameEditor({ model: m, editFrame, actions }: { model: FrameModel; edit
     <span className="small faint">{m.graph.nodes.filter(n => n.type === 'step').length} steps · {m.graph.nodes.length} nodes</span>
     {m.workflow && !m.editable && <Visibility model={m} actions={actions} />}
     {m.workflow && m.workflow.status !== 'draft' && <div className="col" style={{ gap: 4 }}>{Object.entries(m.workflow.tasks).map(([id, t]) => <span key={id} className="small row"><Badge tone={TASK_TONE[t.status]}>{t.status.replace('_', ' ')}</Badge><span className="mono">{id}</span>{t.reason && <span className="faint ellipsis">{t.reason}</span>}</span>)}</div>}
-    <span className="small faint">Connect this workflow's yellow Finished port to another workflow's Start, or to a Decision, to chain them.</span>
+    <span className="small faint">Connect this workflow's Finished rail to another workflow's Start rail, or to a Decision, to hand off. Hand-offs turn on once both workflows are saved.</span>
   </div>;
 }
 
@@ -966,68 +1033,100 @@ function SummaryEditor({ model: m, node: n, editable, patch }: { model: FrameMod
   </div>;
 }
 
-/** Import from GitHub, the Anthropic skills catalog or the MCP Registry (engine routes by Codex). */
+/** Import from GitHub, the Anthropic skills catalog or the MCP Registry. Previews are pinned; imports land as drafts. */
 function MarketplaceImport({ kind, onImported, disabled }: { kind: 'skill' | 'connector'; onImported: (id: string, label: string) => void; disabled: boolean }) {
+  type SkillRow = { name: string; description: string; path: string; draft: unknown; problems: string[] };
+  type Preview = { url: string; repo: string; commit: string; license: string | null; skills: SkillRow[] };
+  type Server = { name: string; version: string; description: string };
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
-  const [preview, setPreview] = useState<{ items: { id: string; name: string; description?: string; path?: string; version?: string }[]; commit?: string } | null>(null);
+  const [skills, setSkills] = useState<Preview | null>(null);
+  const [servers, setServers] = useState<Server[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const { busy, error, run } = useAction();
-  const unavailable = (e: unknown) => e instanceof ApiError && e.status === 404 ? 'Marketplace import is not in this build yet (engine work in progress).' : null;
-  type SkillList = { commit: string; skills: { id: string; name: string; description: string; path: string }[] };
   const look = () => run(async () => {
-    setNote(null); setPreview(null);
+    setNote(null); setSkills(null); setServers(null);
     try {
-      if (kind === 'skill' && url.trim()) { const r = await post<SkillList>('/api/marketplace/github/preview', { url: url.trim() }); setPreview({ items: r.skills, commit: r.commit }); }
-      else if (kind === 'skill') { const r = await api<SkillList>('/api/marketplace/anthropic-skills'); setPreview({ items: r.skills, commit: r.commit }); }
-      else { const r = await api<{ servers: { name: string; description?: string; version: string }[] }>(`/api/marketplace/mcp?q=${encodeURIComponent(url.trim())}`); setPreview({ items: r.servers.map(s => ({ id: s.name, name: s.name, description: s.description, version: s.version })) }); }
-    } catch (e) { const u = unavailable(e); if (u) setNote(u); else throw e; }
+      if (kind === 'skill') setSkills(url.trim() ? await post<Preview>('/api/marketplace/github/preview', { url: url.trim() }) : await api<Preview>('/api/marketplace/anthropic-skills'));
+      else setServers((await api<{ servers: Server[] }>(`/api/marketplace/mcp?q=${encodeURIComponent(url.trim())}`)).servers);
+    } catch (e) { if (e instanceof ApiError && e.status === 404) setNote('Marketplace import is not in this build.'); else throw e; }
   });
-  const add = (item: { id: string; name: string; path?: string; version?: string }) => run(async () => {
-    if (kind === 'skill') {
-      const r = await post<{ skills: { id: string; name: string }[] }>('/api/marketplace/github/import', { url: url.trim() || 'https://github.com/anthropics/skills', commit: preview?.commit, paths: [item.path] });
-      const s = r.skills[0]; if (s) onImported(s.id, s.name);
-    } else {
-      const r = await post<{ connector: { id: string; name: string } }>('/api/marketplace/mcp/draft', { name: item.name, version: item.version });
-      onImported(r.connector.id, r.connector.name);
-      setNote('Added as a draft connector. Approve it in Settings → Connectors before it can be used.');
-    }
+  const addSkill = (row: SkillRow) => run(async () => {
+    const r = await post<{ skills: { skill: { id: string; name: string } }[]; note: string }>('/api/marketplace/github/import', { url: skills!.url, commit: skills!.commit, paths: [row.path] });
+    const s = r.skills[0]?.skill; if (s) onImported(s.id, s.name);
+    setNote(`${r.note} Publish it in Settings → Skills; steps only run with published skills.`);
+  });
+  const addServer = (row: Server) => run(async () => {
+    const r = await post<{ connection: { id: string; name: string } | undefined; setupRequired: boolean; note: string }>('/api/marketplace/mcp/draft', { name: row.name, version: row.version });
+    if (r.connection) onImported(r.connection.id, r.connection.name);
+    setNote(`${r.note} Approve it in Settings → Connectors before a step can use it.`);
   });
   if (disabled) return null;
   if (!open) return <button type="button" className="btn sm" onClick={() => setOpen(true)}>{kind === 'skill' ? 'Import from GitHub or the Anthropic catalog…' : 'Find in the MCP Registry…'}</button>;
   return <div className="cv-market col" style={{ gap: 6 }}>
     <input aria-label={kind === 'skill' ? 'GitHub repository URL' : 'Search the MCP Registry'} placeholder={kind === 'skill' ? 'https://github.com/owner/repo (empty = Anthropic catalog)' : 'Search, e.g. github, postgres'} value={url} onChange={e => setUrl(e.target.value)} />
-    <div className="row" style={{ gap: 6 }}><button type="button" className="btn sm" disabled={busy} onClick={() => void look()}>{kind === 'skill' ? 'Preview' : 'Search'}</button><button type="button" className="btn sm ghost" onClick={() => setOpen(false)}>Close</button></div>
-    {preview && <ul className="cv-market-list">{preview.items.slice(0, 20).map(i => <li key={i.id}><span className="grow"><b>{i.name}</b>{i.description && <span className="small muted"> {i.description.slice(0, 120)}</span>}</span><button type="button" className="btn sm" disabled={busy} onClick={() => void add(i)}>Add</button></li>)}{preview.items.length === 0 && <li className="small faint">Nothing found.</li>}</ul>}
-    {preview?.commit && <span className="small faint">Pinned to commit {preview.commit.slice(0, 12)}. Imports are previewed and hash-checked.</span>}
+    <div className="row" style={{ gap: 6 }}><button type="button" className="btn sm" disabled={busy} onClick={() => void look()}>{busy ? 'Looking…' : kind === 'skill' ? 'Preview' : 'Search'}</button><button type="button" className="btn sm ghost" onClick={() => setOpen(false)}>Close</button></div>
+    {skills && <>
+      <span className="small faint">{skills.repo} @ {skills.commit.slice(0, 12)} · {skills.license ?? 'no license found'} · preview only, nothing runs</span>
+      <ul className="cv-market-list">{skills.skills.slice(0, 30).map(sk => <li key={sk.path}><span className="grow"><b>{sk.name}</b> <span className="small muted">{sk.description.slice(0, 110)}</span>{sk.problems.length > 0 && <span className="small crit-text"> {sk.problems[0]}</span>}</span><button type="button" className="btn sm" disabled={busy || !sk.draft} title={sk.draft ? 'Import as a draft skill' : 'This skill needs files the portable format cannot hold'} onClick={() => void addSkill(sk)}>Import</button></li>)}
+        {skills.skills.length === 0 && <li className="small faint">No SKILL.md files found there.</li>}</ul>
+    </>}
+    {servers && <ul className="cv-market-list">{servers.slice(0, 30).map(sv => <li key={`${sv.name}@${sv.version}`}><span className="grow"><b>{sv.name}</b> <span className="small faint">{sv.version}</span> <span className="small muted">{sv.description.slice(0, 110)}</span></span><button type="button" className="btn sm" disabled={busy} onClick={() => void addServer(sv)}>Add draft</button></li>)}
+      {servers.length === 0 && <li className="small faint">Nothing found.</li>}</ul>}
     {note && <span className="small muted">{note}</span>}
     <ErrorLine error={error} />
   </div>;
 }
 
-function GateEditor({ gate: g, models, update }: { gate: CanvasGate; models: FrameModel[]; update: InspectorProps['update'] }) {
+function LinkLine({ label, s }: { label: string; s: LinkState }) {
+  return <div className="col" style={{ gap: 2 }}>
+    <span className="small"><b>{label}</b> · {linkLabel(s)}</span>
+    {s.waiting && <span className="small faint">{s.waiting}</span>}
+    {s.error && <span className="small crit-text">{s.error}</span>}
+    {s.link?.reason && <span className="small muted">{s.link.reason}</span>}
+  </div>;
+}
+
+function GateEditor({ gate: g, link, models, update }: { gate: CanvasGate; link?: LinkState; models: FrameModel[]; update: InspectorProps['update'] }) {
   const set = (p: Partial<CanvasGate>) => update(l => l.gates[g.id] ? { ...l, gates: { ...l.gates, [g.id]: { ...l.gates[g.id], ...p } } } : l);
+  const jevHost = useJevHost();
+  const locked = Boolean(link?.link && link.link.status !== 'waiting');
   const targets = models.filter(m => m.id !== g.from);
-  const allowJev = (on: boolean) => {
-    if (!on) { set({ autoDecide: false, confirmedAt: null }); return; }
-    if (!window.confirm('Let JEV pick the next workflow on its own for this decision?\n\nJEV only chooses among the options listed here (each just starts a workflow). It never answers merges, releases, publishing, connector or tool access, cost or anything irreversible: those always wait for you. The evidence JEV sees is bounded and redacted and goes only to your configured JEV host. If JEV is off, errors or answers anything else, you decide.')) return;
-    set({ autoDecide: true, confirmedAt: new Date().toISOString() });
+  const confirmPolicy = () => {
+    if (!jevHost) return;
+    if (!window.confirm(`Let JEV advise on this decision?\n\nWhen the workflow before it finishes, One Connect sends JEV a bounded, redacted summary of at most ${g.maxEvidenceBytes} bytes, only to ${jevHost}, and shows you JEV's recommendation. You still choose, unless you also let JEV decide.`)) return;
+    set({ confirmedAt: new Date().toISOString() });
+  };
+  const allowDecide = (on: boolean) => {
+    if (!on) { set({ autoDecide: false }); return; }
+    if (!window.confirm('Let JEV pick the next workflow on its own for this decision?\n\nJEV only chooses among the options listed here (each just starts a saved workflow). It never answers merges, releases, publishing, connector or tool access, cost or anything irreversible: those always wait for you. If JEV is off, errors or answers anything else, you decide.')) return;
+    set({ autoDecide: true });
   };
   return <div className="col" style={{ gap: 8 }}>
-    <label className="col"><span className="small muted">Who decides</span><select value={g.kind} onChange={e => set({ kind: e.target.value === 'jev' ? 'jev' : 'human', autoDecide: false, confirmedAt: null })}><option value="human">You decide</option><option value="jev">JEV recommends</option></select></label>
-    {g.kind === 'jev' && <label className="row small"><input type="checkbox" checked={g.autoDecide} onChange={e => allowJev(e.target.checked)} /> JEV may decide on its own (low-risk choices only)</label>}
-    {g.autoDecide && g.confirmedAt && <span className="small faint">Allowed {new Date(g.confirmedAt).toLocaleString()}.</span>}
-    <label className="col"><span className="small muted">Question</span><textarea rows={2} value={g.question} placeholder="Is the frontend good enough to start the backend?" onChange={e => set({ question: e.target.value })} /></label>
-    <label className="col"><span className="small muted">After workflow</span><select value={g.from} onChange={e => set({ from: e.target.value })}><option value="">Connect or choose…</option>{models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-    <fieldset className="cv-visibility"><legend className="small">Options (each starts a workflow)</legend>
+    {link && <LinkLine label="Status" s={link} />}
+    {link?.link?.status === 'open' && <Link className="btn sm" to="/inbox">Answer in the Inbox</Link>}
+    {link?.link?.decision && <span className="small">Chose “{link.link.decision.option}” ({link.link.decision.by === 'jev' ? 'JEV' : 'you'}, {new Date(link.link.decision.at).toLocaleString()})</span>}
+    {locked && <span className="small faint"><Icon name="lock" size={12} /> This decision is in use. Delete it and add a new one to change it.</span>}
+    <fieldset className="cv-visibility" disabled={locked}><legend className="small">Who decides</legend>
+      <label><input type="radio" name={`who-${g.id}`} checked={g.kind === 'human'} onChange={() => set({ kind: 'human', autoDecide: false, confirmedAt: null })} /> You decide</label>
+      <label><input type="radio" name={`who-${g.id}`} checked={g.kind === 'jev'} onChange={() => set({ kind: 'jev', autoDecide: false, confirmedAt: null })} /> JEV recommends{!jevHost ? ' (turn JEV on in Settings first)' : ''}</label>
+      {g.kind === 'jev' && <>
+        <label className="col"><span className="small muted">Evidence JEV may receive (bytes, 1–24000)</span><input type="number" min={1} max={24000} step={500} value={g.maxEvidenceBytes} onChange={e => set({ maxEvidenceBytes: Math.min(24000, Math.max(1, Math.round(Number(e.target.value) || 1))), confirmedAt: null, autoDecide: false })} /></label>
+        {g.confirmedAt ? <span className="small faint">JEV policy confirmed {new Date(g.confirmedAt).toLocaleString()} for {jevHost ?? 'your JEV host'}.</span>
+          : <button type="button" className="btn sm" disabled={!jevHost} onClick={confirmPolicy}>Confirm what JEV may receive…</button>}
+        <label><input type="checkbox" checked={g.autoDecide} disabled={!g.confirmedAt} onChange={e => allowDecide(e.target.checked)} /> JEV may decide on its own (low-risk choices only)</label>
+      </>}
+    </fieldset>
+    <label className="col"><span className="small muted">Question</span><textarea disabled={locked} rows={2} value={g.question} placeholder="Is the frontend good enough to start the backend?" onChange={e => set({ question: e.target.value })} /></label>
+    <label className="col"><span className="small muted">After workflow</span><select disabled={locked} value={g.from} onChange={e => set({ from: e.target.value })}><option value="">Connect or choose…</option>{models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+    <fieldset className="cv-visibility" disabled={locked}><legend className="small">Options (2–8, each starts a different workflow)</legend>
       {g.options.map((o, i) => <div key={i} className="row" style={{ gap: 6 }}>
         <input aria-label={`Option ${i + 1} label`} value={o.label} onChange={e => set({ options: g.options.map((x, j) => j === i ? { ...x, label: e.target.value } : x) })} />
         <select aria-label={`Option ${i + 1} starts`} value={o.to} onChange={e => set({ options: g.options.map((x, j) => j === i ? { ...x, to: e.target.value } : x) })}><option value="">Starts…</option>{targets.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
-        <button type="button" className="btn sm ghost" aria-label={`Remove option ${i + 1}`} onClick={() => set({ options: g.options.filter((_, j) => j !== i) })}><Icon name="close" size={12} /></button>
+        <button type="button" className="btn sm ghost" aria-label={`Remove option ${i + 1}`} disabled={g.options.length <= 2} onClick={() => set({ options: g.options.filter((_, j) => j !== i) })}><Icon name="close" size={12} /></button>
       </div>)}
       {g.options.length < 8 && <button type="button" className="btn sm" onClick={() => set({ options: [...g.options, { label: `Option ${g.options.length + 1}`, to: '' }] })}>Add option</button>}
     </fieldset>
-    <span className="small faint">Decisions and chains are saved with the canvas. They start workflows once the workflow-link engine is in this build.</span>
   </div>;
 }
 

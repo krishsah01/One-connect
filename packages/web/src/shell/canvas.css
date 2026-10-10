@@ -142,3 +142,5 @@ input.cv-frame-name:hover, input.cv-frame-name:focus { border-color: var(--borde
 /* Easier to grab: each socket has a larger invisible hit area. */
 .cv .cv-sock::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; }
 .cv .btn.sm { height: 32px; }
+.cv-link-status { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+.cv-visibility:disabled { opacity: 0.6; }

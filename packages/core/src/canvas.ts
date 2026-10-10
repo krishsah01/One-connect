@@ -80,8 +80,10 @@ export interface CanvasGate {
   options: { label: string; to: string }[];
   /** JEV may pick an option on its own (owner opt-in per gate); otherwise it only recommends. */
   autoDecide: boolean;
-  /** When the owner confirmed JEV may decide this gate (host and evidence limits shown first). */
+  /** When the owner confirmed JEV's policy for this gate (host and evidence limit shown first). JEV gates need it even to recommend. */
   confirmedAt: string | null;
+  /** Evidence JEV may receive for this gate, in bytes (the engine allows 1–24000). */
+  maxEvidenceBytes: number;
 }
 /** A direct link: when `from` finishes, `to` starts. */
 export interface CanvasChain { id: string; from: string; to: string }
@@ -98,6 +100,7 @@ export interface CanvasLayout {
 
 export const CANVAS_LIMITS = { bytes: 512 * 1024, frames: 200, nodes: 4000, sketches: 100, graphNodes: 160, graphEdges: 400, gates: 100, chains: 200, options: 8, text: 200, context: 4000, pickup: 2000 } as const;
 export const DEFAULT_SHOW_WHEN: CanvasShowWhen = { input: true, failure: true, finished: false };
+export const DEFAULT_JEV_EVIDENCE_BYTES = 8000;
 export const emptyCanvas = (): CanvasLayout => ({ version: 2, frames: {}, nodes: {}, sketches: {}, gates: {}, chains: {} });
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,95}$/;
@@ -197,8 +200,10 @@ export function normalizeCanvas(input: unknown): CanvasLayout {
     const options = (Array.isArray(g.options) ? g.options : []).slice(0, CANVAS_LIMITS.options)
       .map((o) => ({ label: str((o as { label?: unknown })?.label, 80), to: str((o as { to?: unknown })?.to, 96) }))
       .filter((o) => o.label && (o.to === '' || ID.test(o.to)));
-    const autoDecide = g.kind === 'jev' && bool(g.autoDecide, false) && typeof g.confirmedAt === 'string' && g.confirmedAt.length > 0;
-    out.gates[id] = { id, x: num(g.x), y: num(g.y), from: String(g.from), kind: g.kind === 'jev' ? 'jev' : 'human', question: str(g.question, 500), options, autoDecide, confirmedAt: autoDecide ? str(g.confirmedAt, 40) : null };
+    const kind = g.kind === 'jev' ? 'jev' : 'human';
+    const confirmedAt = kind === 'jev' && typeof g.confirmedAt === 'string' && g.confirmedAt.length > 0 ? str(g.confirmedAt, 40) : null;
+    const bytes = Number(g.maxEvidenceBytes);
+    out.gates[id] = { id, x: num(g.x), y: num(g.y), from: String(g.from), kind, question: str(g.question, 500), options, autoDecide: Boolean(confirmedAt) && bool(g.autoDecide, false), confirmedAt, maxEvidenceBytes: Number.isInteger(bytes) && bytes >= 1 && bytes <= 24000 ? bytes : DEFAULT_JEV_EVIDENCE_BYTES };
   }
   for (const [id, c] of Object.entries((raw.chains ?? {}) as Record<string, Partial<CanvasChain>>).slice(0, CANVAS_LIMITS.chains)) {
     if (!ID.test(id) || !c || !ID.test(String(c.from ?? '')) || !ID.test(String(c.to ?? '')) || c.from === c.to) continue;
@@ -379,4 +384,51 @@ export function continuationSketch(w: Workflow, s: Pick<ControlState, 'runs'>, i
     pickup: pickups[t.id] ?? pickupPoint(w, t.id, s),
   }));
   return { id, name: `${w.definition.name} (continued)`.slice(0, 120), mode: w.definition.mode, workflowId: null, version: null, continues: w.id, graph: deriveGraph(tasks), updatedAt: at };
+}
+
+// ---- canvas links → engine workflow links ---------------------------------------------------------
+
+/** What the engine's `POST /api/workflow-links` receives for a canvas chain or decision. */
+export interface LinkBody {
+  id: string;
+  from: string;
+  to: string[];
+  gate: null | { kind: 'human' | 'jev'; question: string; options: { label: string; to: string }[]; jev: { autoDecide: boolean; host: string; maxEvidenceBytes: number; confirmedAt: string; confirmedBy: string } | null };
+}
+
+export const canvasLinkId = (kind: 'chain' | 'gate', id: string) => `canvas-${kind}-${id}`.slice(0, 100);
+
+/**
+ * The engine link a canvas chain or decision stands for, or why it cannot be active yet. Both ends
+ * must be saved workflows; a decision needs a question and 2–8 uniquely labeled options that each
+ * start a different saved workflow; a JEV decision needs the owner's confirmed policy and a host.
+ */
+export function linkBodyFor(item: { kind: 'chain'; chain: CanvasChain } | { kind: 'gate'; gate: CanvasGate }, saved: (id: string) => boolean, jevHost: string | null): { body: LinkBody | null; waiting: string | null } {
+  if (item.kind === 'chain') {
+    const c = item.chain;
+    if (!saved(c.from) || !saved(c.to)) return { body: null, waiting: 'Save both workflows to activate this hand-off.' };
+    return { body: { id: canvasLinkId('chain', c.id), from: c.from, to: [c.to], gate: null }, waiting: null };
+  }
+  const g = item.gate;
+  if (!g.from || !saved(g.from)) return { body: null, waiting: 'Connect a saved workflow into this decision.' };
+  if (!g.question.trim()) return { body: null, waiting: 'Write the question this decision answers.' };
+  if (g.options.length < 2) return { body: null, waiting: 'A decision needs at least two options.' };
+  if (g.options.some(o => !o.to || !saved(o.to))) return { body: null, waiting: 'Point every option at a saved workflow.' };
+  if (new Set(g.options.map(o => o.label.trim())).size !== g.options.length) return { body: null, waiting: 'Give each option a different label.' };
+  if (new Set(g.options.map(o => o.to)).size !== g.options.length) return { body: null, waiting: 'Each option must start a different workflow.' };
+  if (g.kind === 'jev' && (!g.confirmedAt || !jevHost)) return { body: null, waiting: jevHost ? 'Confirm what JEV may receive before it can advise.' : 'Turn JEV on in Settings first, or let you decide.' };
+  return {
+    body: {
+      id: canvasLinkId('gate', g.id), from: g.from, to: g.options.map(o => o.to),
+      gate: { kind: g.kind, question: g.question.trim(), options: g.options.map(o => ({ label: o.label.trim(), to: o.to })), jev: g.kind === 'jev' ? { autoDecide: g.autoDecide, host: jevHost!, maxEvidenceBytes: g.maxEvidenceBytes, confirmedAt: g.confirmedAt!, confirmedBy: 'owner' } : null },
+    },
+    waiting: null,
+  };
+}
+
+/** Whether an engine link already matches the canvas (the engine stamps confirmation itself). */
+type LooseGate = { kind: string; question: string; options: { label: string; to: string }[]; jev?: { autoDecide: boolean; host: string; maxEvidenceBytes: number; confirmedAt?: string; confirmedBy?: string } | null } | null | undefined;
+export function linkMatches(link: { from: string; to: string[]; gate: LooseGate }, body: LinkBody): boolean {
+  const g = (x: LooseGate) => x ? JSON.stringify({ kind: x.kind, question: x.question, options: x.options, jev: x.jev ? { autoDecide: x.jev.autoDecide, host: x.jev.host, maxEvidenceBytes: x.jev.maxEvidenceBytes } : null }) : 'null';
+  return link.from === body.from && JSON.stringify(link.to) === JSON.stringify(body.to) && g(link.gate) === g(body.gate);
 }
