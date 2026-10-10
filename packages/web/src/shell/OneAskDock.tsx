@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // One Ask, always on the canvas: ask what you're unsure about, see cited sources, and get a
 // plain-language summary from the bundled local model. The answer can become a canvas node.
 import { useEffect, useRef, useState } from 'react';

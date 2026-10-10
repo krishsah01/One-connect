@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Ordered release plans and the read-only facts the cockpit is allowed to show.
 // A step is never skipped. Green requires fresh verification of the exact action. A human attestation
 // is labelled and does not substitute for verification. Interrupted writes become uncertain and are not repeated.

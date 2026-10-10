@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Live client state: a snapshot from /api/state kept current over the WebSocket with the SAME
 // reducer the daemon uses, so the UI can't drift from the event log.
 import { useCallback, useSyncExternalStore } from 'react';

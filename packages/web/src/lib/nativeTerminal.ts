@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Client transport helpers for native terminals: bounded early output, scoped events and safe IPC.
 import { invoke } from '@tauri-apps/api/core';
 

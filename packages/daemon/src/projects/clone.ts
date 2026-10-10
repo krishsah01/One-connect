@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Clone and initialize are planned first and executed only with the plan's digest, which the
 // native shell hands over after a human approves that exact plan. Re-planning at execution time
 // means a changed URL, destination or argument list cannot ride on an earlier approval.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Mac-first setup uses the vendor's installed official runtime and its own sign-in flow.
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';

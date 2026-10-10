@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { agentActor, type IntegrationMerge } from '@acc/core';
 import { describe, expect, it } from 'vitest';
 import { LocalTracker } from '../src/adapters/trackers/local.ts';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Private tunnel adapters for phone access. An adapter only plans and (after a recorded human
 // Decision) starts a PRIVATE, authenticated path to the loopback daemon. Planning never executes
 // anything that changes a network. Public listeners (for example Tailscale Funnel) are refused.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Independent, SHA-bound reviews and the integration-merge gates. Pure: the daemon supplies git
 // facts (current branch heads, conflicts), this decides what is still true.
 import type { ProjectConfig } from './config.ts';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod projects;
 mod terminal;

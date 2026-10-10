@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Typed, timestamped events. The append-only log of these is the source of truth for
 // runs, handoffs and decisions, and doubles as the audit log (every event has an actor).
 import type { AgentConfig, Policy, ProjectConfig, RuleName, TrackerConfig } from './config.ts';

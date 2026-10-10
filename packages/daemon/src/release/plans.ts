@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable ordered release plans. Each step is bound to one human Decision.
 // After that exact approval, a write runs once through the bounded runner.
 // A restart marks an in-progress write uncertain and does not repeat it.

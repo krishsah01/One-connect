@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Developer Certificate of Origin: every non-merge commit in the range needs a
 // "Signed-off-by: Name <email>" trailer matching its author (use `git commit -s`).
 //   node scripts/check-dco.mjs [<base>..<head>]     default: origin/main..HEAD

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Missing old control mutations cause an authoritative resync, never an out-of-order overwrite.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyEvent, emptyState, parseConfig, type EventEnvelope } from '@acc/core';

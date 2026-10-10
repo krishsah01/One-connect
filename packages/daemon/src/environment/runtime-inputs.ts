@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Compose file secrets/configs are bind mounts. Their sealed sources must outlive `up -d`
 // and daemon restarts; temporary approval/build snapshots cannot own their lifetime.
 import fs from 'node:fs';

@@ -1,4 +1,4 @@
 #!/bin/sh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 # Fake cursor-agent for tests and the demo. See ../fake-agent.mjs.
 FAKE_VENDOR=cursor exec node "$(dirname "$0")/../fake-agent.mjs" "$@"

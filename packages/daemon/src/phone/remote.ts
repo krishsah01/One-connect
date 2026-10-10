@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Authenticated remote (phone) access. Disabled by default. Nothing listens beyond loopback until
 // the owner enables it, reviews the exact plan and answers a recorded Decision for that launch.
 // A phone pairs once with an expiring single-use token, receives a scoped, HttpOnly session

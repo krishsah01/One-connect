@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // API keys for connections the user explicitly opted into (Anthropic Console, OpenAI, OpenRouter,
 // Linear). Stored in the macOS Keychain (or ACC_SECRET_<NAME> env vars elsewhere), never in
 // config, logs or the event store, and handed only to that connection's own runs.

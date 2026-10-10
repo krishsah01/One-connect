@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Child environment for agent runs. API-key variables would silently switch a vendor CLI from
 // the user's subscription to metered billing, so they are stripped unless the agent opted in.
 import type { AgentConfig } from '@acc/core';

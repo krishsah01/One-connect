@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable app-data locations. Logs and evidence must survive restarts, so temp dirs are refused.
 import fs from 'node:fs';
 import os from 'node:os';

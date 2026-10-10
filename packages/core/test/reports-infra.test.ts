@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { describe, expect, it } from 'vitest';
 import type { InfraHealthReport } from '../src/release.ts';
 import { candidatesFromEvents } from '../src/phone.ts';

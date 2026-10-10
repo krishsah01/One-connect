@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Prepare a self-contained engine; production dependencies only, no vendor binaries or credentials.
 import fs from 'node:fs';
 import path from 'node:path';

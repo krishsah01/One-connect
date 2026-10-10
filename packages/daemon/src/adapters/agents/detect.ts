@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Finds every copy of a vendor CLI (PATH and app bundles) and pins one. Apps sometimes ship a
 // newer CLI than the one on PATH, and only the newer one can run the newest models.
 import fs from 'node:fs';

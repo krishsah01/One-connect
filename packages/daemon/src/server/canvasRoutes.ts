@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project canvas: the layout of workflow frames and nodes, hidden-workflow rules and unsaved
 // workflow sketches. Stored per project in the daemon's key-value store; it never starts work.
 // Terminating a workflow cancels it through the workflow engine and reopens its unfinished steps.

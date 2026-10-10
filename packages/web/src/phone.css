@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0 */
 /* Phone, PWA and reports surfaces. Palette tokens come from styles.css (pearl, ink, teal, mist, amber). */
 .offline-banner { border-radius: 0; border-left: 0; border-right: 0; position: sticky; top: 0; z-index: 30; }
 :root[data-offline] main .btn.primary, :root[data-offline] main .btn.danger, :root[data-offline] main .decision-answers .btn, :root[data-offline] main .approval .btn { opacity: .5; pointer-events: none; }

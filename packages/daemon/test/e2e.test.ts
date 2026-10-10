@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // End-to-end flows with real detached runners and the scripted fake vendor CLIs.
 import fs from 'node:fs';
 import path from 'node:path';

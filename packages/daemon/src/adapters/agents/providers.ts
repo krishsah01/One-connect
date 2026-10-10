@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Bring-your-own-model connections: local servers (Ollama, LM Studio) and API keys (Anthropic
 // Console, OpenAI, OpenRouter). The harness is still an official agent CLI (Claude Code / Codex);
 // these probes answer "is it reachable, what does it cost, which models can call tools".

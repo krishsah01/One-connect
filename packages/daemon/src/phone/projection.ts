@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Phone status projections never grant management/configuration or credential access.
 import { emptyState, remoteDecisionAccess, type ControlState, type Decision, type EventEnvelope, type RemoteScope, type ReportEvent } from '@acc/core';
 import type { Daemon } from '../daemon.ts';

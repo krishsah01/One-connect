@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Sortable, prefixed ids: <prefix>_<time base36><random>. Works in Node and the browser.
 
 export function newId(prefix: string): string {

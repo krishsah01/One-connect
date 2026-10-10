@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Run directly with Node >=24, without Vitest/TypeScript transpilation or a real Docker engine.
 import fs from 'node:fs';
 import os from 'node:os';

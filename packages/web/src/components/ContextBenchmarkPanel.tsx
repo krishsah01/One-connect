@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Results of the context-quality benchmark on the disposable fixture corpus. Sizes are bytes and
 // bytes/4 ESTIMATES; provider-reported tokens do not exist because no model is called.
 import { useCallback, useEffect, useState } from 'react';

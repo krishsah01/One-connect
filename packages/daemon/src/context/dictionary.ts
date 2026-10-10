@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Dictionary: the shared, cited project intelligence for humans and every assigned agent.
 //
 // Intake is a durable job: list the exact committed tree, read only blobs not already cached for

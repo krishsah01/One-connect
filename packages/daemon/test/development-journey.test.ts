@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Connected dashboard API journey using repository-owned zero-cost CLI fixtures. The
 // commands/worktrees/WebSocket/logs are real; this is not vendor, tracker-cloud or phone proof.
 import fs from 'node:fs';

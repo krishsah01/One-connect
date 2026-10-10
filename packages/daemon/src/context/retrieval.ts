@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Hybrid retrieval policy for Dictionary, independent of storage:
 //   1. keyword (SQLite FTS5 bm25) and, when configured, local semantic rankings are fused (RRF);
 //   2. path / symbol mentions in the question boost the matching source;

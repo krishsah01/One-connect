@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Launches detached runners, tails their durable logs into events, reattaches after a daemon
 // restart (verifying PID identity so a reused PID is never mistaken for our run), and kills
 // process groups for stop / kill switch.

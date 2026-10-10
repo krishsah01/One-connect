@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Opt-in real Docker smoke test: ONE_CONNECT_DOCKER_SMOKE=1 and postgres:16-alpine already
 // present locally. Scope is one disposable Compose project named ocsmoke<random>; cleanup runs
 // `down -v` for that project only. Nothing is pulled; other containers are never addressed.

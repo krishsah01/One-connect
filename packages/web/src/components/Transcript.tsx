@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Live, filterable transcript of one run's structured events.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EventEnvelope } from '@acc/core';

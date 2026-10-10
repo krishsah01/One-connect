@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Node24 native type stripping; no transpiler, socket, provider, Keychain or live transport.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';

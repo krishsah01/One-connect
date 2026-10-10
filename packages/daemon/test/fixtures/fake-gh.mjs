@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Stand-in for the GitHub CLI covering the `gh issue|label|repo` calls the tracker adapter makes.
 // State lives in $FAKE_GH_STATE (JSON). Records every call in state.calls for assertions.
 import fs from 'node:fs';

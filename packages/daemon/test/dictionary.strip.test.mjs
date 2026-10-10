@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Run directly with Node 24 --test: exercises real TS module loading without a transpiler.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';

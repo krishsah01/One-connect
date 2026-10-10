@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Turn an inspected repository into a project configuration. A repository's own
 // control-center.yaml is used only when it binds this exact folder; otherwise a generated
 // configuration is written to app-owned storage, never into the user's repository.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable local alerts. JSON gateway/chat deliveries each need a human Decision for the exact
 // payload, URL and configuration. Endpoint reviews never authorize messages or add egress hosts.
 import { createHash, randomBytes } from 'node:crypto';

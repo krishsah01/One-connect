@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Real local Git refs and child-process fixtures. No vendor, cloud tracker or Docker pull.
 import { afterEach, expect, it } from 'vitest';
 import { newId, SYSTEM, type Workflow } from '@acc/core';

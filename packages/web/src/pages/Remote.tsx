@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Phone and alerts: install status, authenticated remote access (off by default), and notification
 // routing. Remote access shows the exact plan before anything runs, needs a recorded Decision for
 // each launch, and never claims reachability that nothing has proven. Managed from the Mac only.

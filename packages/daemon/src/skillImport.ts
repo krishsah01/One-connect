@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Parse SKILL.md frontmatter and portable skill bundles for import preview. No persistence.
 import { createHash } from 'node:crypto';
 import YAML from 'yaml';

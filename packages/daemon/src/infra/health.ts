@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Read-only infra health: Docker and local Postgres from the project workbench,
 // Vercel from a loopback fixture, and migration drift from repo files plus a history that was read.
 import { SYSTEM, type InfraHealthReport, type MigrationDrift } from '@acc/core';

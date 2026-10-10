@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // One contract every tracker adapter must pass. A new tracker = implement TrackerAdapter and add
 // a factory here.
 import fs from 'node:fs';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Onboarding wizard data: installed vendor CLIs (configured or not), their versions and pinning,
 // plus each configured agent's login state, billing mode and models.
 import type { BinaryInfo } from '@acc/core';

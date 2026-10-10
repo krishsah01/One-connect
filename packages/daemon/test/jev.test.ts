@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Jev (TypeSafe System One) advisory recommendations on the human Decisions inbox, against a
 // loopback protocol fixture only. No real TypeSafe endpoint or key is involved.
 import http from 'node:http';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // End-to-end Dictionary demonstration on a DISPOSABLE multi-language repository:
 //   onboard → committed-source intake → notes / structure / keywords (+ vectors, Graphify when
 //   given an already-installed tool) → cited queries → a commit that edits, deletes and renames

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // A real (if minimal) tracker stored in its own SQLite file, standing in for an external
 // system: offline use, demos and tests. It is deliberately separate from the event log.
 import { DatabaseSync } from 'node:sqlite';

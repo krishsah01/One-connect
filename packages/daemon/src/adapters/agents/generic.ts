@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Any vendor CLI that takes a prompt and prints an answer (Gemini CLI, Grok, …), configured with
 // a command + argument template. Detection is limited, so billing is "declared in config".
 import type { AuthStatus, BillingInfo, ModelInfo } from '@acc/core';

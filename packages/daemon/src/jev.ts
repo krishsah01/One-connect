@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Jev = TypeSafe's System One model, used ONLY to recommend and prioritise a human decision.
 //
 //  - Disabled by default. Enabling needs the owner's explicit cost + network + data confirmation

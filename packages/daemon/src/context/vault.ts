@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Obsidian vault access for shared context. Notes are plain markdown files, so writes always go
 // straight to disk (Obsidian picks them up live, and nothing depends on the app running).
 // Search uses the official `obsidian` CLI (1.12.4+) when it is installed AND Obsidian is already

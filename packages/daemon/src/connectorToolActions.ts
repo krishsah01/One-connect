@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Per-call MCP tool approvals. Connection activation makes a command/tool inventory eligible only;
 // each invocation needs its own human Decision bound to exact validated arguments before any process starts.
 import fs from 'node:fs';

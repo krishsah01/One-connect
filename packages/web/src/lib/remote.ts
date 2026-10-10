@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The phone session, when this page was opened through the private tunnel. On the Mac the call
 // is refused (403) and the dashboard behaves normally. The CSRF value is derived server-side from
 // the HttpOnly cookie, so a cross-site page cannot learn it.

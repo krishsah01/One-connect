@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // OpenAI Codex CLI (`codex exec --json`), signed in with ChatGPT. Models come from the CLI's own
 // catalog (`codex debug models`); plan usage comes from the rate_limits Codex records in the
 // session files of runs this control center started (never other sessions).

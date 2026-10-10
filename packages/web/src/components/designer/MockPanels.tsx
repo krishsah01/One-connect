@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Review, evidence, comparison, source, refinement and handoff for one exact mock revision.
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';

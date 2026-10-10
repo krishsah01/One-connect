@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // graphify code knowledge graph of the integration branch. The control center keeps a private,
 // detached worktree of the integration branch and runs `graphify update` there (AST only, no
 // LLM, no cost) whenever the branch moves. Agents query it through the acc MCP tools.

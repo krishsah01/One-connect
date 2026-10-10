@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project Docker workbench. Every Compose command carries this project's exact name, directory
 // and files; containers are controllable only when their Compose labels match that binding.
 // Mutations need a human decision bound to the reviewed Compose/Dockerfile bytes (not only

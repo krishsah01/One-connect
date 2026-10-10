@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Designer studio: a brief becomes a reviewable issue and assignment, runs in the agent's own CLI on
 // the durable run stream, and its captured mock is reviewed against a versioned project contract.
 import { useEffect, useMemo, useState } from 'react';

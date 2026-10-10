@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Read-only GitHub REST shapes: branch protection, pull requests and check runs.
 // Nothing is merged, pushed or changed. Live https is used only when the caller already activated it.
 import type { CodeHostCheck, CodeHostPull, CodeHostSnapshot, ReleaseCapability } from '@acc/core';

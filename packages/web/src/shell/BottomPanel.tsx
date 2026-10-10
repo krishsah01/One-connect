@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Collapsible bottom panel, as in ComfyUI: project terminals and a live log of what the engine did.
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';

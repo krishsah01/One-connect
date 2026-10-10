@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Independent SHA-bound reviews, action-bound human decisions and local integration merges, with
 // scripted fake agents in disposable git repos. Nothing is pushed; no vendor is contacted.
 import fs from 'node:fs';

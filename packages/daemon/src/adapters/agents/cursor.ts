@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Cursor agent CLI (`cursor-agent -p --output-format stream-json`), signed in with Cursor.
 // On-demand (usage-based) billing is an account setting the CLI can't report, so it is shown as
 // unknown with a banner rather than assumed off.

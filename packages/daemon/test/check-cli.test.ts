@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Run the actual installed Node runtime/CLI against disposable, offline source.
 import fs from 'node:fs';
 import path from 'node:path';

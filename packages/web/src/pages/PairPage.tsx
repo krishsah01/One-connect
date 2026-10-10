@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Redeems a single-use pairing token. The token travels in the URL fragment, so it is never sent to
 // a server, written to an access log or leaked through a Referer header. It is read once and removed
 // from the address bar and history before anything else happens, and it is never rendered.

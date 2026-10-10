@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // One Ask UI: honest per-stage status, progress and cancel, evidence verdicts, verbatim
 // citations that open the committed file at the cited lines, and the structure explorer.
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';

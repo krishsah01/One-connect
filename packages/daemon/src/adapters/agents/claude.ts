@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Claude Code headless (`claude -p --output-format stream-json`), signed in with the user's
 // Claude subscription. Tool-permission prompts route to the control center through the acc MCP
 // server's permission_prompt tool, so a pending approval is visible (and stall-detected).

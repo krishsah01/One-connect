@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project canvas, ComfyUI-style. Each workflow is a frame holding a typed node graph: agents,
 // issues, steps, Designer artifacts, skills, connectors, One Ask answers, summaries and notes.
 // Typed, colored ports only connect to matching types. Double-click the canvas (or drop a link on

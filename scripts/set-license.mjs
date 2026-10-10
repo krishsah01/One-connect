@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Switch the project license in one step before the first public release:
 //   node scripts/set-license.mjs MIT
 //   node scripts/set-license.mjs AGPL-3.0-only --text path/to/agpl-3.0.txt

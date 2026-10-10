@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Read-only GitLab REST shapes: protected branches, merge requests and pipelines.
 // Nothing is merged or changed. Live https is used only when the caller already activated it.
 import type { CodeHostCheck, CodeHostPull, CodeHostSnapshot } from '@acc/core';

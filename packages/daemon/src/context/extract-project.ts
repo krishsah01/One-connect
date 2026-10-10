@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Read immutable Git blobs only. No checkout, project command, hook, install or remote fetch.
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';

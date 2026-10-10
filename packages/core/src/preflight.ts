@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Dispatch pre-flight. Pure: the daemon gathers the facts, this decides.
 import type { Policy, ProjectConfig } from './config.ts';
 import type { AgentState, Assignment, PreflightCheck, PreflightResult, WorkItem } from './entities.ts';

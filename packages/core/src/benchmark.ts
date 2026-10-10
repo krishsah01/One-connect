@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Result shapes of the context-quality benchmark. Everything here is measured on a disposable
 // fixture corpus with labelled questions. Token figures are bytes-derived ESTIMATES; provider-reported
 // tokens are a separate field that stays null because the benchmark performs no inference.

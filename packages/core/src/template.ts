@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Generates the assignment text an agent receives. Editable by the human before dispatch.
 import type { AgentConfig, ProjectConfig } from './config.ts';
 import type { WorkItem } from './entities.ts';

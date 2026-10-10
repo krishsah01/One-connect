@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project design system: edit a draft (autosaved on this project's daemon), preview it, validate it
 // on the daemon, then save an immutable human-authored version. Drafts are never the approved contract.
 import { useEffect, useMemo, useState } from 'react';

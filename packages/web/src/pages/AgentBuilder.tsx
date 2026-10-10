@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { useEffect,useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ADAPTER_TYPES, AgentConfigSchema, defaultHarnessFor, EFFORTS, LOCAL_PROVIDERS, PAID_PROVIDERS, PROVIDER_HARNESS, PROVIDERS, ROLES, subscriptionGroup, type AgentConfig, type Provider, type ControlState, type DesignSkill, type ProjectSkill } from '@acc/core';

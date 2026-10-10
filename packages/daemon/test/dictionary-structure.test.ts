@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Declarative structure parsing across common project layouts. Pure: no files, processes or network.
 import { describe, expect, it } from 'vitest';
 import { analyzeStructure, neighbors } from '../src/context/structure.ts';

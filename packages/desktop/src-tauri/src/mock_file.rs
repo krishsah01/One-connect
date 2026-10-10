@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Native bounded file helper, also usable by the strip-only Node CLI via ACC_NATIVE_FILE_HELPER.
 // libuv treats Darwin's O_NOFOLLOW_ANY bit as its own flag and rejects it, so Node must not emulate
 // this protection with path checks. This mode starts before Tauri, with no IPC or daemon startup.

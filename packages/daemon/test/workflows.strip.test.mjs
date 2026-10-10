@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Direct Node 24 contract: real fixture processes, SQLite replay and local Git; no transpiler.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';

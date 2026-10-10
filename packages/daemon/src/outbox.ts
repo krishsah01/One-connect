@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Tracker sync. Writes come from the transactional outbox (committed together with the lifecycle
 // event that caused them) and are delivered in order per issue with retries; failures are loud.
 // The poller ingests changes made directly in the tracker.

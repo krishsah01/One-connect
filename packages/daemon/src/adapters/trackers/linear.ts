@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Linear over its public GraphQL API. The personal API key is read at runtime from the macOS
 // Keychain or LINEAR_API_KEY, never written to config, logs or the event store, and added to the
 // redaction denylist.

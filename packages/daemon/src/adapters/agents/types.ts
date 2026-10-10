@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The one interface a new agent vendor implements. Process supervision, durable logs,
 // redaction, approvals and rules are shared; a vendor adapter only knows how to talk to its CLI.
 import type {

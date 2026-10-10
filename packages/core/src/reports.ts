@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Brief, Timeline, morning report and standup. Pure functions over the event log and the reducer
 // state: every claim carries the exact events (and SHAs/commands) that back it, nothing is
 // summarized by a model, and absence of evidence is stated rather than rendered as success.

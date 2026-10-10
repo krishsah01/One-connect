@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Stage the bundled local models into the desktop app's resources. The files must already be in
 // .desktop-cache/models (downloaded once, with the owner's approval) and are verified against the
 // pinned SHA-256 values before they are copied. Nothing is downloaded here.

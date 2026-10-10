@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Brief & Reports, Timeline, morning report and standup are derived only from recorded events:
 // every claim links to events and SHAs, filters work, and gaps stay visible.
 import fs from 'node:fs';

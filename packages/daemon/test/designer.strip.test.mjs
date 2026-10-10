@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Run directly with Node 24 --test: the Designer studio modules load as plain TypeScript, without a
 // transpiler, exactly as the strip-only CLI daemon runs them.
 import assert from 'node:assert/strict';

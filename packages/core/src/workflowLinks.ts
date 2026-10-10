@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { z } from 'zod';
 export const WorkflowLinkInputSchema = z.object({
   id: z.string().min(1).max(100).optional(),

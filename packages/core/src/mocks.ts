@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Design mock artifacts: issue/assignment-bound local HTML/CSS/JS captured as immutable revisions.
 import { z } from 'zod';
 import type { Actor } from './entities.ts';

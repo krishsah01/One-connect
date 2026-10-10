@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Read bounded codeload tarballs in memory; never extract paths or execute imported files.
 import { gunzipSync } from 'node:zlib';
 import { CommandError } from '../daemon.ts';

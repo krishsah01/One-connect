@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Worktree diff against the assignment's base SHA, refetched when the run reports file changes.
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';

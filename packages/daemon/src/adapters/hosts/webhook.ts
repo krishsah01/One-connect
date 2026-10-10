@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Webhook authentication and replay bounds. This module never opens a socket and never
 // registers a hook with GitHub or GitLab. Polling is the fallback when no delivery arrives.
 import { createHmac, timingSafeEqual } from 'node:crypto';

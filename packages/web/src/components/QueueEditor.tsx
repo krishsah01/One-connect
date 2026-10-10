@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Now/Next queues per agent. Drag to reorder within a lane, or onto another agent to reassign.
 import { useState } from 'react';
 import { DndContext, PointerSensor, KeyboardSensor, closestCorners, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';

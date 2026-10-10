@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Git adapter: one worktree per assignment, diffs against the recorded base, path-scope hooks,
 // protected-branch push guard and early conflict detection between active worktrees.
 import fs from 'node:fs';

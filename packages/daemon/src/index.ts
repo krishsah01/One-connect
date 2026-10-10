@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 export { Daemon, CommandError, VERSION, type DaemonOptions } from './daemon.ts';
 export { createServer } from './server/http.ts';
 export { loadConfig, findConfig } from './config.ts';

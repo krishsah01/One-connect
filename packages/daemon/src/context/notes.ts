@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Markdown notes generated from real state only: the team contract (one shared copy of the
 // instructions), a live brief, one note per issue, per handoff and per answered decision.
 // Every claim links to where it came from; nothing implies a merge, deploy or passing test

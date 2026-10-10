@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Git hook entry for agent worktrees:
 //   pre-commit: reject staged files outside the assignment's allowed paths
 //   pre-push:   reject pushes to protected branches

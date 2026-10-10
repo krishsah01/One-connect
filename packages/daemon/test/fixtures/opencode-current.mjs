@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Source-verified v1.18.35 contract subset from the tagged packages/sdk/js/src/v2/gen/{sdk,types}.gen.ts.
 // This is a synthetic test server, never a live protocol capture. No model/provider is called.
 // A controlled loopback stand-in for `opencode serve`, used by tests. It implements only the

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Official contracts: docs.ollama.com/cloud and api/openai-compatibility (2026-10-07).
 // Native API: https://ollama.com/api; OpenAI chat: https://ollama.com/v1.
 // Direct API IDs come from /api/tags; local :cloud / -cloud aliases are not rewritten.

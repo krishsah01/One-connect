@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable workflow definitions: tasks tied to existing issues and agents, run either independently
 // or in dependency order. Pure validation and derivation shared by the daemon and the browser.
 import { z } from 'zod';

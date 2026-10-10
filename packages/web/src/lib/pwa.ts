@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Progressive web app support. The service worker precaches only a static offline page, the
 // manifest and icons. It never stores API or event responses, transcripts, prompts, source,
 // credentials or pairing/sign-in links (see public/sw.js). Install state is only what the browser

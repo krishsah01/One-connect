@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Failing CI, an unprotected branch, and migration drift become tracker issues through the
 // existing outbox. The work item stays unsynced until that outbox delivers.
 import { createHash } from 'node:crypto';

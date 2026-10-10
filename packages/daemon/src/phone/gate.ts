@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The only place remote (tunnelled) requests are authenticated. A request whose Host is a live
 // tunnel name is NEVER authenticated by the Mac's sign-in cookie, the install token or a run
 // token: it needs a paired phone session, an exact Origin, a CSRF header for changes, and a route

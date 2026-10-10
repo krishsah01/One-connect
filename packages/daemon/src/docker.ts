@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { HUMAN, newId, type Decision } from '@acc/core';
 import { run, type ExecResult } from './exec.ts';
 import { CommandError, type Daemon } from './daemon.ts';

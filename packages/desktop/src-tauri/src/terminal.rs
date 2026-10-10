@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 use portable_pty::{native_pty_system, CommandBuilder, Child, ChildKiller, ExitStatus, MasterPty, PtySize};
 use serde::Serialize;
 use std::{collections::HashMap, io::{ErrorKind, Read, Write}, path::Path, sync::{atomic::{AtomicU64, Ordering}, Arc, Mutex}, time::{Duration, Instant}};

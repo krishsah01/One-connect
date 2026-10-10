@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Reducer cases for project skills, connectors and design mock artifacts.
 import type { ControlState } from './entities.ts';
 import type { EventEnvelope } from './events.ts';

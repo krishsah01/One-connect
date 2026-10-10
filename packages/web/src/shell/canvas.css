@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0 */
 /* One Connect canvas. Shape carries meaning: round agents (who), pills (what they use), cards (work),
    diamonds (decisions), soft lanes (workflows) joined by dashed hand-off rails. */
 .cv { position: absolute; inset: 0; }

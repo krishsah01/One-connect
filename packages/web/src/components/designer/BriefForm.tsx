@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The design brief. Autosaved as a draft; creating it makes an ordinary issue and a draft assignment
 // that the human reviews and dispatches. Nothing runs from this form.
 import { useEffect, useState } from 'react';

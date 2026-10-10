@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Human decisions bound to one exact action. Irreversible or outward options need a second,
 // single-use confirmation; only a human actor can answer; recommendations (e.g. Jev) are advisory.
 import { createHash, randomBytes } from 'node:crypto';

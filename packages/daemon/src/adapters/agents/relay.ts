@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Relay mode for app-bound agents with no CLI (desktop IDE agents, chat apps): the control center
 // produces a self-contained prompt, the human pastes it into the app, then pastes the reply back.
 // There is no process; the run waits for input until the reply arrives.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { useEffect, useState } from 'react';
 import { AgentPacketPreview, AskPanel, FileViewer, LocalModels, DictionaryStatusCard, StructureExplorer, Tabs } from '../components/Dictionary';
 import { ContextBenchmarkPanel } from '../components/ContextBenchmarkPanel';

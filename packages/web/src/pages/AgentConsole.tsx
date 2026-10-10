@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // One agent, in real time: live transcript, controls, approvals, diff, tests, handoff, history.
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';

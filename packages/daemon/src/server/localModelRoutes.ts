@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Bundled local models (summary agent and embeddings) for One Ask and the canvas Summary node.
 // Available only when the desktop app passes its models folder; nothing is downloaded.
 import type { FastifyInstance, FastifyRequest } from 'fastify';

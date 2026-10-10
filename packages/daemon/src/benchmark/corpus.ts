@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // A disposable, deterministic fixture corpus for the context-quality benchmark: a fictional ferry
 // booking service ("Harbor Lights") with docs, code, distractors, a version change, abstention and
 // scope-leak probes, and a few on-demand skills. Nothing here is real project data.

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // A controlled loopback stand-in for `opencode serve`, used by tests. It implements only the
 // pinned subset of the OpenCode server protocol that One Connect's bridge uses (see
 // packages/daemon/src/adapters/agents/opencode/protocol.ts): basic auth with a per-run password,

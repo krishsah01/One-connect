@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // GitHub Issues through the user's own signed-in `gh` CLI. The control center never sees a
 // GitHub token. Statuses map to `acc:<status>` labels plus open/closed.
 import type { LifecycleState, TrackerCategory } from '@acc/core';

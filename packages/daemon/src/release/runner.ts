@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Exact release operations. Transport runs outside the repository's configuration;
 // successful writes still need fresh evidence of their actual result.
 import fs from 'node:fs';

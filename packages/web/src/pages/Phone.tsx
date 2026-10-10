@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The phone home: what needs you, what every agent is doing, usage, alerts and the kill switch.
 // Built for one thumb: 44 px targets, one column, nothing hover-only. Every change is refused while
 // offline, answers that cannot be undone ask twice, and the kill switch can be engaged here but is

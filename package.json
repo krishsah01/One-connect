@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Local-first control center that runs a team of AI coding agents on the subscriptions you already pay for.",
-  "license": "Apache-2.0",
+  "license": "Apache-2.0 AND LicenseRef-Commons-Clause-1.0",
   "type": "module",
   "packageManager": "pnpm@10.28.2",
   "engines": {

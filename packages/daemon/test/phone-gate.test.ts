@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // In-memory Fastify injection and fake fetch: no listeners, vendors or live integrations.
 import fs from 'node:fs';
 import path from 'node:path';

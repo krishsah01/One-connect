@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Local stdio MCP server for connector tests. argv[2] is a marker file it appends to on every start,
 // so tests can prove a draft connection never started it.
 import fs from 'node:fs';

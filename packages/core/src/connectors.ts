@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Typed connector descriptors. Saved connections start as drafts that make no outbound calls;
 // every action needs its own human decision bound to the exact configuration hash.
 import { z } from 'zod';

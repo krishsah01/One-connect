@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // HTTP routes for phone access, notifications, Brief & Reports and the context benchmark.
 // Registered on the main app, so Host/Origin/auth checks (local or remote gate) run first.
 import type { FastifyInstance, FastifyRequest } from 'fastify';

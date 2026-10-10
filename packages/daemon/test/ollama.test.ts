@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Ollama both ways (local models; paid cloud models through a signed-in daemon or the cloud API with a
 // Keychain key), honest states, billing/safety rules, egress and the harness catalog. Fixtures only.
 import fs from 'node:fs';

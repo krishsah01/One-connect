@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project Docker workbench: only this project's Compose binding, honest readiness from real
 // healthchecks, and every change gated by a single-use approval for the exact command shown.
 import { useEffect, useState } from 'react';

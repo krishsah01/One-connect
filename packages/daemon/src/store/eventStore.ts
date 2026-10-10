@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Append-only event log on SQLite (node:sqlite, no native build). UPDATE and DELETE on
 // `events` are rejected by triggers. Projections are rebuilt by replaying through the shared
 // reducer; snapshots only speed up boot.

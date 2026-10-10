@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project onboarding and Docker workbench routes. Registered by createServer behind the same
 // authentication hook as every other /api route; each daemon serves exactly one project.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';

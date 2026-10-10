@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { describe,expect,it } from 'vitest';
 import { emptyState,newAgentState,parseConfig,projectAnalytics,remainingCapacity,type Run,type UsageInfo } from '../src/index.ts';
 const usage: UsageInfo={windows:[],status:'unknown',checkedAt:'',source:'vendor'};

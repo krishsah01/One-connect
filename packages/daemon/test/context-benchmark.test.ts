@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The context-quality benchmark on its disposable corpus: quality is asserted (no regression), sizes
 // are labelled estimates, scope probes and incremental invalidation are guarded, and no paid or
 // network step is used.

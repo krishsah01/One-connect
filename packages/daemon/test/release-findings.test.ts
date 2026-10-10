@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Provider reads are injected; no network, Keychain, tracker delivery or infra process.
 import { afterEach, expect, it } from 'vitest';
 import { Daemon } from '../src/daemon.ts';

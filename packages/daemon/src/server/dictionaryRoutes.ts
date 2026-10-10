@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Dictionary HTTP routes: intake control (cancel), cited search, committed-file view, the
 // declarative structure graph, installed local model status and the agent context packet preview.
 // Registered on the main app, so they inherit its Host/Origin checks and authentication.

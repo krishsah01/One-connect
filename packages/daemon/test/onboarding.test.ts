@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import fs from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { BinaryInfo } from '@acc/core';

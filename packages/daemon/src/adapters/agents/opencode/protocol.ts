@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // OpenCode v1.18.35 (MIT), inspected against the official tagged SDK/source on 2026-10-07.
 // Docs/provenance: docs/adapter-protocols.md. No vendor binary or live model was run.
 import path from 'node:path';

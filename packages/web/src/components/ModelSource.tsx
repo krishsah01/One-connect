@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Agent builder helpers: honest runtime state for Ollama (local and cloud), and the exact
 // capabilities and limits of the chosen harness. Read-only checks: nothing here starts inference.
 import { useEffect, useState } from 'react';

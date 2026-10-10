@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // OpenCode end to end through the real detached runner, bridge and daemon, against the loopback
 // protocol fixture fixtures/opencode-current.mjs (not a real OpenCode, no model calls).
 import fs from 'node:fs';

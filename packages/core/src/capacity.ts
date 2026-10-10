@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Subscription agents on one vendor login share limits. Capacity is never multiplied by cloning.
 import type { AgentConfig } from './config.ts';
 import type { AgentState, UsageInfo } from './entities.ts';

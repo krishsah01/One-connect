@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 /// <reference types="node" />
 // The service worker may cache only the static offline shell. These tests run the real sw.js in a sandbox.
 import fs from 'node:fs';

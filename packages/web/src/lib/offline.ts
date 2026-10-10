@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Offline state. While the browser reports no network, every change is refused at the API layer
 // (see api.ts): nothing is queued, so a stale approval can never be replayed later.
 import { useSyncExternalStore } from 'react';

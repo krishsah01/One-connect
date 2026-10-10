@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Workflow engine end to end: validation over HTTP, dependency-ordered promotion from recorded
 // evidence, pause/resume, failure, cancel and restart durability. Scripted fake agents only.
 import fs from 'node:fs';

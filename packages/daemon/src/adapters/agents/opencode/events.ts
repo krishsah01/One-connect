@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Pure mapping from OpenCode server-sent events to the bridge's line format. No I/O: the bridge
 // feeds it events and acts on what it returns (permission / question requests, completion).
 import type { BridgeLine } from './protocol.ts';

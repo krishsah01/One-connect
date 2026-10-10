@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable project registry and the native approval gate for outbound/irreversible intake actions.
 // A project's identity is the SHA-256 of its canonical configuration path, which is also the name
 // of its isolated state directory, so registries written by earlier builds keep their data.

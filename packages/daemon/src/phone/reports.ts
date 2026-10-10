@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Brief & Reports and Timeline over this project's own event log. No model call: pure derivation
 // from recorded events and the live state (see packages/core/src/reports.ts).
 import type { ReportFilter } from '@acc/core';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import type { AgentStatus, RunState } from '@acc/core';
 
 export function ago(iso: string | null | undefined, now = Date.now()): string {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Secret redaction for the event pipeline. Runs before anything touches disk, a prompt,
 // a log, a tracker comment or the UI. Patterns plus a runtime denylist of exact values.
 

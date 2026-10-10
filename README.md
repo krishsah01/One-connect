@@ -88,4 +88,4 @@ One Connect is an independent open-source project. It is **not affiliated with, 
 
 ## License
 
-[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Contributions require a [DCO sign-off](CONTRIBUTING.md).
+Source-available under the [Apache License 2.0 with the Commons Clause](LICENSE): use it, change it and build with it, including at work, but don't sell it or a service whose value comes mainly from it. This is not an OSI open-source license. See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Contributions require a [DCO sign-off](CONTRIBUTING.md).

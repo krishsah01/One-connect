@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable workflow execution. Every task runs through the normal assignment → preflight → dispatch
 // path (so Now/Next and shared subscription capacity apply). A task only completes, and its
 // dependents only start, from recorded lifecycle evidence: verified commits and daemon-run checks

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Independent SHA-bound reviews and local integration merges. Reviews are typed durable records;
 // a merge needs a human decision bound to the exact source/target SHAs, an independent approval,
 // green required checks at the source SHA and finished workflow gates. Never pushes or deploys.

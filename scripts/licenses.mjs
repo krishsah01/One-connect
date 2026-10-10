@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Third-party license inventory + compatibility gate.
 //   node scripts/licenses.mjs --write   regenerate THIRD_PARTY_NOTICES.md
 //   node scripts/licenses.mjs --check   fail if a dependency's license is incompatible with ours
@@ -77,7 +77,7 @@ function render(prod, dev, native) {
     '',
     '## Native Mac runtime and build dependencies',
     '',
-    'This conservative inventory includes build-time crates. Each crate retains its own license. The app includes original license notices in the bundled engine’s `native-notices/` directory and unchanged source for MPL-2.0 crates in `native-sources/`. Source can also be obtained from the versioned crate links below. MPL-covered source is provided under MPL-2.0; the application’s Apache-2.0 license does not replace those terms.',
+    'This conservative inventory includes build-time crates. Each crate retains its own license. The app includes original license notices in the bundled engine’s `native-notices/` directory and unchanged source for MPL-2.0 crates in `native-sources/`. Source can also be obtained from the versioned crate links below. MPL-covered source is provided under MPL-2.0; the application’s own license does not replace those terms.',
     '',
     '| Crate / source | Version | License |',
     '|---|---|---|',

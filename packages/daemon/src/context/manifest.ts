@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable Dictionary ingestion manifest. Private daemon data (0600), separate from the vault.
 //
 //   blobs      content-addressed REDACTED source text, keyed by (Git object ID, redaction policy).

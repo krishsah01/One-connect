@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { skillAdvice, SkillDraftSchema, SKILL_IMPORT_MAX_BYTES, SKILL_LIMITS, type ControlState, type DesignSkill, type ProjectSkill, type SkillDraft, type SkillImportPreview, type SkillTemplate } from '@acc/core';

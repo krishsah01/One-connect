@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Context-quality benchmark. Builds a disposable git repo + vault from a fixed fixture corpus,
 // runs the REAL Dictionary intake (and Graphify, if installed) in an isolated temporary daemon, and
 // compares retrieval against a full-context baseline on labelled questions. No inference, no

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // HTTP routes for the Designer studio: contract drafts and versions, design jobs, refinement,
 // comparison, review, evidence and handoff bundles. Registered on the main app, so they inherit
 // its Host/Origin checks and session/install-token authentication; remote sessions are deny-by-default.

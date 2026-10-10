@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Design mock artifacts. An assigned design agent writes self-contained HTML/CSS/JS under
 // design/<slug>/ in its worktree; capture validates the folder, copies it into content-addressed
 // app storage and records an immutable revision bound to the issue, assignment, git SHA and the

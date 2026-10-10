@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { describe, expect, it } from 'vitest';
 import { draftHash, filesHash, fileSha256 } from '../src/skillHash.ts';
 import { skillMarkdown, SKILL_TEMPLATES, SkillDraftSchema } from '../src/skills.ts';

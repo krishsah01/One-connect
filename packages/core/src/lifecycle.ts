@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // One lifecycle state machine shared by every view, the daemon and the tracker sync.
 
 export const MAIN_STATES = [

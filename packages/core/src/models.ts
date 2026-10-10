@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Model inventory helpers: newest-model selection, model classes and quality floors.
 // Vendors name models inconsistently, so everything here is pattern-based and overridable
 // from policy config. Unknown models are reported as unknown, never guessed into a class.

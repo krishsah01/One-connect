@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Offline WebKit host proof. Compile with the existing Command Line Tools, never installs anything.
 import Cocoa
 import WebKit

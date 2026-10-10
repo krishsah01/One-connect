@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Repo migration filenames compared with a database history that was actually read.
 // Missing history is unchecked, never "in sync".
 import { createHash } from 'node:crypto';

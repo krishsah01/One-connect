@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Read-only code host. Live GitHub and GitLab are contacted only when the owner
 // approved the current project, host, scopes and capabilities in Connectors. The token comes
 // from the Keychain. Webhooks are verified locally and are never registered.

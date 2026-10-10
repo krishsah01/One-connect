@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Declarative project structure for Dictionary: symbols, file-to-file imports, doc→code mentions,
 // manifests and entry points, parsed from the already redacted committed snapshot with regular
 // expressions only. Nothing is executed, installed, resolved over the network or evaluated.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Build only our small trusted helper for offline macOS test fixtures. Production desktop uses
 // its own executable's early helper mode; no compiler is needed by the packaged application.
 import fs from 'node:fs';

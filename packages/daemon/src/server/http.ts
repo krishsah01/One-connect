@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Local HTTP + WebSocket API. Binds 127.0.0.1 only. Every request needs a session cookie (from a
 // one-time code), the install token, or (MCP bridge only) a per-run token. Host and Origin are
 // checked against DNS rebinding and cross-site requests.

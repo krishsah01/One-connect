@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Preview of one exact revision, page and viewport. In the browser dashboard the mock is shown as a
 // script-free layout render in an iframe sandboxed with no permissions. Interactive execution only
 // happens in the desktop app's isolated native preview window.

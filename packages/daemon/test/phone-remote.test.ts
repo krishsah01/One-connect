@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Phone access over a loopback fixture tunnel: disabled by default, per-launch Decision, single-use
 // pairing, scoped sessions, CSRF/Origin, brute-force bound, revocation, isolation and audit.
 import fs from 'node:fs';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // OpenCode protocol contract, pure: version pin, provider mapping (no key ever in config), the
 // SSE-event mapper, the adapter's parser and its launch spec. Fixtures only; no OpenCode involved.
 import { describe, expect, it } from 'vitest';

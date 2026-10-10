@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Renders the One Connect PWA icons (two linked rounded rings on teal) without any dependency.
 // Deterministic: re-running produces identical files. Usage: node scripts/generate-pwa-icons.mjs
 import fs from 'node:fs';

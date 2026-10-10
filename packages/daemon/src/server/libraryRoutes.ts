@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // HTTP routes for project skills, connectors and design mock artifacts. Registered on the main app,
 // so they inherit its Host/Origin checks and session/install-token authentication.
 import type { FastifyInstance, FastifyRequest } from 'fastify';

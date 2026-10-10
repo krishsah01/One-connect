@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Agent adapter contract. Parsers run against REAL vendor streams captured from the installed
 // CLIs (sanitized, test/fixtures/real) plus the probe commands against the fake CLIs. A new
 // vendor = implement VendorAdapter, add a fixture, add a case here.

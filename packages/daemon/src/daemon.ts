@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The supervisor daemon. Every state change goes through commit(): validate → typed events →
 // one SQLite transaction (events + tracker outbox + tail offsets) → shared reducer → broadcast.
 import { EventEmitter } from 'node:events';

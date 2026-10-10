@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // One run's full, live transcript on its own screen. Reading only: no composer, nothing to send.
 import { Link, useParams } from 'react-router';
 import type { ControlState } from '@acc/core';

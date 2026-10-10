@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Runs a real, local embedding retrieval check on disposable notes. Never pulls a model.
 import fs from 'node:fs';
 import os from 'node:os';

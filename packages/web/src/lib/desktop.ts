@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Mac app bridge. Every daemon call names the active project; the native shell routes it to that
 // project's own engine and token. A response that arrives after a switch is dropped, so one
 // project's data never renders in another's view.

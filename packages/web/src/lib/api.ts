@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { isDesktop, desktopRequest } from './desktop';
 import { isOnline, OFFLINE_MESSAGE } from './offline';
 import { hasMutationAuthority, refreshIdentityFromApi, remoteCsrf } from './remote';

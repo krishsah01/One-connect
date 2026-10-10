@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Runtime entities. Config lives in config.ts; these are what the event log builds up.
 import type { AdapterType, AgentConfig, Effort, ProjectConfig, Policy, Role, RuleName, TrackerConfig } from './config.ts';
 import type { BlockedOn, LifecycleState, TrackerCategory } from './lifecycle.ts';

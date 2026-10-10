@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // A scripted stand-in for vendor CLIs (claude / codex / cursor-agent) used by tests and the demo.
 // It speaks each vendor's real headless output format, runs REAL commands in its working
 // directory (tests, git commit) and reports their actual results, so the whole pipeline

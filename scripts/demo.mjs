@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Demo: a sample repo, scripted fake agents (no subscription usage), the local tracker, an
 // Obsidian-style vault and the graphify code graph, all under a durable demo data dir.
 //

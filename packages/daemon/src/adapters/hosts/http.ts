@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // HTTP for code-host and infra probes.
 // Fixtures stay on loopback. A live call is https only, and only after the caller
 // has already checked activation and the egress allowlist.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // OpenCode (MIT) adapter: the default open-source harness for API-key and local-model providers
 // (Anthropic/OpenAI/OpenRouter keys, Ollama local + cloud). LM Studio stays blocked until its
 // tool capabilities are verified. Subscription agents keep

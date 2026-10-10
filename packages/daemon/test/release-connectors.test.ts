@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // In-process fixtures only: no daemon start, CLI login, Keychain access or live provider traffic.
 import fs from 'node:fs';
 import path from 'node:path';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Schema for control-center.yaml. Everything project-specific is configuration.
 import { z } from 'zod';
 

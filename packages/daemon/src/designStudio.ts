@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Designer studio orchestration. A brief becomes an ordinary issue and draft assignment that the
 // human reviews and dispatches through the existing pre-flight; refinements continue the same
 // session or get a scoped child issue; engineering handoffs bind to one approved identity. Nothing

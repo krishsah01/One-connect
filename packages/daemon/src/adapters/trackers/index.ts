@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import path from 'node:path';
 import type { TrackerConfig } from '@acc/core';
 import { GitHubTracker } from './github.ts';

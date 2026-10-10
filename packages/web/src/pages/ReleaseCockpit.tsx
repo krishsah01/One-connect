@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Release cockpit: edit an ordered plan and approve one step at a time.
 // The daemon rechecks the bound action. This page never marks an unchecked adapter healthy.
 import { useEffect, useState } from 'react';

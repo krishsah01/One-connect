@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The owner named the project-knowledge feature "One Ask". Earlier work called it "One Answer" and
 // later "Dictionary". This renames only what people see: page titles, navigation, buttons, notices
 // and messages. Code identifiers, file names, routes, stored folders and data paths stay as they

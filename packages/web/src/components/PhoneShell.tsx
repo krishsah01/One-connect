@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Phone-facing shell pieces: the offline banner, the bottom tab bar with a project menu, and the
 // browser-notification bridge. Nothing here stores data on the device.
 import { useEffect, useState } from 'react';

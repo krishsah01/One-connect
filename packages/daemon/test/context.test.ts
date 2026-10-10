@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Shared context: Obsidian vault notes (fs + official CLI) and the graphify code graph.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';

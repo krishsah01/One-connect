@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Local development databases. Postgres runs in this project's Compose namespace with a
 // project-scoped named volume, a loopback-only port and a password that exists only in a 0600
 // secret file. SQLite is a 0600 file in app data. Neither path can address a remote database.

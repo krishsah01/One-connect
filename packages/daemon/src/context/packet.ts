@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Compact project/assignment context packet: what an agent (or the human previewing it) needs to
 // start without re-reading the repository or being briefed by hand.
 //

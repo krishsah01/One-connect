@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Observe the actual authenticated WebSocket and two bus listeners, including a nested commit.
 import fs from 'node:fs';
 import path from 'node:path';

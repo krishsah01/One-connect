@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // One project's durable inboxes. MCP supplies the authenticated run identity.
 import type { Actor, EventEnvelope, TeamMessage } from '@acc/core';
 import { isActiveRun, newId } from '@acc/core';

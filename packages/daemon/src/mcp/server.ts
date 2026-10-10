@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The `acc` MCP server, started by the agent's own CLI over stdio for each run:
 //   node server.ts <runDir>
 // It reads the daemon URL and the per-run token from <runDir>/mcp.json (0600) and forwards

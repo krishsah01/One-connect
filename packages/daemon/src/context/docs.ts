@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Scoped, redacted local retrieval. SQLite FTS5 works without an AI provider; optional
 // embeddings and answers use only a user-selected, already-installed local Ollama model.
 import { createHash } from 'node:crypto';

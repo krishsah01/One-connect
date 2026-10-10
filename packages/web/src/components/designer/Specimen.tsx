@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Live component and state specimen rendered from a contract (saved or draft). Everything here is
 // trusted app UI: keyboard tabs, an inline dialog with focus return, field validation and states.
 import { useId, useRef, useState, type CSSProperties } from 'react';

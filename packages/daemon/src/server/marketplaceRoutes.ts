@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { randomBytes } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import type { FastifyInstance, FastifyRequest } from 'fastify';

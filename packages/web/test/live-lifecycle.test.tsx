@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Protocol fixtures exercise the actual client, HTTP identity check and socket callbacks.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyState } from '@acc/core';

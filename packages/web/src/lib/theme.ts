@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Day, Night or Machine (follow the system). A per-viewer preference kept in this browser only.
 import { useEffect, useState } from 'react';
 

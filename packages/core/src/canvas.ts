@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project canvas: a ComfyUI-style typed node graph per workflow (agents, issues, steps, designs,
 // skills, connectors, One Ask context, summaries, notes), frames that can be hidden, gates and
 // chains that link whole workflows, and unsaved sketches. Pure; the daemon stores it, the browser

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Classifies the failure modes that actually happen to headless agents.
 import type { FailureKind } from '@acc/core';
 

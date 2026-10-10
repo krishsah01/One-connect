@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import type { Actor, EventEnvelope, NewEvent, WorkflowLink } from '@acc/core';
 import { containsSecret, HUMAN, newId, SYSTEM, WorkflowLinkInputSchema } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';

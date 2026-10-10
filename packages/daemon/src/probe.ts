@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Onboarding / probe: which vendor binaries exist, which one is pinned, login state, billing
 // mode, model inventory and (where exposed) included usage. Never touches credentials.
 import type { AgentState, BinaryInfo, ControlEventData } from '@acc/core';

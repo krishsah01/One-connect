@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Shared policy for intake and app-owned local Git operations.
 import type { ExecResult } from '../exec.ts';
 import { isolatedGit } from '../adapters/vcs/git-policy.ts';

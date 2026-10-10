@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Docker workbench against a protocol fixture: a fake `docker` that answers the exact CLI
 // shapes the workbench uses. No real engine, image or container is involved.
 import fs from 'node:fs';

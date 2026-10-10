@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { createHash } from 'node:crypto';
 import { containsSecret, GraphifyConfigSchema, HUMAN, isActiveRun, parseConfig, type CodeHostConfig, type ControlCenterConfig, type GraphifyConfig, type InfraConfig, type NewEvent, type Policy, type ProjectConfig } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';

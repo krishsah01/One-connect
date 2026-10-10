@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Test-only Graphify stand-in whose `update` can fail or stall, selected by a mode file named in
 // DICTIONARY_GRAPH_MODE_FILE (contents: ok | fail | slow). Delegates to fake-graphify otherwise.
 import fs from 'node:fs';

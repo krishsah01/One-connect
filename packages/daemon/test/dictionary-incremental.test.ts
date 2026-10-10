@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Dictionary as a durable, incremental, cited project intelligence engine: change detection,
 // policy/model invalidation, job coalescing, cancellation, restart recovery, partial stages,
 // wrapper attribution, bounded large repositories, hostile inputs and authenticated access.

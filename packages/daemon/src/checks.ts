@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Required checks execute committed source in a disposable Docker container. Vendor harnesses
 // stay native. Host execution requires an explicit, marked disposable fixture configuration.
 import fs from 'node:fs';

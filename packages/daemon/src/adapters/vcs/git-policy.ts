@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Suppress executable Git configuration for app-owned local operations. Repository identity
 // and structural config remain readable; custom merge drivers are refused rather than invoked.
 import { run, type ExecResult } from '../../exec.ts';

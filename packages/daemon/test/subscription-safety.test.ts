@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Vendor protocol fixtures expose a subscription but cannot expose account payment settings.
 import fs from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';

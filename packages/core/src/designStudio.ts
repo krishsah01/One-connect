@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Designer studio: briefs become ordinary issues and assignments; every job is tracked by the same
 // durable run stream as engineering work. A job is "captured" only when an immutable mock revision
 // exists for it, never because a run exited. Pure: the daemon and the UI derive status the same way.

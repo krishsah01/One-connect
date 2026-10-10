@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Run with Node 24 --test. Every import gets a fresh process, no transpiler or provider access.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Built-in automations (each toggleable): auto-refill Now from Next, stall detection,
 // failure retry with a connectivity check, usage-limit handling, idle-with-work alerts.
 // They never downgrade a model and never enable paid usage.

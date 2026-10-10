@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // New-project onboarding: bind a folder to exactly one Git repository root and describe what it
 // declares (frameworks, checks, Compose services) by reading manifests. Scripts are never run.
 import fs from 'node:fs';

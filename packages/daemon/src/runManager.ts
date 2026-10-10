@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Run pipeline: worktree + hooks → launch through the detached runner → parse output into events
 // → on exit, classify, collect commits and the handoff, verify evidence, move the lifecycle,
 // run the required checks ourselves, then let the rules refill the agent's Now from Next.

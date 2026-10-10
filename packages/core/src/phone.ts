@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Phone access and notification policy: pure schemas and decisions shared by the daemon (which
 // enforces them) and the dashboard (which shows exactly what is allowed). Nothing here performs I/O.
 import { z } from 'zod';

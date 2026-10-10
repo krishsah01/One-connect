@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Per-run wrapper process, started detached so agent runs survive daemon restarts.
 //
 //   node runner.ts <runDir>     (redaction config arrives on stdin, never on disk or argv)

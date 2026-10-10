@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // A paid configuration is a draft until its exact settings are approved by the owner.
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';

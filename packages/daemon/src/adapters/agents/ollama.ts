@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Read-only Ollama probes. No pull, model load, chat, generate, signin, or inference requests.
 // Docs: docs.ollama.com/api/{tags,authentication}, api-reference/show-model-details.
 // /api/me and remote_model/remote_host are verified from ollama/ollama api/client.go and types.go.

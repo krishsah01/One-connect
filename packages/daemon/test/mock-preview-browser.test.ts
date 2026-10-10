@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Real Chromium test; no Playwright install. Supply an existing headless executable explicitly.
 // This tests the immutable ancestor CSP/sandbox, not a JS navigation shim. Generic web execution
 // remains disabled because CSP cannot provide an engine-level WebRTC denial.

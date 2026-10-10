@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable notification inbox from the project's event log.
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Shared onboarding guidance for Agents setup and the project terminal. Keeps login argv and
 // connection copy in one place so the UI never executes vendor auth.fix strings automatically.
 import type { AgentState, AuthStatus, BinaryInfo } from '@acc/core';

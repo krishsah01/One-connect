@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Network egress guard. The control center itself contacts ONLY the hosts of connections the user
 // configured (their tracker, their model providers, their local model servers). There is no
 // telemetry, no update check and no project server: nothing about your work leaves your machine

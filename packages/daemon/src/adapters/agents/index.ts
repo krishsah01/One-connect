@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import type { AdapterType } from '@acc/core';
 import { claudeAdapter } from './claude.ts';
 import { codexAdapter } from './codex.ts';

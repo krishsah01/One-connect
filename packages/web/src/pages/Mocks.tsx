@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Mock artifacts: a gallery of captured revisions and in-progress jobs, and one artifact's exact
 // revision, page and viewport with review, evidence, comparison, source, refinement and handoff.
 import { useCallback, useEffect, useState } from 'react';

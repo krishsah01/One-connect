@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Disposable Git, local tracker, repository-owned fake agents and injected protocols only.
 import fs from 'node:fs';
 import path from 'node:path';

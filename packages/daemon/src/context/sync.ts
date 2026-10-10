@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Keeps shared context current: Obsidian notes (contract, brief, issues, handoffs, decisions)
 // rewritten from live state on change, and the graphify graph rebuilt when integration moves.
 import path from 'node:path';

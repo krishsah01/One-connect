@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Bundled local models: availability needs the exact files, the Ollama-compatible bridge refuses
 // browsers and foreign hosts, and a model whose SHA-256 does not match is never loaded.
 import fs from 'node:fs';

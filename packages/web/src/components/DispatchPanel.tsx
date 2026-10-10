@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Dispatch: pick an agent, generate the assignment from the template, edit it, see pre-flight,
 // then dispatch Now (if the agent is free) or queue it as Next.
 import { useState } from 'react';

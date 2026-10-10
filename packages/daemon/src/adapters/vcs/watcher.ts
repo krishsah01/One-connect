@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Live file-system watch of a worktree, debounced, ignoring .git internals.
 import fs from 'node:fs';
 

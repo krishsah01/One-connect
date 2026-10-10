@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Brief & Reports and Timeline. Everything shown is derived from this project's recorded events;
 // every claim names the events (and SHAs) behind it, and gaps are stated rather than filled in.
 import { useCallback, useEffect, useState } from 'react';

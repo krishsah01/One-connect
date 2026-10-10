@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Preview is read-only. Imported items live in the local tracker with immutable source identity.
 import { newId, HUMAN, type WorkItem } from '@acc/core';
 import { GitHubTracker, LinearTracker, type TrackerIssue } from './adapters/trackers/index.ts';

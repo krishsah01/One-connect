@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Add, switch and manage projects. Each project has its own engine, database, agents, Docker
 // namespace and terminals; switching only changes which one this window shows.
 import { useCallback, useEffect, useState } from 'react';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Notification routing: derived alerts, dedupe, quiet hours, redaction, off-by-default external
 // channels, and exact per-message human Decisions (fake-fetch transport only).
 import { afterEach, describe, expect, it } from 'vitest';

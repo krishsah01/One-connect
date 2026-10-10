@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project skills library: original SKILL.md skills with on-demand references, immutable published
 // versions, per-assignment snapshots, provider exports into the assignment worktree and paged reads.
 // Saving a draft never runs code, installs anything or calls a model.

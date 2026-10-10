@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The one reducer. The daemon builds its projections with it and the UI stays live with it,
 // so the two can never disagree. Pure: time comes from event timestamps, never Date.now().
 import type { AgentState, AgentStatus, ControlState, Run, RunState } from './entities.ts';

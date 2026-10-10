@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

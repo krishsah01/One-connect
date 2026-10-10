@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Connector manager. Saved connections are drafts: no outbound call, no process start. Each action
 // (import, read, execute) needs its own single-use human decision bound to the configuration hash;
 // editing the configuration voids it. Imported text is untrusted data, never instructions.

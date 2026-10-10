@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The one interface a new work tracker implements. The tracker owns issues and statuses; the
 // control center mirrors them as work items and writes back through the transactional outbox.
 import type { LifecycleState, TrackerCategory } from '@acc/core';

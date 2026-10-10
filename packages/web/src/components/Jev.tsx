@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Jev (TypeSafe System One) is an advisory model for the Decisions inbox. It is off until you turn
 // it on here, needs a key in your Keychain, and each request shows exactly what would leave this Mac.
 import { useEffect, useState } from 'react';

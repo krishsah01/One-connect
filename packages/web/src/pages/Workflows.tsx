@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Workflows: tasks tied to existing issues and agents, run independently or in dependency order.
 // Progress is live from the event log; a task is done only when the daemon recorded evidence.
 import { useMemo, useState } from 'react';

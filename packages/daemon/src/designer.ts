@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project design contract (immutable human-authored revisions with exact hashes), its drafts,
 // pinned designer skills and the bounded design section of assignment prompts.
 import fs from 'node:fs';

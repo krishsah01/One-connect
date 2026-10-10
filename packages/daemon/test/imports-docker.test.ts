@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { afterEach, describe, expect, it } from 'vitest';
 import { IssueImports } from '../src/imports.ts';
 import { ProjectDocker } from '../src/docker.ts';

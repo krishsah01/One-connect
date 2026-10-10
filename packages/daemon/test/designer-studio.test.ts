@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Designer studio end to end, with the repository's labelled fixture CLIs (no model, no network).
 import fs from 'node:fs';
 import path from 'node:path';

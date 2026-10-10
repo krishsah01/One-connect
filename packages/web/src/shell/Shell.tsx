@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // The local dashboard shell: one canvas (or the issue list) as the main surface, a short top bar,
 // and every other tool in a side drawer, the Settings dialog or the command palette. Existing
 // routes keep working; they now open over the canvas instead of replacing it.

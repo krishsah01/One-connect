@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import fs from 'node:fs';
 import { afterEach, expect, it, vi } from 'vitest';
 import { compileSketch, deriveGraph, parseHandoff, SYSTEM, type CanvasLayout, type Workflow } from '@acc/core';

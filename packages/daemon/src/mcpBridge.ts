@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Daemon side of the `acc` MCP server: the single source of truth agents pull from. Calls are
 // authenticated by a per-run token, so a tool call always knows which run, agent and issue it is.
 import path from 'node:path';

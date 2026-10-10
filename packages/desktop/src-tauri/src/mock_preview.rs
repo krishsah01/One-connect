@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Native-only boundary for hostile interactive documents. No dashboard CSP relaxation, daemon
 // credentials, or application IPC is granted to preview webviews. Unsupported hosts fail closed.
 use std::{collections::HashMap, sync::{atomic::{AtomicU64, Ordering}, Mutex}};

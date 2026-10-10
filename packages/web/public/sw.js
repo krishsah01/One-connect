@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // One Connect service worker. Deliberately tiny: it precaches ONLY a static offline page, the
 // manifest and the icons. It never handles a request that is not one of those, never adds anything
 // at runtime, and never touches the network for anything else. So no API or event response, transcript,

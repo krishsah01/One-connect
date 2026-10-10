@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Project design contract. One representation (the token table) generates tokens.css, the
 // machine-readable tokens, DESIGN.md, the component specimen and readable diffs. Saved revisions are
 // immutable; schema 1 revisions stay readable and render exactly as they did when they were frozen.

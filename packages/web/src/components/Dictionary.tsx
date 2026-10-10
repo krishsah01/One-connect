@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // One Ask building blocks: intake status and progress, per-stage freshness, change report,
 // installed local models, cited search with an evidence verdict, the committed-file viewer, the
 // declarative structure explorer and the agent context-packet preview. Every status is spelled

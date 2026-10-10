@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Every source file carries `SPDX-License-Identifier: <project license>` near the top, and every
 // package manifest's "license" matches the root package.json (the single source of truth).
 import { execFileSync } from 'node:child_process';
@@ -27,7 +27,8 @@ for (const f of files()) {
   if (!SOURCE.test(f) && !isBin) continue;
   checked++;
   const head = fs.readFileSync(abs, 'utf8').split('\n').slice(0, 4).join('\n');
-  const m = /SPDX-License-Identifier:\s*([^\s*]+)/.exec(head);
+  // The identifier may be an SPDX expression ("A AND B"); read it to the end of the line, minus comment closers.
+  const m = /SPDX-License-Identifier:[ \t]*(.+?)[ \t]*(?:\*\/|-->)?[ \t]*$/m.exec(head);
   if (!m) problems.push(`${f}: missing SPDX-License-Identifier header`);
   else if (m[1] !== license) problems.push(`${f}: SPDX ${m[1]} != project license ${license}`);
 }

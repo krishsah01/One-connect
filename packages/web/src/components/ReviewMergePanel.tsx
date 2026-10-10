@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Independent review and local integration merge controls for one work item.
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';

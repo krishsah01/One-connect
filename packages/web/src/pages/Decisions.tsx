@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Owner decisions, built for a phone: quick answers, the evidence behind each question, risk and
 // urgency, and a second confirmation step for anything irreversible. A button never grants
 // permission by itself: the daemon only acts on a durable answer bound to one exact action.

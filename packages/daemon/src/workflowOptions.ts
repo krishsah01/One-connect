@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import type { Actor, Assignment, DesignJob, Handoff, NewEvent, Run, WorkflowTaskDef } from '@acc/core';
 import { containsSecret, isActiveRun, mockGate, newId, SYSTEM } from '@acc/core';
 import { adapterFor } from './adapters/agents/index.ts';

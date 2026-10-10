@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Bundled local models: a small chat model for plain-language summaries of One Ask results and a
 // small embedding model for semantic search, both run by llama.cpp's llama-server on 127.0.0.1.
 //
