@@ -82,4 +82,8 @@ export function registerDesignerRoutes(app: FastifyInstance, d: Daemon): void {
     const view = studio().prepareEngineering(req.params.id, num(req.params.rev), { agentId: String(req.body?.agentId ?? ''), allowedPaths: Array.isArray(req.body?.allowedPaths) ? req.body!.allowedPaths : [], notes: req.body?.notes }, HUMAN);
     return { ...view, prompt: d.state.assignments[view.job.assignmentId]?.prompt ?? '' };
   });
+
+  // ---- design system summary (used by assignment prompts and the agent builder) -----------------
+  app.get('/api/designer', async () => ({ skills: d.designer.skills(), design: d.designer.exports() }));
+  app.post('/api/designer/system', async (req: R<Record<string, string>, { system: unknown; expected?: string | null }>) => ({ revision: d.designer.save(req.body?.system, req.body?.expected ?? null) }));
 }
