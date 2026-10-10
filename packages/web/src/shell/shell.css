@@ -67,3 +67,45 @@
   .shell-modal-nav a { white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { .shell * { scroll-behavior: auto; } }
+
+/* ---- Bottom panel: terminal and logs ---- */
+.bp { position: relative; flex: none; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--surface); }
+.bp:not(.open) { height: 30px; }
+.bp-resize { position: absolute; top: -3px; left: 0; right: 0; height: 6px; cursor: ns-resize; z-index: 2; }
+.bp-resize:focus-visible { outline: 2px solid var(--accent); }
+.bp-tabs { display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 8px; flex: none; }
+.bp-tabs [role='tab'] { height: 24px; padding: 0 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+.bp-tabs [role='tab'].on { background: var(--accent-weak); color: var(--text); font-weight: 600; }
+.bp-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.bp-pad { padding: 10px 14px; }
+.bp-terminal { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 8px; }
+.bp-logs { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.bp-logs-bar { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-bottom: 1px solid var(--border); }
+.bp-logs-bar input { height: 26px; width: 220px; }
+.bp-chips { display: inline-flex; gap: 2px; }
+.bp-chips button { height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+.bp-chips button.on { background: var(--accent-weak); color: var(--text); border-color: var(--accent); }
+.bp-log-lines { flex: 1; overflow: auto; font-family: var(--mono); font-size: 12px; padding: 4px 10px; }
+.bp-line { display: flex; gap: 10px; align-items: baseline; padding: 1px 0; white-space: nowrap; }
+.bp-line time { color: var(--text-3); flex: none; }
+.bp-type { color: var(--accent); flex: none; min-width: 150px; }
+.bp-agent { color: var(--text-2); flex: none; }
+.bp-text { overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.bp-line.problem .bp-type, .bp-line.problem .bp-text { color: var(--crit); }
+.shell-icon-btn.on { background: var(--accent-weak); color: var(--text); }
+
+/* ---- Accessibility: larger, clearer controls throughout the shell ---- */
+.shell .btn { height: 36px; padding: 0 14px; font-size: 14px; border-radius: 10px; }
+.shell .btn.sm { height: 32px; padding: 0 12px; font-size: 13px; border-radius: 9px; }
+.shell .btn.primary { font-weight: 650; }
+:root[data-theme='dark'] .shell .btn.primary { color: #00181b; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .shell .btn.primary { color: #00181b; } }
+.shell .btn:focus-visible, .shell-icon-btn:focus-visible, .shell-views a:focus-visible, .shell-ask:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.shell-icon-btn { height: 38px; min-width: 38px; border-radius: 10px; font-size: 14px; }
+.shell-ask { height: 38px; border-radius: 10px; font-size: 14px; }
+.shell-views a { padding: 7px 12px; font-size: 14px; }
+.shell-bar { height: 56px; gap: 6px; }
+.shell .react-flow__node:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 18px; }
+.shell .react-flow__controls-button { width: 32px; height: 32px; }
+.shell-label { font-weight: 600; }
+@media (max-width: 1100px) { .shell-label { display: none; } }

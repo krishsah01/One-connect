@@ -12,6 +12,8 @@ import { useOnline } from '../lib/offline';
 import { isDesktop } from '../lib/desktop';
 import { BrowserNotifier, OfflineBanner } from '../components/PhoneShell';
 import { Icon, type IconName } from './icons';
+import { BottomPanel, readPanelPrefs, savePanelPrefs, type PanelPrefs } from './BottomPanel';
+import { applyTheme, readTheme, setTheme, useTheme, type ThemeChoice } from '../lib/theme';
 import './shell.css';
 
 const Canvas = lazy(() => import('../pages/Canvas').then(m => ({ default: m.Canvas })));
@@ -70,7 +72,7 @@ export function surfaceFor(path: string): Surface {
   if (is('/inbox', path)) return { kind: 'drawer', title: 'Inbox', body: 'inbox' };
   if (is('/decisions', path)) return { kind: 'drawer', title: 'Decisions', body: 'decisions' };
   if (INSIGHT_TABS.some(t => is(t.path, path))) return { kind: 'drawer', title: 'Insights', body: 'insights', wide: true };
-  if (is('/docs', path)) return { kind: 'drawer', title: 'One Answer', body: 'docs', wide: true };
+  if (is('/docs', path)) return { kind: 'drawer', title: 'One Ask', body: 'docs', wide: true };
   if (is('/designer', path)) return { kind: 'drawer', title: 'Designer', body: 'designer', wide: true };
   if (is('/mocks', path) || is('/mocks/:id', path)) return { kind: 'drawer', title: 'Mocks', body: 'mocks', wide: true };
   if (is('/agents/:id', path)) return { kind: 'drawer', title: 'Agent', body: 'agent', wide: true };
@@ -87,6 +89,10 @@ export function Shell({ state, meta, conn, projectSwitcher }: { state: ControlSt
   const online = useOnline();
   const { busy, error, run } = useAction();
   const [palette, setPalette] = useState(false);
+  const [panel, setPanel] = useState<PanelPrefs>(readPanelPrefs);
+  const onPanel = (p: PanelPrefs) => { setPanel(p); savePanelPrefs(p); };
+  const { choice } = useTheme();
+  useEffect(() => { applyTheme(readTheme()); }, []);
   const surface = surfaceFor(location.pathname);
   const listView = location.pathname === '/board';
   const lastBase = useRef(listView ? '/board' : '/');
@@ -96,6 +102,7 @@ export function Shell({ state, meta, conn, projectSwitcher }: { state: ControlSt
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette(v => !v); }
+      if (e.ctrlKey && e.key === '`') { e.preventDefault(); setPanel(p => { const next = { ...p, open: !p.open }; savePanelPrefs(next); return next; }); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -126,8 +133,10 @@ export function Shell({ state, meta, conn, projectSwitcher }: { state: ControlSt
         <button type="button" className="shell-ask" onClick={() => setPalette(true)} aria-keyshortcuts="Meta+K Control+K" aria-label="Ask or jump to (⌘K)"><Icon name="search" /><span>Ask or jump to…</span><kbd>⌘K</kbd></button>
         <span className="spacer" />
         <Link to="/inbox" className={`shell-icon-btn${inbox ? ' attention' : ''}`} aria-label={inbox ? `Inbox, ${inbox} waiting` : 'Inbox'}><Icon name="bell" /><span className="shell-label">Inbox</span>{inbox > 0 && <b>{inbox}</b>}</Link>
-        <Link to="/insights" className="shell-icon-btn" aria-label="Insights"><Icon name="chart" /></Link>
-        <Link to="/settings" className="shell-icon-btn" aria-label="Settings"><Icon name="gear" /></Link>
+        <Link to="/insights" className="shell-icon-btn" aria-label="Insights"><Icon name="chart" /><span className="shell-label">Insights</span></Link>
+        <button type="button" className={`shell-icon-btn${panel.open ? ' on' : ''}`} aria-label={panel.open ? 'Hide terminal and logs' : 'Show terminal and logs'} aria-pressed={panel.open} aria-keyshortcuts="Control+`" title="Terminal and logs (Ctrl+`)" onClick={() => onPanel({ ...panel, open: !panel.open })}><Icon name="terminal" /><span className="shell-label">Console</span></button>
+        <ThemeButton choice={choice} />
+        <Link to="/settings" className="shell-icon-btn" aria-label="Settings"><Icon name="gear" /><span className="shell-label">Settings</span></Link>
         <button
           type="button"
           className={`btn sm kill ${kill ? 'danger solid' : 'danger'}`}
@@ -147,6 +156,7 @@ export function Shell({ state, meta, conn, projectSwitcher }: { state: ControlSt
           {listView ? <div className="shell-list"><WorkBoard state={state} trackerTarget={meta.tracker?.target ?? 'tracker'} /></div> : <Canvas state={state} />}
         </Suspense>
       </main>
+      <BottomPanel state={state} demo={meta.demo} prefs={panel} onPrefs={onPanel} />
       {surface.kind === 'drawer' && <Drawer title={surface.title} wide={surface.wide} onClose={close}><DrawerBody body={surface.body} state={state} meta={meta} /></Drawer>}
       {surface.kind === 'settings' && <SettingsDialog tab={surface.tab} state={state} meta={meta} onClose={close} />}
       {palette && <CommandPalette state={state} onClose={() => setPalette(false)} />}
@@ -278,7 +288,7 @@ const COMMANDS: Command[] = [
   { label: 'Canvas', hint: 'Workflows as nodes', icon: 'canvas', to: '/', words: 'home overview workflows nodes' },
   { label: 'Issue list', hint: 'Work board and imports', icon: 'list', to: '/board', words: 'board issues kanban backlog import queue' },
   { label: 'Inbox', hint: 'Questions, approvals, decisions, alerts', icon: 'bell', to: '/inbox', words: 'approvals decisions alerts waiting' },
-  { label: 'One Answer', hint: 'Ask about this project', icon: 'search', to: '/docs', words: 'ask question context vault obsidian graph docs' },
+  { label: 'One Ask', hint: 'Ask about this project', icon: 'search', to: '/docs', words: 'ask question context vault obsidian graph docs' },
   { label: 'Designer', hint: 'Design system and design jobs', icon: 'canvas', to: '/designer', words: 'design mock ui contract tokens brief' },
   { label: 'Mocks', hint: 'Captured mocks, review, handoff', icon: 'canvas', to: '/mocks', words: 'artifacts preview review handoff' },
   { label: 'Insights', hint: 'Overview of agents, gates and alerts', icon: 'chart', to: '/insights', words: 'mission control overview' },
@@ -307,7 +317,7 @@ function CommandPalette({ state, onClose }: { state: ControlState; onClose: () =
     const agents: Command[] = Object.values(state.agents).map(a => ({ label: a.config.name, hint: `Agent · ${a.status}`, icon: 'canvas', to: `/agents/${encodeURIComponent(a.id)}`, words: `agent ${a.config.role} ${a.config.adapter}` }));
     const all = [...COMMANDS, ...agents];
     const hits = needle ? all.filter(c => `${c.label} ${c.hint} ${c.words}`.toLowerCase().includes(needle)) : all;
-    return needle ? [...hits, { label: `Ask One Answer: “${q.trim()}”`, hint: 'Opens One Answer', icon: 'search' as const, to: '/docs', words: '' }] : hits;
+    return needle ? [...hits, { label: `One Ask: “${q.trim()}”`, hint: 'Ask your project knowledge', icon: 'search' as const, to: '/docs', words: '' }] : hits;
   }, [q, state.agents]);
   const go = (c: Command | undefined) => { if (!c) return; onClose(); navigate(c.to); };
   return (
@@ -327,4 +337,14 @@ function CommandPalette({ state, onClose }: { state: ControlState; onClose: () =
       </div>
     </div>
   );
+}
+
+const THEMES: { id: ThemeChoice; label: string; short: string; icon: IconName }[] = [{ id: 'day', label: 'Day', short: 'Day', icon: 'sun' }, { id: 'night', label: 'Night (pitch black)', short: 'Night', icon: 'moon' }, { id: 'machine', label: 'Machine (follow system)', short: 'Machine', icon: 'monitor' }];
+
+/** Day → Night → Machine. */
+function ThemeButton({ choice }: { choice: ThemeChoice }) {
+  const i = THEMES.findIndex(t => t.id === choice);
+  const cur = THEMES[i];
+  const next = THEMES[(i + 1) % THEMES.length];
+  return <button type="button" className="shell-icon-btn" aria-label={`Theme: ${cur.label}. Switch to ${next.label}`} title={`Theme: ${cur.label}`} onClick={() => setTheme(next.id)}><Icon name={cur.icon} /><span className="shell-label">{cur.short}</span></button>;
 }

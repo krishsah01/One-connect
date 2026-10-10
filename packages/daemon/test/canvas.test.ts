@@ -22,13 +22,14 @@ describe('project canvas', () => {
     const cfg = makeConfig(makeRepo());
     h = await startDaemon(cfg);
     const empty = await api<Stored>(h, 'GET', '/api/canvas');
-    expect(empty.body).toMatchObject({ rev: 0, layout: { version: 1, frames: {}, nodes: {}, sketches: {} } });
+    expect(empty.body).toMatchObject({ rev: 0, layout: { version: 2, frames: {}, nodes: {}, sketches: {}, gates: {}, chains: {} } });
 
     const layout = { frames: { s1: { x: 10, y: 20, hidden: false } }, nodes: { 's1/t:build': { x: 5, y: 6 } }, sketches: { s1: { name: 'Draft', tasks: [{ id: 'build', kind: 'code', agentId: 'codex' }] } }, rogue: 'dropped' };
     const saved = await api<Stored>(h, 'PUT', '/api/canvas', { layout, rev: 0 });
     expect(saved.status).toBe(200);
     expect(saved.body.rev).toBe(1);
-    expect(saved.body.layout.sketches.s1.tasks[0]).toMatchObject({ id: 'build', kind: 'code', agentId: 'codex', dependsOn: [] });
+    expect(saved.body.layout.sketches.s1.graph.nodes.find(n => n.type === 'step')!.data).toMatchObject({ taskId: 'build', kind: 'code' });
+    expect(saved.body.layout.sketches.s1.graph.nodes.find(n => n.type === 'agent')!.data).toMatchObject({ agentId: 'codex' });
     expect(JSON.stringify(saved.body.layout)).not.toContain('rogue');
 
     const stale = await api<Stored>(h, 'PUT', '/api/canvas', { layout, rev: 0 });
@@ -62,7 +63,7 @@ describe('project canvas', () => {
     expect(h.d.state.workflows[draft.id].status).toBe('canceled');
     const sketch = r.body.layout.sketches[r.body.sketchId];
     expect(sketch).toMatchObject({ name: 'Notes flow (continued)', continues: draft.id, workflowId: null });
-    expect(sketch.tasks.map(t => t.id).sort()).toEqual(['build', 'review']);
+    expect(sketch.graph.nodes.filter(n => n.type === 'step').map(n => n.data.taskId).sort()).toEqual(['build', 'review']);
     expect(r.body.layout.frames[r.body.sketchId]).toMatchObject({ hidden: false });
     expect((await api<Stored>(h, 'GET', '/api/canvas')).body.rev).toBe(r.body.rev);
   });

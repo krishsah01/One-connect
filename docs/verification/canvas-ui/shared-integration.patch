@@ -75,27 +75,29 @@ index c5e9e11..fc204ef 100644
  export * from './skills.ts';
  export * from './connectors.ts';
 diff --git a/packages/daemon/src/server/http.ts b/packages/daemon/src/server/http.ts
-index 7901f31..773474e 100644
+index 7901f31..a473945 100644
 --- a/packages/daemon/src/server/http.ts
 +++ b/packages/daemon/src/server/http.ts
-@@ -19,6 +19,7 @@ import { onboardingReport } from '../onboarding.ts';
+@@ -19,6 +19,8 @@ import { onboardingReport } from '../onboarding.ts';
  import { registerProjectRoutes } from './project-routes.ts';
  import { registerLibraryRoutes } from './libraryRoutes.ts';
  import { registerDesignerRoutes } from './designerRoutes.ts';
 +import { registerCanvasRoutes } from './canvasRoutes.ts';
++import { registerLocalModelRoutes } from './localModelRoutes.ts';
  import { registerHarnessRoutes } from './harnessRoutes.ts';
  import { registerOneAnswerRoutes } from './oneAnswerRoutes.ts';
  import { remoteGate, remotePrincipal } from '../phone/gate.ts';
-@@ -207,6 +208,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app:
+@@ -207,6 +209,8 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app:
  
    registerLibraryRoutes(app, d);
    registerDesignerRoutes(app, d);
 +  registerCanvasRoutes(app, d);
++  registerLocalModelRoutes(app, d);
    registerHarnessRoutes(app, d);
    registerOneAnswerRoutes(app, d);
    registerPhoneRoutes(app, d);
 diff --git a/packages/web/src/App.tsx b/packages/web/src/App.tsx
-index 2865f16..ef5ec60 100644
+index 2865f16..7d3da26 100644
 --- a/packages/web/src/App.tsx
 +++ b/packages/web/src/App.tsx
 @@ -8,6 +8,7 @@ import { BrowserNotifier, OfflineBanner, PhoneTabBar } from './components/PhoneS
@@ -106,6 +108,15 @@ index 2865f16..ef5ec60 100644
  const Projects = lazy(()=>import('./pages/Projects').then(m=>({default:m.Projects})));
  const AgentConsole = lazy(()=>import('./pages/AgentConsole').then(m=>({default:m.AgentConsole})));
  const AgentsSetup = lazy(()=>import('./pages/AgentsSetup').then(m=>({default:m.AgentsSetup})));
+@@ -41,7 +42,7 @@ const NAVIGATION = [
+     { to: '/release', label: 'Release' },
+   ] },
+   { label: 'Context & output', links: [
+-    { to: '/docs', label: 'One Answer' },
++    { to: '/docs', label: 'One Ask' },
+     { to: '/designer', label: 'Designer' },
+     { to: '/mocks', label: 'Mocks & artifacts' },
+     { to: '/reports', label: 'Brief & reports' },
 @@ -115,6 +116,8 @@ export function App() {
    }
    if (!remoteChecked || mode === 'checking') return <div className="splash empty" role="status">Checking this browser's project access…</div>;
@@ -124,3 +135,268 @@ index 2865f16..ef5ec60 100644
    const active = useActiveProject();
    const navigate = useNavigate();
    const [list, setList] = useState<ProjectList | null>(null);
+diff --git a/packages/web/src/components/ContextBenchmarkPanel.tsx b/packages/web/src/components/ContextBenchmarkPanel.tsx
+index 4df9b49..a9142f4 100644
+--- a/packages/web/src/components/ContextBenchmarkPanel.tsx
++++ b/packages/web/src/components/ContextBenchmarkPanel.tsx
+@@ -17,7 +17,7 @@ export function ContextBenchmarkPanel() {
+   return (
+     <section className="card" aria-label="Context quality benchmark"><div className="card-b col" style={{ gap: 10 }}>
+       <div className="row wrap"><h2>Context quality benchmark</h2><span className="spacer" /><button className="btn" disabled={busy} onClick={() => void run(async () => { const x = await post<{ result: ContextBenchmarkResult }>('/api/benchmark/context/run'); setR(x.result); })}>{busy ? 'Running…' : 'Run on the fixture corpus'}</button></div>
+-      <p className="small muted" style={{ margin: 0 }}>Compares One Answer retrieval, Graphify and on-demand skills with a full-context baseline on a disposable corpus with labelled questions. No project data is read, no model is called and nothing is downloaded. It guards this pipeline against regressions; it does not prove general answer quality.</p>
++      <p className="small muted" style={{ margin: 0 }}>Compares One Ask retrieval, Graphify and on-demand skills with a full-context baseline on a disposable corpus with labelled questions. No project data is read, no model is called and nothing is downloaded. It guards this pipeline against regressions; it does not prove general answer quality.</p>
+       {!r && loaded && <div className="small muted">No run yet.</div>}
+       {r && (
+         <>
+diff --git a/packages/web/src/components/OneAnswer.tsx b/packages/web/src/components/OneAnswer.tsx
+index e60061e..6f2faa6 100644
+--- a/packages/web/src/components/OneAnswer.tsx
++++ b/packages/web/src/components/OneAnswer.tsx
+@@ -1,5 +1,5 @@
+ // SPDX-License-Identifier: Apache-2.0
+-// One Answer building blocks: intake status and progress, per-stage freshness, change report,
++// One Ask building blocks: intake status and progress, per-stage freshness, change report,
+ // installed local models, cited search with an evidence verdict, the committed-file viewer, the
+ // declarative structure explorer and the agent context-packet preview. Every status is spelled
+ // out in text; color only reinforces it.
+@@ -25,7 +25,7 @@ const STATE_TEXT: Record<OneAnswerStatus['state'], string> = { missing: 'Not ind
+ export const stateTone = (s: OneAnswerStatus['state'] | undefined): Tone => (s === 'ready' ? 'ok' : s === 'error' ? 'crit' : s === 'extracting' || s === 'indexing' ? 'info' : s ? 'warn' : 'idle');
+ const running = (s: OneAnswerStatus | null | undefined) => Boolean(s && (s.job?.state === 'running' || ['extracting', 'indexing'].includes(s.state)));
+ 
+-/** Compact, reusable status: suitable for the project overview as well as the One Answer page. */
++/** Compact, reusable status: suitable for the project overview as well as the One Ask page. */
+ /** A changed selection/unmount revokes late output and errors from earlier requests. */
+ function useLatestRequest() {
+   const epoch=useRef(0),alive=useRef(true);
+@@ -46,7 +46,7 @@ export function OneAnswerStatusCard({ status, compact, onChanged }: { status: On
+   const job = status?.job, active = running(status);
+   const pct = job && job.total ? Math.round((job.done / job.total) * 100) : null;
+   return (
+-    <section className="card oa-status" aria-label="One Answer intake status"><div className="card-b col">
++    <section className="card oa-status" aria-label="One Ask intake status"><div className="card-b col">
+       <div className="row wrap"><h2>Project intake</h2><Badge tone={stateTone(status?.state)}>{status ? STATE_TEXT[status.state] : 'Not indexed'}</Badge><span className="spacer" />
+         {active
+           ? <button className="btn" disabled={busy} onClick={() => void run(async () => { await post('/api/context/answer/cancel'); onChanged?.(); })}>Cancel intake</button>
+@@ -134,7 +134,7 @@ export function AskPanel({ disabled, onOpenFile }: { disabled: boolean; onOpenFi
+       <form className="docs-question" onSubmit={(e) => { e.preventDefault(); void run(()=>post<DocAnswer & {intake?:OneAnswerStatus}>('/api/context/answer/search',{query}),setResult); }}>
+         <label htmlFor={`${id}-q`}>Ask about this project</label>
+         <textarea id={`${id}-q`} value={query} maxLength={1200} rows={2} disabled={busy || disabled} onChange={(e) => {invalidate();setResult(null);setQuery(e.target.value);}} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit(); }} placeholder="Where is login handled, and what does it depend on?" />
+-        <div className="row"><span className="small faint">Cited sources from the committed revision · ⌘↵ to ask</span><span className="spacer" /><button className="btn primary" disabled={busy || disabled || !query.trim()}>{busy ? 'Searching…' : 'Ask One Answer'}</button></div>
++        <div className="row"><span className="small faint">Cited sources from the committed revision · ⌘↵ to ask</span><span className="spacer" /><button className="btn primary" disabled={busy || disabled || !query.trim()}>{busy ? 'Searching…' : 'Ask One Ask'}</button></div>
+       </form>
+       <ErrorLine error={error} />
+       {result ? <Results result={result} onOpenFile={onOpenFile} /> : (
+diff --git a/packages/web/src/components/PhoneShell.tsx b/packages/web/src/components/PhoneShell.tsx
+index 2b1d12e..f7ca95e 100644
+--- a/packages/web/src/components/PhoneShell.tsx
++++ b/packages/web/src/components/PhoneShell.tsx
+@@ -34,7 +34,7 @@ const TABS = [
+ 
+ const MENU = [
+   ['/', 'Overview'], ['/phone', 'Phone view'], ['/team', 'Team workspace'], ['/board', 'Work board'], ['/workflows', 'Workflows'], ['/decisions', 'Decisions'], ['/reports', 'Brief & Reports'],
+-  ['/analytics', 'Analytics'], ['/docs', 'One Answer'], ['/designer', 'Design system'], ['/mocks', 'Design mocks'], ['/skills', 'Skills'], ['/connectors', 'Connectors'], ['/release', 'Release'], ['/remote', 'Phone & alerts'], ['/workspace', 'Terminal & containers'], ['/setup', 'Agents & connections'], ['/settings', 'Settings & policies'],
++  ['/analytics', 'Analytics'], ['/docs', 'One Ask'], ['/designer', 'Design system'], ['/mocks', 'Design mocks'], ['/skills', 'Skills'], ['/connectors', 'Connectors'], ['/release', 'Release'], ['/remote', 'Phone & alerts'], ['/workspace', 'Terminal & containers'], ['/setup', 'Agents & connections'], ['/settings', 'Settings & policies'],
+ ] as const;
+ 
+ export function PhoneTabBar({ state }: { state: ControlState }) {
+diff --git a/packages/web/src/components/one-answer.css b/packages/web/src/components/one-answer.css
+index e474f09..d33d438 100644
+--- a/packages/web/src/components/one-answer.css
++++ b/packages/web/src/components/one-answer.css
+@@ -1,5 +1,5 @@
+ /* SPDX-License-Identifier: Apache-2.0 */
+-/* One Answer page. Uses the shared design tokens only. */
++/* One Ask page. Uses the shared design tokens only. */
+ .oa-status h2 { margin: 0; }
+ .oa-identity { display: flex; flex-wrap: wrap; gap: 12px; }
+ .oa-progress { display: flex; flex-direction: column; gap: 6px; }
+diff --git a/packages/web/src/pages/Docs.tsx b/packages/web/src/pages/Docs.tsx
+index a6278d2..63062fe 100644
+--- a/packages/web/src/pages/Docs.tsx
++++ b/packages/web/src/pages/Docs.tsx
+@@ -25,7 +25,7 @@ export function Docs({state}:{state:ControlState}) {
+   },[]);
+   const docs=state.context.docs??context?.docs,connected=Boolean(context?.config),intake=state.context.answer??context?.answer;
+   return <div className="page connected-page docs-page">
+-    <div className="page-heading"><div><h1>One Answer</h1><p>Your project code, docs and shared decisions. One revision, traceable sources.</p></div><button className="btn" onClick={()=>setSettings(!settings)}>{context?.privateVault?'Connect Obsidian':'Connection settings'}</button></div>
++    <div className="page-heading"><div><h1>One Ask</h1><p>Your project code, docs and shared decisions. One revision, traceable sources.</p></div><button className="btn" onClick={()=>setSettings(!settings)}>{context?.privateVault?'Connect Obsidian':'Connection settings'}</button></div>
+     {settings&&<form className="docs-settings col" onSubmit={e=>{e.preventDefault();void run(async()=>{
+       await post('/api/context/connect',{...(context?.config??{}),vault:root.trim(),folder:ownFolder.trim(),context_folders:folders.split('\n').map(f=>f.trim()).filter(Boolean),obsidian_cli:'off',search:{semantic,embedding_model:embedding.trim(),answer_model:answerModel.trim()||undefined,endpoint:context?.config?.search.endpoint??'http://127.0.0.1:11434',budget_chars:6000}});
+       await refresh();setSettings(false);setNotice('Vault connected. Build its index or ask a question.');
+diff --git a/packages/web/src/pages/MissionControl.tsx b/packages/web/src/pages/MissionControl.tsx
+index 4edb9c1..4ed5daa 100644
+--- a/packages/web/src/pages/MissionControl.tsx
++++ b/packages/web/src/pages/MissionControl.tsx
+@@ -237,7 +237,7 @@ function ContextPanel({ state }: { state: ControlState }) {
+   return (
+     <section className="card">
+       <div className="card-h">
+-        <h2>One Answer</h2>
++        <h2>One Ask</h2>
+       </div>
+       <div className="card-b col">
+         {state.context.answer&&<><OneAnswerStatusCard status={state.context.answer} compact/><Link className="small" to="/docs">Ask your project</Link></>}
+diff --git a/packages/web/src/pages/Settings.tsx b/packages/web/src/pages/Settings.tsx
+index c2d80e9..e8dd4ed 100644
+--- a/packages/web/src/pages/Settings.tsx
++++ b/packages/web/src/pages/Settings.tsx
+@@ -63,7 +63,7 @@ export function Settings({ state }: { state: ControlState }) {
+           <label>Supabase project reference<input value={draft.infra?.supabase?.project_ref ?? ''} onChange={e => infra({ supabase: e.target.value ? { ...(draft.infra?.supabase ?? { activated: false, host: 'api.supabase.com', scopes: ['database:read'], migrations_dir: 'supabase/migrations' }), project_ref: e.target.value } : undefined })}/></label>
+           {draft.infra?.supabase && <label>Migrations folder<input value={draft.infra.supabase.migrations_dir} onChange={e => infra({ supabase: { ...draft.infra!.supabase!, migrations_dir: e.target.value } })}/></label>}
+         </div><Link to="/release">View release gates and migration history</Link></section>
+-        <section className="card card-b col"><h2>One Answer & Graphify</h2><p className="small muted">Code graph, project notes and retrieval stay bound to the same integration revision. Graphify uses your installed tool for code-only extraction; paid semantic extraction stays off.</p><label className="row"><input type="checkbox" checked={draft.graphify.enabled} onChange={e => setDraft(d => d && ({ ...d, graphify: { ...d.graphify, enabled: e.target.checked } }))}/>Enable Graphify</label><label className="row"><input type="checkbox" checked={draft.graphify.auto_update} onChange={e => setDraft(d => d && ({ ...d, graphify: { ...d.graphify, auto_update: e.target.checked } }))}/>Refresh automatically when integration changes</label><label>Installed Graphify binary<input value={draft.graphify.binary ?? ''} onChange={e => setDraft(d => d && ({ ...d, graphify: { ...d.graphify, binary: e.target.value || undefined } }))} placeholder="Optional absolute path"/></label><p className="small faint">Missing tools are shown as unavailable. Saving never downloads a binary or embedding model. <Link to="/docs">Connect an Obsidian vault, enable local embeddings and ask your docs</Link>.</p></section>
++        <section className="card card-b col"><h2>One Ask & Graphify</h2><p className="small muted">Code graph, project notes and retrieval stay bound to the same integration revision. Graphify uses your installed tool for code-only extraction; paid semantic extraction stays off.</p><label className="row"><input type="checkbox" checked={draft.graphify.enabled} onChange={e => setDraft(d => d && ({ ...d, graphify: { ...d.graphify, enabled: e.target.checked } }))}/>Enable Graphify</label><label className="row"><input type="checkbox" checked={draft.graphify.auto_update} onChange={e => setDraft(d => d && ({ ...d, graphify: { ...d.graphify, auto_update: e.target.checked } }))}/>Refresh automatically when integration changes</label><label>Installed Graphify binary<input value={draft.graphify.binary ?? ''} onChange={e => setDraft(d => d && ({ ...d, graphify: { ...d.graphify, binary: e.target.value || undefined } }))} placeholder="Optional absolute path"/></label><p className="small faint">Missing tools are shown as unavailable. Saving never downloads a binary or embedding model. <Link to="/docs">Connect an Obsidian vault, enable local embeddings and ask your docs</Link>.</p></section>
+         <section className="card card-b col"><h2>Safety & privacy</h2><div className="row wrap"><Badge tone="ok">Zero extra spend by default</Badge><Badge tone="ok">Strict connector scope</Badge><Badge>Protected branch pushes blocked</Badge></div><label>Environment variable names to redact<input value={draft.policies.redact_env.join(', ')} onChange={e => policy({ redact_env: list(e.target.value) })}/><span className="small faint">Names only. Never paste secrets into settings or agent prompts.</span></label><p className="small muted">Required approvals: {draft.policies.require_approval.join(', ')}. Configure per-agent instructions and path scopes in <Link to="/setup">Agents</Link>, and notification quiet hours in <Link to="/remote">Phone & alerts</Link>.</p><p className="small faint">Tracker: {snapshot.tracker.type}. Import issues through Connectors; configuring these settings does not activate a tracker.</p></section>
+         <div className="row wrap"><button type="submit" className="btn primary">Review settings changes</button><span className="small faint">Review, then confirm. Active or queued work must finish first.</span></div>
+       </fieldset>
+diff --git a/packages/web/src/pages/Workspace.tsx b/packages/web/src/pages/Workspace.tsx
+index bba0af2..85510e3 100644
+--- a/packages/web/src/pages/Workspace.tsx
++++ b/packages/web/src/pages/Workspace.tsx
+@@ -66,7 +66,7 @@ export function Workspace({ state, demo = false }: { state: ControlState; demo?:
+ }
+ 
+ /** Sessions keep running across navigation and project switches; closing one is explicit. */
+-function ProjectTerminals({ state, command, demo }: { state: ControlState; command: Command | null; demo: boolean }) {
++export function ProjectTerminals({ state, command, demo }: { state: ControlState; command: Command | null; demo: boolean }) {
+   const project = useActiveProject()?.project ?? '';
+   const [mode, setMode] = useState<'shell' | 'login'>('shell');
+   const loginAgents = Object.values(state.agents).filter(a => a.config.provider === 'subscription' && a.config.enabled !== false && LOGIN_ARGS[a.config.adapter]);
+diff --git a/packages/web/src/styles.css b/packages/web/src/styles.css
+index 4ffb178..f7602a4 100644
+--- a/packages/web/src/styles.css
++++ b/packages/web/src/styles.css
+@@ -31,31 +31,57 @@
+ 
+ @media (prefers-color-scheme: dark) {
+   :root:not([data-theme='light']) {
+-    --bg: #0e1116;
+-    --surface: #151a21;
+-    --surface-2: #1b212a;
+-    --surface-3: #232b36;
+-    --border: #262e3a;
+-    --border-strong: #354050;
+-    --text: #e6e9ee;
+-    --text-2: #aab3c0;
+-    --text-3: #7c8696;
+-    --accent: #4cc5cf;
+-    --accent-weak: #15373b;
++    --bg: #000000;
++    --surface: #0c0c0e;
++    --surface-2: #141417;
++    --surface-3: #1d1d21;
++    --border: #2a2a30;
++    --border-strong: #45454e;
++    --text: #f4f6f8;
++    --text-2: #c8ced6;
++    --text-3: #9ea6b0;
++    --accent: #4fd1db;
++    --accent-weak: #0d2c2f;
+     --ok: #3fbf6f;
+-    --ok-weak: #13281c;
++    --ok-weak: #0f2316;
+     --warn: #e0a43a;
+-    --warn-weak: #2c2212;
++    --warn-weak: #2a1f0d;
+     --crit: #f05252;
+-    --crit-weak: #2e1416;
++    --crit-weak: #2c1012;
+     --info: #3fb3cf;
+-    --info-weak: #11262c;
++    --info-weak: #0c2328;
+     --idle: #7d8797;
+-    --idle-weak: #1d232c;
++    --idle-weak: #18181c;
+     --shadow: none;
+   }
+ }
+ 
++/* Night theme chosen explicitly in One Connect: pitch black. Machine follows the system setting above. */
++:root[data-theme='dark'] {
++  --bg: #000000;
++  --surface: #0c0c0e;
++  --surface-2: #141417;
++  --surface-3: #1d1d21;
++  --border: #2a2a30;
++  --border-strong: #45454e;
++  --text: #f4f6f8;
++  --text-2: #c8ced6;
++  --text-3: #9ea6b0;
++  --accent: #4fd1db;
++  --accent-weak: #0d2c2f;
++  --ok: #3fbf6f;
++  --ok-weak: #0f2316;
++  --warn: #e0a43a;
++  --warn-weak: #2a1f0d;
++  --crit: #f05252;
++  --crit-weak: #2c1012;
++  --info: #3fb3cf;
++  --info-weak: #0c2328;
++  --idle: #7d8797;
++  --idle-weak: #18181c;
++  --shadow: none;
++}
++
+ * {
+   box-sizing: border-box;
+ }
+diff --git a/packages/web/test/one-answer.test.tsx b/packages/web/test/one-answer.test.tsx
+index 46e211d..65107c8 100644
+--- a/packages/web/test/one-answer.test.tsx
++++ b/packages/web/test/one-answer.test.tsx
+@@ -1,5 +1,5 @@
+ // SPDX-License-Identifier: Apache-2.0
+-// One Answer UI: honest per-stage status, progress and cancel, evidence verdicts, verbatim
++// One Ask UI: honest per-stage status, progress and cancel, evidence verdicts, verbatim
+ // citations that open the committed file at the cited lines, and the structure explorer.
+ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+@@ -22,7 +22,7 @@ const answer: DocAnswer = {
+   backend: 'keywords', mode: 'excerpts', warning: null, contextChars: 120, candidateChars: 400, budgetChars: 6000, indexedAt: null, claims: [],
+   evidence: { support: 'insufficient', coverage: 0.33, terms: ['budget', 'forecast', 'quarter'], missing: ['budget', 'forecast'] },
+   retrieval: { expanded: 1, deduplicated: 2, generation: 'g1', revision: SHA },
+-  citations: [{ id: 'S1', path: 'One Connect/x/One Answer/n.md', title: 'n', line: 1, endLine: 8, excerpt: 'export const ledger = 1;', url: '', via: 'graph', projectSource: { path: 'src/ledger.ts', revision: SHA, hash: 'c'.repeat(64), line: 2, endLine: 3 } }],
++  citations: [{ id: 'S1', path: 'One Connect/x/One Ask/n.md', title: 'n', line: 1, endLine: 8, excerpt: 'export const ledger = 1;', url: '', via: 'graph', projectSource: { path: 'src/ledger.ts', revision: SHA, hash: 'c'.repeat(64), line: 2, endLine: 3 } }],
+ };
+ beforeEach(() => {
+   setRemoteSession(null,'local');
+@@ -39,7 +39,7 @@ beforeEach(() => {
+   }));
+ });
+ 
+-describe('One Answer status', () => {
++describe('One Ask status', () => {
+   it('spells out every stage, marks an older graph as stale, and summarizes the incremental change', () => {
+     render(<OneAnswerStatusCard status={status()} />);
+     expect(screen.getByText('Partial')).toBeTruthy();
+@@ -71,7 +71,7 @@ describe('Ask and sources', () => {
+     const opened: unknown[] = [];
+     render(<AskPanel disabled={false} onOpenFile={(...a) => opened.push(a)} />);
+     fireEvent.change(screen.getByLabelText('Ask about this project'), { target: { value: 'quarterly budget forecast' } });
+-    fireEvent.click(screen.getByRole('button', { name: 'Ask One Answer' }));
++    fireEvent.click(screen.getByRole('button', { name: 'Ask One Ask' }));
+     expect(await screen.findByText('Insufficient evidence')).toBeTruthy();
+     expect(screen.getByText(/do not clearly answer this \(not found: budget, forecast\)/)).toBeTruthy();
+     expect(screen.getByText(/related by imports/)).toBeTruthy();
+@@ -86,7 +86,7 @@ describe('Ask and sources', () => {
+   });
+ });
+ 
+-describe('One Answer late responses',()=>{
++describe('One Ask late responses',()=>{
+   it('keeps the cited revision in the request and ignores a response for the previously opened file',async()=>{
+     let finishOld!:(response:Response)=>void;
+     vi.stubGlobal('fetch',vi.fn(async(url:string)=>{
+diff --git a/packages/web/test/workbench.test.tsx b/packages/web/test/workbench.test.tsx
+index cf93167..6f9e50e 100644
+--- a/packages/web/test/workbench.test.tsx
++++ b/packages/web/test/workbench.test.tsx
+@@ -104,7 +104,7 @@ describe('Project intake preview', () => {
+     const i: Inspection = {
+       path: '/repos/shop', name: 'shop',
+       git: { state: 'dirty', root: '/repos/shop', head: 'a'.repeat(40), branch: 'main', integrationBranch: null, integrationHead: null, dirtyFiles: 2, untrackedFiles: 1 },
+-      intake: { indexable: true, revision: 'a'.repeat(40), ref: 'main', message: 'One Answer indexes committed main at aaaaaaaaaaaa. 2 changed and 1 untracked files are excluded until committed.', steps: [] },
++      intake: { indexable: true, revision: 'a'.repeat(40), ref: 'main', message: 'One Ask indexes committed main at aaaaaaaaaaaa. 2 changed and 1 untracked files are excluded until committed.', steps: [] },
+       frameworks: ['next', 'react'], packageManager: 'pnpm', checks: [{ name: 'test', command: 'pnpm run test', source: 'package.json' }],
+       compose: { file: '/repos/shop/compose.yaml', project: 'shop', services: [{ name: 'web', image: 'node:22', build: false, healthcheck: false }], warnings: [] },
+       dockerfiles: ['Dockerfile'], config: { existing: null, bound: null, error: null }, warnings: [],
