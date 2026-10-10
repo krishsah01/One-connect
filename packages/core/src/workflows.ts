@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Durable workflow definitions: tasks tied to existing issues and agents, run either independently
 // or in dependency order. Pure validation and derivation shared by the daemon and the browser.
+import { z } from 'zod';
+import { EFFORTS, type Effort } from './config.ts';
+import { containsSecret } from './redact.ts';
+import { mockGate } from './mocks.ts';
 import type { ControlState } from './entities.ts';
 import { scopesOverlap } from './pathScope.ts';
 import { COORDINATION_LABELS } from './preflight.ts';
@@ -24,7 +28,27 @@ export interface WorkflowTaskDef {
   requiredChecks: string[] | null;
   /** Review tasks: the code task being reviewed. */
   reviewOf: string | null;
+  model?: string | null;
+  effort?: Effort | null;
+  skills?: string[];
+  connectors?: string[];
+  design?: { artifactId: string; rev: number } | null;
+  context?: string | null;
+  pickup?: string | null;
+  consults?: string[];
 }
+
+export const WorkflowTaskOptionsSchema = z.object({
+  model: z.string().trim().min(1).max(200).nullable().optional(),
+  effort: z.enum(EFFORTS).nullable().optional(),
+  skills: z.array(z.string().min(1).max(100)).max(64).optional(),
+  connectors: z.array(z.string().min(1).max(100)).max(32).optional(),
+  design: z.object({ artifactId: z.string().min(1).max(100), rev: z.number().int().positive() }).strict().nullable().optional(),
+  context: z.string().max(4000).nullable().optional(),
+  pickup: z.string().max(2000).nullable().optional(),
+  consults: z.array(z.string().min(1).max(100)).max(64).optional(),
+});
+const OPTION_KEYS = ['model', 'effort', 'skills', 'connectors', 'design', 'context', 'pickup', 'consults'] as const;
 
 export interface WorkflowDefinition {
   name: string;
@@ -90,7 +114,7 @@ export interface WorkflowIssue {
     | 'item_terminal'
     | 'item_untracked'
     | 'item_in_other_workflow'
-    | 'unknown_check';
+    | 'unknown_check' | 'task_options' | 'unknown_skill' | 'unknown_connector' | 'unknown_artifact' | 'unknown_revision' | 'revision_not_approved' | 'consult_self' | 'secret';
   message: string;
   taskId?: string;
 }
@@ -117,6 +141,8 @@ export function normalizeWorkflow(input: unknown): WorkflowDefinition {
       allowedPaths: Array.isArray(t.allowedPaths) ? t.allowedPaths.map((p) => String(p).trim()).filter(Boolean) : [],
       requiredChecks: Array.isArray(t.requiredChecks) ? t.requiredChecks.map(String) : null,
       reviewOf,
+      // Preserve invalid values for validation instead of silently discarding them on save.
+      ...Object.fromEntries(OPTION_KEYS.filter(k => t[k] !== undefined).map(k => [k, t[k]])),
     } satisfies WorkflowTaskDef;
   });
   // A review always targets the reviewed task's issue.
@@ -206,9 +232,11 @@ export interface ValidateOptions {
   /** Starting requires every issue to be confirmed in the tracker (no issue, no dispatch). */
   forStart?: boolean;
   projectChecks?: Record<string, string>;
+  builtinSkills?: string[];
+  denylist?: string[];
 }
 
-export function validateWorkflow(def: WorkflowDefinition, state: Pick<ControlState, 'workItems' | 'agents'> & { workflows?: ControlState['workflows'] }, o: ValidateOptions = {}): WorkflowIssue[] {
+export function validateWorkflow(def: WorkflowDefinition, state: Pick<ControlState, 'workItems' | 'agents'> & Partial<Pick<ControlState, 'workflows' | 'skills' | 'connectors' | 'mocks' | 'design'>>, o: ValidateOptions = {}): WorkflowIssue[] {
   const issues: WorkflowIssue[] = [];
   const add = (code: WorkflowIssue['code'], message: string, taskId?: string) => issues.push({ code, message, ...(taskId ? { taskId } : {}) });
   if (!def.name) add('name', 'Give the workflow a name.');
@@ -222,6 +250,28 @@ export function validateWorkflow(def: WorkflowDefinition, state: Pick<ControlSta
   }
   const byId = new Map(def.tasks.map((t) => [t.id, t]));
   for (const t of def.tasks) {
+    const parsed = WorkflowTaskOptionsSchema.safeParse(t);
+    if (!parsed.success) add('task_options', `${t.id}: ${parsed.error.issues.map(i => i.message).join('; ')}`, t.id);
+    else {
+      const opts = parsed.data;
+      if (containsSecret(JSON.stringify(opts), { denylist: o.denylist }).length) add('secret', `${t.id}: remove credentials from step options.`, t.id);
+      for (const id of opts.skills ?? []) {
+        const skill = state.skills?.[id];
+        if (!o.builtinSkills?.includes(id) && (!skill?.latest || skill.disabled)) add('unknown_skill', `${t.id}: skill ${id} must be published and enabled.`, t.id);
+      }
+      for (const id of opts.connectors ?? []) if (!state.connectors?.[id] || state.connectors[id].disabled) add('unknown_connector', `${t.id}: connector ${id} is missing or disabled.`, t.id);
+      for (const id of opts.consults ?? []) {
+        if (id === t.agentId) add('consult_self', `${t.id}: an agent cannot consult itself.`, t.id);
+        else if (!state.agents[id] || state.agents[id].config.enabled === false) add('unknown_agent', `${t.id}: consult agent ${id} is missing or disabled.`, t.id);
+      }
+      if (opts.design) {
+        const artifact = state.mocks?.[opts.design.artifactId];
+        const revision = artifact?.revisions.find(r => r.rev === opts.design!.rev);
+        if (!artifact) add('unknown_artifact', `${t.id}: design artifact is missing.`, t.id);
+        else if (!revision) add('unknown_revision', `${t.id}: design revision is missing.`, t.id);
+        else if (!state.design || revision.designRevision?.hash !== state.design.hash || mockGate(revision, state.design.hash).state !== 'approved') add('revision_not_approved', `${t.id}: design must be approved against the current contract.`, t.id);
+      }
+    }
     const item = state.workItems[t.workItemId];
     const agent = state.agents[t.agentId];
     if (!item) add('unknown_item', `${t.id}: issue ${t.workItemId || '(none)'} does not exist in this project.`, t.id);
