@@ -6,6 +6,28 @@ On 2026-10-09 the worktree was cut from the primary checkout's HEAD `5543b43`, p
 
 This is not a claim that One Connect is complete.
 
+## Integration state (2026-10-10, afternoon): merge recipe
+
+This branch now contains Codex's engine (`codex/canvas-engine` commits cherry-picked as `33cbaa2`, `7bee153`, `8adc92d`, `5c979cf`, `280ad03`), and the canvas drives it (`8f1096d`):
+
+- **Hand-offs and decisions.** These become engine workflow links (`canvas-chain-*` and `canvas-gate-*` ids) once both ends are saved workflows. Edits resync while a link is waiting. Deleting one cancels its waiting link. Live status shows on rails and diamonds ("armed", "waiting on you", "started").
+- **JEV.** Decisions JEV advises on need the owner's confirmed host and evidence limit. JEV deciding on its own is a second, separate opt-in.
+- **Imports.** The import panels use Codex's real preview, import and draft shapes. Imported skills and connectors land as drafts for the owner to publish or approve.
+- **Verified in a demo:** the decision link is created ("armed"), deleting it cancels the link, and a chain becomes a waiting link.
+- **Tests:** core and web 270/270; the canvas, local-model, step-option, link, link-route and marketplace test files 29/29.
+
+The owner picked **One Ask** over **Dictionary**. Another session renamed One Answer to "Dictionary" in the primary at 03:32 today, deep enough to include stored folder names. `scripts/one-ask-labels.mjs` renames only visible labels and messages (about 30 spots). It leaves identifiers, imports, routes, file names and the vault's `Dictionary` collection folder alone. It is idempotent, has a `--check` mode, and was tested on a copy of the primary: all three packages typecheck, and the affected web tests pass.
+
+To bring everything into the primary:
+
+1. Cherry-pick this branch's commits after `5543b43`, all of them, including the Codex engine commits above. Skip `7281153` if you don't want the other session's handoff file.
+2. `git apply docs/verification/canvas-engine/shared-integration.patch`, then `git apply docs/verification/canvas-ui/shared-integration.patch`. Both were regenerated or verified against the primary's working tree on 2026-10-10 and apply in that order.
+3. `node scripts/one-ask-labels.mjs`.
+4. `pnpm install` (adds `@xyflow/react`), then `node scripts/licenses.mjs --write`.
+5. Run the checks. Build the app with `node scripts/desktop-models.mjs` and the resources map in "Latest round" below.
+
+Codex is separately working on engine-side pickup in `/tmp/Interface-canvas-continuation` (branch `codex/canvas-continuation`). Merge that after this.
+
 ## Latest round (2026-10-10): read this first
 
 This round is committed as `9c996e5` on this branch, on top of `7281153`. That commit is another Claude session's `CODEX_NODE_WORKFLOW_HANDOFF.md`, which covers the same node-workflow items; this section supersedes its "in progress" notes. The shared patch was regenerated against the primary on 2026-10-10 and covers 15 files; `git apply --check` passes.
@@ -215,6 +237,6 @@ The new `canvas.test.ts` passes.
 
 - **What was built.** At the owner's request I rebuilt the desktop app from this branch's working tree (shared patch included). The build was an unsigned debug arm64 app, built offline with `--locked`, using the Command Line Tools SDK via `DEVELOPER_DIR`; the Xcode license is not accepted, and I did not accept it.
 - **Identity.** The app keeps the original identity, One Connect / `dev.agentcontrolcenter.desktop`, so it opens the owner's real projects (one-connect, study-bro). The owner wants exactly one app on the machine.
-- **Location.** `dist/macos/One Connect Latest.app`. Engine SHA-256 is `8b2c175be6bf422a2dac7bb618bd169e4173499bc1773c35af902a457a4fd3f0`, and the bundle embeds the canvas web assets. It is installed and running.
+- **Location.** `dist/macos/One Connect.app`. Engine SHA-256 is `8b2c175be6bf422a2dac7bb618bd169e4173499bc1773c35af902a457a4fd3f0`, and the bundle embeds the canvas web assets. It is installed and running.
 - **Data backup.** Before first launch, the project data (without engines) was copied to `~/Library/Application Support/dev.agentcontrolcenter.desktop.backup-2026-10-09`.
 - **Old builds.** The owner asked to delete the old bundles and packages, but moving them to the Trash was blocked by the permission classifier. A script for the owner to run moves them to the Trash and renames Latest to `One Connect.app`. Until it runs, the old bundles, the Studio and Skills Verification checkpoints, and the old engines are all still present.
