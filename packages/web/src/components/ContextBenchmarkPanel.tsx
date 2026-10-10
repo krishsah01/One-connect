@@ -17,7 +17,7 @@ export function ContextBenchmarkPanel() {
   return (
     <section className="card" aria-label="Context quality benchmark"><div className="card-b col" style={{ gap: 10 }}>
       <div className="row wrap"><h2>Context quality benchmark</h2><span className="spacer" /><button className="btn" disabled={busy} onClick={() => void run(async () => { const x = await post<{ result: ContextBenchmarkResult }>('/api/benchmark/context/run'); setR(x.result); })}>{busy ? 'Running…' : 'Run on the fixture corpus'}</button></div>
-      <p className="small muted" style={{ margin: 0 }}>Compares Dictionary retrieval, Graphify and on-demand skills with a full-context baseline on a disposable corpus with labelled questions. No project data is read, no model is called and nothing is downloaded. It guards this pipeline against regressions; it does not prove general answer quality.</p>
+      <p className="small muted" style={{ margin: 0 }}>Compares One Ask retrieval, Graphify and on-demand skills with a full-context baseline on a disposable corpus with labelled questions. No project data is read, no model is called and nothing is downloaded. It guards this pipeline against regressions; it does not prove general answer quality.</p>
       {!r && loaded && <div className="small muted">No run yet.</div>}
       {r && (
         <>

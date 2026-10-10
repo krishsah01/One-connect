@@ -34,7 +34,7 @@ const TABS = [
 
 const MENU = [
   ['/', 'Overview'], ['/phone', 'Phone view'], ['/team', 'Team workspace'], ['/board', 'Work board'], ['/workflows', 'Workflows'], ['/decisions', 'Decisions'], ['/reports', 'Brief & Reports'],
-  ['/analytics', 'Analytics'], ['/docs', 'Dictionary'], ['/designer', 'Design system'], ['/mocks', 'Design mocks'], ['/skills', 'Skills'], ['/connectors', 'Connectors'], ['/release', 'Release'], ['/remote', 'Phone & alerts'], ['/workspace', 'Terminal & containers'], ['/setup', 'Agents & connections'], ['/settings', 'Settings & policies'],
+  ['/analytics', 'Analytics'], ['/docs', 'One Ask'], ['/designer', 'Design system'], ['/mocks', 'Design mocks'], ['/skills', 'Skills'], ['/connectors', 'Connectors'], ['/release', 'Release'], ['/remote', 'Phone & alerts'], ['/workspace', 'Terminal & containers'], ['/setup', 'Agents & connections'], ['/settings', 'Settings & policies'],
 ] as const;
 
 export function PhoneTabBar({ state }: { state: ControlState }) {

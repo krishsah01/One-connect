@@ -66,7 +66,7 @@ export function Workspace({ state, demo = false }: { state: ControlState; demo?:
 }
 
 /** Sessions keep running across navigation and project switches; closing one is explicit. */
-function ProjectTerminals({ state, command, demo }: { state: ControlState; command: Command | null; demo: boolean }) {
+export function ProjectTerminals({ state, command, demo }: { state: ControlState; command: Command | null; demo: boolean }) {
   const project = useActiveProject()?.project ?? '';
   const [mode, setMode] = useState<'shell' | 'login'>('shell');
   const loginAgents = Object.values(state.agents).filter(a => a.config.provider === 'subscription' && a.config.enabled !== false && LOGIN_ARGS[a.config.adapter]);

@@ -256,7 +256,7 @@ export async function runContextBenchmark(opts: BenchmarkOptions = {}): Promise<
     const baselineRows: BenchmarkQuestionResult[] = stackRows.map(r => ({ ...r, cited: [], correct: !r.shouldAbstain, abstained: false, integrityViolations: 0, leaked: [], staleHits: [], contextBytes: r.stage === 'v1' ? baselineBytesV1 : baselineBytesV2, latencyMs: readMs }));
     const arms: BenchmarkArmSummary[] = [
       { ...arm('full_context', 'Full-context baseline (every included file in the prompt)', baselineRows), citationIntegrity: null, abstentionAccuracy: null, reason: 'No retrieval step: every fact is present by construction, so this arm measures size and read time only. It cannot abstain or cite lines.' },
-      arm('dictionary', 'Dictionary: keywords + import-graph expansion (cited passages)', stackRows),
+      arm('dictionary', 'One Ask: keywords + import-graph expansion (cited passages)', stackRows),
       arm('keyword_only', 'Keyword-only retrieval (no graph expansion)', armRows('keyword_only')),
       semantic
         ? arm('hybrid', `Hybrid: keywords + local embeddings (${opts.embeddingModel}) + graph expansion`, armRows('hybrid'))
@@ -272,7 +272,7 @@ export async function runContextBenchmark(opts: BenchmarkOptions = {}): Promise<
       corpus: { name: CORPUS_NAME, version: CORPUS_VERSION, files, bytes: baselineBytesV2, questions: BENCH_QUESTIONS.length, skills: Object.keys(BENCH_SKILLS).length, disposable: true },
       method: [
         'A disposable git repository and vault are generated from a fixed corpus and deleted afterwards; no project data is read.',
-        'Dictionary runs its real intake on the committed revision, then again after a second commit (version change).',
+        'One Ask runs its real intake on the committed revision, then again after a second commit (version change).',
         'Retrieval accuracy: every expected source path is cited and the expected fact appears in the cited excerpts. Abstention: the question’s terms must be supported by the top cited excerpts (threshold 0.6).',
         'Citation integrity: each excerpt must be verbatim committed text within the cited lines and carry the committed file hash.',
         'Arms: dictionary = keywords + import-graph expansion; keyword_only = the same index without expansion; hybrid = + local embeddings (only with an installed model).',

@@ -152,6 +152,8 @@ async fn start_engine(app: &tauri::AppHandle, id: &str) -> Result<Connection, St
     let log = fs::OpenOptions::new().create(true).append(true).open(data.join("daemon.log")).map_err(|e| e.to_string())?;
     command.current_dir(&root).env("ACC_DATA_DIR", &daemon_data).env("ACC_PORT", "0").env("ACC_DESKTOP", "1").env("ACC_NATIVE_FILE_HELPER", std::env::current_exe().map_err(|e| e.to_string())?).env("PATH", engine_path(&root))
         .stdin(Stdio::null()).stdout(Stdio::from(log.try_clone().map_err(|e| e.to_string())?)).stderr(Stdio::from(log));
+    // Bundled local models (summary and embeddings) ship as app resources; the engine uses them only when present.
+    if let Ok(models) = app.path().resource_dir().map(|d| d.join("resources/models")) { if models.join("llama").is_dir() { command.env("ACC_LOCAL_MODELS_DIR", &models); } }
     let mut child = command.spawn().map_err(|e| e.to_string())?;
     let started = Instant::now();
     let fail = |child: &mut Child, msg: String| { let _ = child.kill(); msg };

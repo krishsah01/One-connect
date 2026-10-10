@@ -216,9 +216,9 @@ export class SkillLibrary {
   }
 
   /** Exact versions an assignment may use, decided once at creation (and on agent reassignment). */
-  freeze(agentId: string, workItemId: string): SkillRef[] {
+  freeze(agentId: string, workItemId: string, extra: string[] = []): SkillRef[] {
     const cfg = this.d.state.agents[agentId]?.config, item = this.d.state.workItems[workItemId];
-    const ids = new Set(cfg?.skills ?? []);
+    const ids = new Set([...(cfg?.skills ?? []), ...extra]);
     for (const id of this.d.designer.defaultSkillIds(item)) ids.add(id);
     const refs: SkillRef[] = [];
     for (const id of ids) {

@@ -104,7 +104,7 @@ describe('Project intake preview', () => {
     const i: Inspection = {
       path: '/repos/shop', name: 'shop',
       git: { state: 'dirty', root: '/repos/shop', head: 'a'.repeat(40), branch: 'main', integrationBranch: null, integrationHead: null, dirtyFiles: 2, untrackedFiles: 1 },
-      intake: { indexable: true, revision: 'a'.repeat(40), ref: 'main', message: 'Dictionary indexes committed main at aaaaaaaaaaaa. 2 changed and 1 untracked files are excluded until committed.', steps: [] },
+      intake: { indexable: true, revision: 'a'.repeat(40), ref: 'main', message: 'One Ask indexes committed main at aaaaaaaaaaaa. 2 changed and 1 untracked files are excluded until committed.', steps: [] },
       frameworks: ['next', 'react'], packageManager: 'pnpm', checks: [{ name: 'test', command: 'pnpm run test', source: 'package.json' }],
       compose: { file: '/repos/shop/compose.yaml', project: 'shop', services: [{ name: 'web', image: 'node:22', build: false, healthcheck: false }], warnings: [] },
       dockerfiles: ['Dockerfile'], config: { existing: null, bound: null, error: null }, warnings: [],

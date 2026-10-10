@@ -31,29 +31,55 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #0e1116;
-    --surface: #151a21;
-    --surface-2: #1b212a;
-    --surface-3: #232b36;
-    --border: #262e3a;
-    --border-strong: #354050;
-    --text: #e6e9ee;
-    --text-2: #aab3c0;
-    --text-3: #7c8696;
-    --accent: #4cc5cf;
-    --accent-weak: #15373b;
+    --bg: #000000;
+    --surface: #0c0c0e;
+    --surface-2: #141417;
+    --surface-3: #1d1d21;
+    --border: #2a2a30;
+    --border-strong: #45454e;
+    --text: #f4f6f8;
+    --text-2: #c8ced6;
+    --text-3: #9ea6b0;
+    --accent: #4fd1db;
+    --accent-weak: #0d2c2f;
     --ok: #3fbf6f;
-    --ok-weak: #13281c;
+    --ok-weak: #0f2316;
     --warn: #e0a43a;
-    --warn-weak: #2c2212;
+    --warn-weak: #2a1f0d;
     --crit: #f05252;
-    --crit-weak: #2e1416;
+    --crit-weak: #2c1012;
     --info: #3fb3cf;
-    --info-weak: #11262c;
+    --info-weak: #0c2328;
     --idle: #7d8797;
-    --idle-weak: #1d232c;
+    --idle-weak: #18181c;
     --shadow: none;
   }
+}
+
+/* Night theme chosen explicitly in One Connect: pitch black. Machine follows the system setting above. */
+:root[data-theme='dark'] {
+  --bg: #000000;
+  --surface: #0c0c0e;
+  --surface-2: #141417;
+  --surface-3: #1d1d21;
+  --border: #2a2a30;
+  --border-strong: #45454e;
+  --text: #f4f6f8;
+  --text-2: #c8ced6;
+  --text-3: #9ea6b0;
+  --accent: #4fd1db;
+  --accent-weak: #0d2c2f;
+  --ok: #3fbf6f;
+  --ok-weak: #0f2316;
+  --warn: #e0a43a;
+  --warn-weak: #2a1f0d;
+  --crit: #f05252;
+  --crit-weak: #2c1012;
+  --info: #3fb3cf;
+  --info-weak: #0c2328;
+  --idle: #7d8797;
+  --idle-weak: #18181c;
+  --shadow: none;
 }
 
 * {

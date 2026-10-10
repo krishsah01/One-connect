@@ -65,13 +65,13 @@ describe('desktop bridge', () => {
 });
 
 describe('Projects page', () => {
-  it('lists running projects with their own Dictionary status and kills runs in every project', async () => {
+  it('lists running projects with their own One Ask status and kills runs in every project', async () => {
     await switchProject(A);
     render(<MemoryRouter><Projects /></MemoryRouter>);
     const alpha = await screen.findByLabelText('Project alpha');
     const beta = screen.getByLabelText('Project beta');
-    await waitFor(() => expect(within(alpha).getByText(/Dictionary ready/)).toBeTruthy());
-    expect(within(beta).getByText(/Dictionary partial/)).toBeTruthy();
+    await waitFor(() => expect(within(alpha).getByText(/One Ask ready/)).toBeTruthy());
+    expect(within(beta).getByText(/One Ask partial/)).toBeTruthy();
     expect(within(alpha).getByText('open')).toBeTruthy();
     expect((within(alpha).getByRole('button', { name: 'Stop engine' }) as HTMLButtonElement).disabled).toBe(true);
     expect((within(beta).getByRole('button', { name: 'Stop engine' }) as HTMLButtonElement).disabled).toBe(false);

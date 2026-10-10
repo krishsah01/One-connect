@@ -53,7 +53,7 @@ function DesktopProjects() {
   return <div className="page col" style={{ gap: 18 }}>
     <div className="row"><h1 style={{ fontSize: 20 }}>Projects</h1><span className="spacer" />
       <button className="btn danger" disabled={busy || !running} title="Engage the kill switch in every running project" onClick={() => { if (window.confirm(`Stop every agent run in all ${running} running projects and block new dispatch?`)) void run(async () => { const r = await killAllProjects(); const failed = Object.entries(r).filter(([, v]) => v.error); if (failed.length) throw new Error(`Kill switch failed in ${failed.length} project(s): ${failed.map(([, v]) => v.error).join('; ')}`); await refresh(); }); }}>Kill switch: all projects</button></div>
-    <p className="muted">Every project runs its own engine with its own database, agents, Dictionary index, Docker namespace and terminals. Switching keeps other projects' supervisors and agent runs going; come back to see their dashboards and logs where they left off.</p>
+    <p className="muted">Every project runs its own engine with its own database, agents, One Ask index, Docker namespace and terminals. Switching keeps other projects' supervisors and agent runs going; come back to see their dashboards and logs where they left off.</p>
     <ErrorLine error={error} />
     <section className="card"><div className="card-h"><h2>Your projects</h2></div><div className="card-b col" style={{ gap: 0 }}>
       {list?.projects.map(p => <div key={p.id} className="row wrap" style={{ padding: '10px 0', borderBottom: '1px solid var(--line, #2a3240)' }} aria-label={`Project ${p.name}`}>
@@ -84,7 +84,7 @@ function DesktopProjects() {
 }
 
 export function AnswerBadge({ a }: { a: AnswerStatus }) {
-  const label = a.state === 'ready' || a.state === 'partial' ? `Dictionary ${a.state} · ${a.revision?.slice(0, 10) ?? ''}` : `Dictionary ${a.state}`;
+  const label = a.state === 'ready' || a.state === 'partial' ? `One Ask ${a.state} · ${a.revision?.slice(0, 10) ?? ''}` : `One Ask ${a.state}`;
   return <Badge tone={ANSWER_TONE[a.state] ?? 'idle'} title={a.error ?? `${a.files} files indexed${a.excludedFiles ? `, ${a.excludedFiles} excluded` : ''}`}>{label}</Badge>;
 }
 
@@ -140,7 +140,7 @@ function AddLocal({ onAdded }: { onAdded: (id: string) => Promise<void> }) {
       {init && <PlanApproval pending={init} busy={busy} onCancel={() => setInit(null)} onApprove={() => void run(async () => { const i = await approveGitInit(init.approvalId, init.plan.digest); setInit(null); setInspection(i); })} />}
       <div className="row wrap"><label className="small col" style={{ gap: 2 }}>Project name<input aria-label="Project name" value={name} onChange={e => setName(e.target.value)} /></label>
         <button className="btn primary" disabled={busy || blocked} onClick={() => void run(async () => { const p = await addProject(inspection.path, name); setInspection(null); await onAdded(p.id); })}>Add and open</button></div>
-      {inspection.git.state === 'no_commits' && <span className="small faint">You can add it now; Dictionary reports “needs first commit” and indexes nothing until a commit exists.</span>}
+      {inspection.git.state === 'no_commits' && <span className="small faint">You can add it now; One Ask reports “needs first commit” and indexes nothing until a commit exists.</span>}
     </>}
     <ErrorLine error={error} />
   </div></section>;

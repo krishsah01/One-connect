@@ -33,6 +33,7 @@ import type {
 import type { BlockedOn, LifecycleState } from './lifecycle.ts';
 import type { DesignRevision } from './design.ts';
 import type { Workflow, WorkflowStatus, WorkflowTaskState } from './workflows.ts';
+import type { WorkflowLink } from './workflowLinks.ts';
 import type { IntegrationMerge, MergeGate, ReviewRecord } from './reviews.ts';
 import type { SkillVersion } from './skills.ts';
 import type { Connector, ConnectorAction, ConnectorAvailability } from './connectors.ts';
@@ -84,6 +85,8 @@ export interface ControlEventData {
   'decision.confirmation_requested': { decisionId: string; answer: string; expiresAt: string };
   /** The approved action ran (or can no longer run); the decision cannot authorize anything again. */
   'decision.consumed': { decisionId: string; outcome: string };
+  'workflow.defaults_saved': { connectors: string[] };
+  'workflow_link.saved': { link: WorkflowLink };
   'workflow.saved': { workflow: Workflow };
   'workflow.status': { workflowId: string; status: WorkflowStatus; reason: string | null };
   'workflow.task_updated': { workflowId: string; taskId: string; patch: Partial<WorkflowTaskState> };

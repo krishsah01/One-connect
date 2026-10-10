@@ -28,8 +28,18 @@ One Connect is licensed under Apache-2.0. It bundles or depends on the packages 
 | [@pinojs/redact](https://github.com/pinojs/redact#readme) | 0.4.0 | MIT |
 | [@remix-run/route-pattern](https://github.com/remix-run/remix/tree/main/packages/route-pattern#readme) | 0.22.1 | MIT |
 | [@tauri-apps/api](https://github.com/tauri-apps/tauri#readme) | 2.12.1 | Apache-2.0 OR MIT |
+| [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | MIT |
+| [@types/d3-drag](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-drag) | 3.0.7 | MIT |
+| [@types/d3-interpolate](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-interpolate) | 3.0.4 | MIT |
+| [@types/d3-selection](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-selection) | 3.0.12 | MIT |
+| [@types/d3-transition](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-transition) | 3.0.9 | MIT |
+| [@types/d3-zoom](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-zoom) | 3.0.9 | MIT |
+| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react) | 19.3.0 | MIT |
+| [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom) | 19.3.0 | MIT |
 | [@xterm/addon-fit](https://github.com/xtermjs/xterm.js/tree/master#readme) | 0.11.0 | MIT |
 | [@xterm/xterm](https://github.com/xtermjs/xterm.js#readme) | 6.0.0 | MIT |
+| [@xyflow/react](https://reactflow.dev) | 12.12.0 | MIT |
+| [@xyflow/system](https://github.com/xyflow/xyflow#readme) | 0.0.83 | MIT |
 | [abstract-logging](https://github.com/jsumners/abstract-logging#readme) | 2.0.1 | MIT |
 | [accepts](https://github.com/jshttp/accepts#readme) | 2.0.0 | MIT |
 | [ajv](https://ajv.js.org) | 8.20.0 | MIT |
@@ -42,6 +52,7 @@ One Connect is licensed under Apache-2.0. It bundles or depends on the packages 
 | [bytes](https://github.com/visionmedia/bytes.js#readme) | 3.1.2 | MIT |
 | [call-bind-apply-helpers](https://github.com/ljharb/call-bind-apply-helpers#readme) | 1.0.2 | MIT |
 | [call-bound](https://github.com/ljharb/call-bound#readme) | 1.0.4 | MIT |
+| [classcat](https://github.com/jorgebucaran/classcat#readme) | 5.0.5 | MIT |
 | [content-disposition](https://github.com/jshttp/content-disposition#readme) | 1.1.0, 3.0.0 | MIT |
 | [content-type](https://github.com/jshttp/content-type#readme) | 1.0.5, 2.1.0 | MIT |
 | [cookie](https://github.com/jshttp/cookie#readme) | 0.7.2, 1.1.1 | MIT |
@@ -49,6 +60,16 @@ One Connect is licensed under Apache-2.0. It bundles or depends on the packages 
 | [cookie-signature](https://github.com/visionmedia/node-cookie-signature#readme) | 1.2.2 | MIT |
 | [cors](https://github.com/expressjs/cors#readme) | 2.8.6 | MIT |
 | [cross-spawn](https://github.com/moxystudio/node-cross-spawn) | 7.0.6 | MIT |
+| [csstype](https://github.com/frenic/csstype#readme) | 3.2.3 | MIT |
+| [d3-color](https://d3js.org/d3-color/) | 3.1.0 | ISC |
+| [d3-dispatch](https://d3js.org/d3-dispatch/) | 3.0.1 | ISC |
+| [d3-drag](https://d3js.org/d3-drag/) | 3.0.0 | ISC |
+| [d3-ease](https://d3js.org/d3-ease/) | 3.0.1 | BSD-3-Clause |
+| [d3-interpolate](https://d3js.org/d3-interpolate/) | 3.0.1 | ISC |
+| [d3-selection](https://d3js.org/d3-selection/) | 3.0.0 | ISC |
+| [d3-timer](https://d3js.org/d3-timer/) | 3.0.1 | ISC |
+| [d3-transition](https://d3js.org/d3-transition/) | 3.0.1 | ISC |
+| [d3-zoom](https://d3js.org/d3-zoom/) | 3.0.0 | ISC |
 | [debug](https://github.com/debug-js/debug#readme) | 4.4.3 | MIT |
 | [depd](https://github.com/dougwilson/nodejs-depd#readme) | 2.0.0 | MIT |
 | [dequal](https://github.com/lukeed/dequal#readme) | 2.0.3 | MIT |
@@ -166,6 +187,7 @@ One Connect is licensed under Apache-2.0. It bundles or depends on the packages 
 | [tslib](https://www.typescriptlang.org/) | 2.8.1 | 0BSD |
 | [type-is](https://github.com/jshttp/type-is#readme) | 2.1.0 | MIT |
 | [unpipe](https://github.com/stream-utils/unpipe#readme) | 1.0.0 | MIT |
+| [use-sync-external-store](https://github.com/react/react#readme) | 1.7.0 | MIT |
 | [util-deprecate](https://github.com/TooTallNate/util-deprecate) | 1.0.2 | MIT |
 | [vary](https://github.com/jshttp/vary#readme) | 1.1.2 | MIT |
 | [which](https://github.com/isaacs/node-which#readme) | 2.0.2 | ISC |
@@ -174,6 +196,7 @@ One Connect is licensed under Apache-2.0. It bundles or depends on the packages 
 | [yaml](https://eemeli.org/yaml/) | 2.9.1 | ISC |
 | [zod](https://zod.dev) | 4.6.5 | MIT |
 | [zod-to-json-schema](https://github.com/StefanTerdell/zod-to-json-schema#readme) | 3.25.2 | ISC |
+| [zustand](https://github.com/pmndrs/zustand) | 4.5.7 | MIT |
 
 ## Development-only dependencies (not distributed)
 

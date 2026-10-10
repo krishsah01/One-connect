@@ -111,7 +111,7 @@ server.registerTool(
   async (a) => text(await call('search_context', a)),
 );
 server.registerTool('get_project_context',{description:'One compact, cited project context packet for your assignment: indexed integration revision and freshness, how your base differs from it, your own in-scope uncommitted work, entry points, central modules, packages, design contract, other agents\' status and ownership (no transcripts), verified evidence and retrieval for your issue. Call it first instead of reading many files.',inputSchema:{query:z.string().max(1200).optional(),budget:z.number().int().min(3000).max(16000).optional()}},async a=>text(await call('get_project_context',a)));
-server.registerTool('ask_project',{description:'Ask Dictionary about the project using the same bounded local code-and-docs index as the dashboard. Returns source excerpts or a local-model interpretation with citations, exact source revision and honest partial-index status.',inputSchema:{query:z.string().min(1).max(1200)}},async a=>text(await call('ask_project',a)));
+server.registerTool('ask_project',{description:'Ask One Ask about the project using the same bounded local code-and-docs index as the dashboard. Returns source excerpts or a local-model interpretation with citations, exact source revision and honest partial-index status.',inputSchema:{query:z.string().min(1).max(1200)}},async a=>text(await call('ask_project',a)));
 
 server.registerTool(
   'read_note',

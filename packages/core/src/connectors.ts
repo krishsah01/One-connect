@@ -35,7 +35,7 @@ export const ConnectorConfigSchema = z.discriminatedUnion('kind', [
     kind: z.literal('mcp'),
     command: absolute,
     args: z.array(z.string().max(500).refine(s => !s.includes('\0'))).max(32).default([]),
-    tools: z.array(toolName).min(1).max(32),
+    tools: z.array(toolName).max(32),
     read_roots: z.array(absolute).max(8).default([]),
   }),
 ]);
@@ -107,7 +107,7 @@ export const CONNECTOR_DESCRIPTORS: Record<ConnectorKind, ConnectorDescriptor> =
     credential: { type: 'secret', name: 'linear' }, cost: { kind: 'free', note: 'Linear API; no metered spend.' }, egress: 'api.linear.app through the egress guard',
   },
   obsidian: {
-    kind: 'obsidian', title: 'Obsidian knowledge', summary: 'Read only the selected vault folders for Dictionary and agent search.',
+    kind: 'obsidian', title: 'Obsidian knowledge', summary: 'Read only the selected vault folders for One Ask and agent search.',
     capabilities: ['knowledge'], actions: [{ id: 'read', label: 'Index selected folders; write project notes only to the One Connect folder', outbound: null, writes: true }],
     credential: { type: 'none' }, cost: { kind: 'local', note: 'Local files; no network.' }, egress: 'none',
   },

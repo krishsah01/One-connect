@@ -25,7 +25,7 @@ export function Docs({state}:{state:ControlState}) {
   },[]);
   const docs=state.context.docs??context?.docs,connected=Boolean(context?.config),intake=state.context.answer??context?.answer;
   return <div className="page connected-page docs-page">
-    <div className="page-heading"><div><h1>Dictionary</h1><p>Your project code, docs and shared decisions. One revision, traceable sources.</p></div><button className="btn" onClick={()=>setSettings(!settings)}>{context?.privateVault?'Connect Obsidian':'Connection settings'}</button></div>
+    <div className="page-heading"><div><h1>One Ask</h1><p>Your project code, docs and shared decisions. One revision, traceable sources.</p></div><button className="btn" onClick={()=>setSettings(!settings)}>{context?.privateVault?'Connect Obsidian':'Connection settings'}</button></div>
     {settings&&<form className="docs-settings col" onSubmit={e=>{e.preventDefault();void run(async()=>{
       await post('/api/context/connect',{...(context?.config??{}),vault:root.trim(),folder:ownFolder.trim(),context_folders:folders.split('\n').map(f=>f.trim()).filter(Boolean),obsidian_cli:'off',search:{semantic,embedding_model:embedding.trim(),answer_model:answerModel.trim()||undefined,endpoint:context?.config?.search.endpoint??'http://127.0.0.1:11434',budget_chars:6000}});
       await refresh();setSettings(false);setNotice('Vault connected. Build its index or ask a question.');

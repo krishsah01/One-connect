@@ -59,6 +59,8 @@ import { ReleaseFindings } from './release/findings.ts';
 import { SubscriptionSafety } from './subscriptionSafety.ts';
 import { ReviewMerge } from './reviewMerge.ts';
 import { WorkflowEngine } from './workflows.ts';
+import { WorkflowLinks } from './workflowLinks.ts';
+import { workflowPrompt } from './workflowOptions.ts';
 import { SkillLibrary } from './skills.ts';
 import { Connectors } from './connectors.ts';
 import { DesignMocks } from './mocks.ts';
@@ -153,6 +155,7 @@ export class Daemon {
   readonly subscriptionSafety: SubscriptionSafety;
   readonly reviewMerge: ReviewMerge;
   readonly workflows: WorkflowEngine;
+  readonly workflowLinks: WorkflowLinks;
   readonly skillLib: SkillLibrary;
   readonly connectors: Connectors;
   readonly mocks: DesignMocks;
@@ -223,6 +226,7 @@ export class Daemon {
     this.subscriptionSafety = new SubscriptionSafety(this);
     this.reviewMerge = new ReviewMerge(this);
     this.workflows = new WorkflowEngine(this);
+    this.workflowLinks = new WorkflowLinks(this);
     this.skillLib = new SkillLibrary(this);
     this.connectors = new Connectors(this);
     // MCP transports belong to individual calls, not to the detached agent runner. Stop them
@@ -285,6 +289,7 @@ export class Daemon {
     this.runs.recoverAll();
     this.reviewMerge.start();
     this.workflows.start();
+    this.workflowLinks.start();
     this.team.start();
     this.runs.supervisor.start();
     this.rules.start(this.opts.rulesTickMs ?? 15_000);
@@ -299,6 +304,7 @@ export class Daemon {
 
   async shutdown(): Promise<void> {
     await this.connectors.toolActions.close();
+    this.workflowLinks.stop();
     this.workflows.stop();
     await this.designer.studio.close();
     this.reviewMerge.stop();
@@ -651,7 +657,7 @@ export class Daemon {
   assignmentText(a: Assignment, relay = this.state.agents[a.agentId]?.config.adapter === 'relay'): string {
     const item = this.state.workItems[a.workItemId];
     const agent = this.state.agents[a.agentId];
-    if (a.kind === 'review' && a.review) return this.reviewMerge.reviewText(a, relay) + this.designer.prompt(a);
+    if (a.kind === 'review' && a.review) return this.reviewMerge.reviewText(a, relay) + this.designer.prompt(a) + workflowPrompt(a);
     return generateAssignmentText({
       project: this.config.project,
       agent: agent.config,
@@ -666,7 +672,7 @@ export class Daemon {
       askHumanIf: a.askHumanIf,
       relay,
       context: this.context?.templateContext(),
-    })+this.connectors.promptNote(item)+this.designer.prompt(a);
+    })+this.connectors.promptNote(item)+this.designer.prompt(a)+workflowPrompt(a);
   }
 
   updateAssignment(id: string, patch: Partial<Pick<Assignment, 'prompt' | 'scope' | 'allowedPaths' | 'requiredChecks' | 'askHumanIf' | 'model' | 'effort'>>, actor: Actor = HUMAN): Assignment {

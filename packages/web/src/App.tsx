@@ -8,6 +8,7 @@ import { BrowserNotifier, OfflineBanner, PhoneTabBar } from './components/PhoneS
 import { useOnline } from './lib/offline';
 import { can, canMutate, useRemoteSession, type RemoteSession } from './lib/remote';
 import { DEMO_PROJECT, isDesktop, listProjects, useActiveProject, type ProjectList } from './lib/desktop';
+import { Shell } from './shell/Shell';
 const Projects = lazy(()=>import('./pages/Projects').then(m=>({default:m.Projects})));
 const AgentConsole = lazy(()=>import('./pages/AgentConsole').then(m=>({default:m.AgentConsole})));
 const AgentsSetup = lazy(()=>import('./pages/AgentsSetup').then(m=>({default:m.AgentsSetup})));
@@ -41,7 +42,7 @@ const NAVIGATION = [
     { to: '/release', label: 'Release' },
   ] },
   { label: 'Context & output', links: [
-    { to: '/docs', label: 'Dictionary' },
+    { to: '/docs', label: 'One Ask' },
     { to: '/designer', label: 'Designer' },
     { to: '/mocks', label: 'Mocks & artifacts' },
     { to: '/reports', label: 'Brief & reports' },
@@ -115,6 +116,8 @@ export function App() {
   }
   if (!remoteChecked || mode === 'checking') return <div className="splash empty" role="status">Checking this browser's project access…</div>;
   if (mode !== 'local' && !session) return <div className="splash empty" role="status">Project connection unavailable. Reconnecting…</div>;
+  // The local dashboard is the canvas shell; a paired phone keeps its focused layout below.
+  if (!session) return <Shell key={project?.project ?? 'browser'} state={state} conn={conn} meta={{ demo: Boolean(meta.demo), tracker: meta.tracker ?? null }} projectSwitcher={isDesktop ? <ProjectSwitcher /> : <b className="ellipsis" title="This browser is connected to this project.">{state.project?.name ?? 'Choose a project'}</b>} />;
   const kill = state.killSwitch.engaged;
   const pending = Object.values(state.approvals).filter((a) => !a.resolvedAt).length;
   const decisions = Object.values(state.decisions).filter((d) => !d.answeredAt && !d.consumedAt).length;
@@ -207,7 +210,7 @@ export function App() {
 }
 
 /** Quick switch between added projects; other projects keep running in the background. */
-function ProjectSwitcher() {
+export function ProjectSwitcher() {
   const active = useActiveProject();
   const navigate = useNavigate();
   const [list, setList] = useState<ProjectList | null>(null);

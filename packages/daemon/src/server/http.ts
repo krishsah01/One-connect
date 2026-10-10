@@ -17,8 +17,12 @@ import { CommandError, type Daemon } from '../daemon.ts';
 import { writePrivate } from '../paths.ts';
 import { onboardingReport } from '../onboarding.ts';
 import { registerProjectRoutes } from './project-routes.ts';
+import { registerWorkflowLinkRoutes } from './workflowLinkRoutes.ts';
+import { registerMarketplaceRoutes } from './marketplaceRoutes.ts';
 import { registerLibraryRoutes } from './libraryRoutes.ts';
 import { registerDesignerRoutes } from './designerRoutes.ts';
+import { registerCanvasRoutes } from './canvasRoutes.ts';
+import { registerLocalModelRoutes } from './localModelRoutes.ts';
 import { registerHarnessRoutes } from './harnessRoutes.ts';
 import { registerDictionaryRoutes } from './dictionaryRoutes.ts';
 import { remoteGate, remotePrincipal } from '../phone/gate.ts';
@@ -205,8 +209,12 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
   app.get('/api/settings', async () => d.settings.read());
   app.post('/api/settings/request', async (req:FastifyRequest<{Body:{settings:import('../settings.ts').SettingsDraft;expected:string}}>) => ({decision:d.settings.request(req.body?.settings,req.body?.expected)}));
 
+  registerWorkflowLinkRoutes(app, d);
+  registerMarketplaceRoutes(app, d);
   registerLibraryRoutes(app, d);
   registerDesignerRoutes(app, d);
+  registerCanvasRoutes(app, d);
+  registerLocalModelRoutes(app, d);
   registerHarnessRoutes(app, d);
   registerDictionaryRoutes(app, d);
   registerPhoneRoutes(app, d);

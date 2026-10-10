@@ -237,7 +237,7 @@ function ContextPanel({ state }: { state: ControlState }) {
   return (
     <section className="card">
       <div className="card-h">
-        <h2>Dictionary</h2>
+        <h2>One Ask</h2>
       </div>
       <div className="card-b col">
         {state.context.answer&&<><DictionaryStatusCard status={state.context.answer} compact/><Link className="small" to="/docs">Ask your project</Link></>}

@@ -645,7 +645,10 @@ export class DesignMocks {
   /** Bounded, redacted read of one revision's files for an agent with access or a review job. */
   agentRead(id: string, rev: number | 'latest', assignmentId: string, o: { path?: string; offset?: number; budget?: number } = {}) {
     const a = this.get(id), r = this.rev(a, rev);
-    if (!this.d.designer.studio.reviewJobFor(assignmentId, a.id)) this.assertAgentAccess(a, assignmentId);
+    const binding = this.d.state.assignments[assignmentId]?.mockBinding;
+    if (binding?.artifactId === id) {
+      if (binding.rev !== r.rev || binding.hash !== r.hash) throw new CommandError('Read only the approved workflow design revision', 403);
+    } else if (!this.d.designer.studio.reviewJobFor(assignmentId, a.id)) this.assertAgentAccess(a, assignmentId);
     const meta = { artifactId: a.id, title: a.title, dir: a.dir, rev: r.rev, hash: r.hash, designRevision: r.designRevision, files: r.files.map(f => ({ path: f.path, kind: f.kind, bytes: f.bytes, sha256: f.sha256 })), findings: r.findings.filter(f => f.severity !== 'info').map(f => `${f.rule}: ${f.message}`).slice(0, 20), handoff: r.handoff ?? null };
     if (!o.path) return meta;
     const f = r.files.find(x => x.path === o.path);

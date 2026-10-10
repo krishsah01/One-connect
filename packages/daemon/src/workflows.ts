@@ -7,6 +7,7 @@ import type { Actor, Assignment, EventEnvelope, NewEvent, Run, Workflow, Workflo
 import { checksAt, checkRuntimeKey, deriveWorkflowStatus, emptyTaskState, HUMAN, isActiveRun, newId, normalizeWorkflow, readyTaskIds, requiredCheckNames, SYSTEM, topoOrder, validateWorkflow } from '@acc/core';
 import { revParse } from './adapters/vcs/git.ts';
 import { CommandError, type Daemon } from './daemon.ts';
+import { applyWorkflowOptions, terminateWithPickup } from './workflowOptions.ts';
 
 const AFTER_HANDOFF = new Set(['handoff_received', 'in_review', 'approved', 'changes_requested', 'merged', 'release_candidate', 'deployed', 'verified']);
 const TRIGGERS = new Set(['run.created', 'run.started', 'run.ended', 'run.handoff', 'work_item.transitioned', 'work_item.evidence_added', 'assignment.positioned', 'review.recorded', 'review.invalidated', 'merge.completed']);
@@ -69,7 +70,7 @@ export class WorkflowEngine {
 
   validate(input: unknown, o: { workflowId?: string | null; forStart?: boolean } = {}): { definition: WorkflowDefinition; issues: WorkflowIssue[] } {
     const definition = normalizeWorkflow(input);
-    const issues = validateWorkflow(definition, this.d.state, { workflowId: o.workflowId ?? null, forStart: o.forStart, projectChecks: this.d.config.project.checks });
+    const issues = validateWorkflow(definition, this.d.state, { workflowId: o.workflowId ?? null, forStart: o.forStart, projectChecks: this.d.config.project.checks, builtinSkills: this.d.designer.skills().map(s => s.id), denylist: this.d.denylist() });
     if (o.forStart) {
       for (const t of definition.tasks) {
         if (t.kind === 'review') continue;
@@ -106,12 +107,12 @@ export class WorkflowEngine {
 
   // ---- controls ----------------------------------------------------------------------------
 
-  async launch(id: string, actor: Actor = HUMAN): Promise<Workflow> {
+  async launch(id: string, actor: Actor = HUMAN, extra: NewEvent[] = []): Promise<Workflow> {
     const w = this.get(id);
     if (w.status !== 'draft') throw new CommandError(`"${w.definition.name}" is already ${w.status}`, 409);
     const { issues } = this.validate(w.definition, { workflowId: id, forStart: true });
     if (issues.length) throw new CommandError(issues.map((i) => i.message).join(' '), 422, issues);
-    this.d.commit([{ type: 'workflow.status', actor, data: { workflowId: id, status: 'running', reason: `started by ${actor.type === 'human' ? 'the owner' : actor.id}` } }]);
+    this.d.commit([{ type: 'workflow.status', actor, data: { workflowId: id, status: 'running', reason: `started by ${actor.type === 'human' ? 'the owner' : actor.id}` } }, ...extra]);
     await this.evaluate(id);
     return this.get(id);
   }
@@ -167,6 +168,11 @@ export class WorkflowEngine {
       this.d.commit(events);
     });
     return this.get(id);
+  }
+
+  /** Capture bounded pickup points before cancellation; no provider fallback. */
+  terminateWithPickup(id: string, actor: Actor = HUMAN): Promise<Record<string, string | null>> {
+    return terminateWithPickup(this.d, id, actor);
   }
 
   /** Run a task again (and reset everything downstream of it). */
@@ -421,6 +427,12 @@ export class WorkflowEngine {
         a = d.createAssignment({ workItemId: t.workItemId, agentId: t.agentId, allowedPaths: t.allowedPaths, scope: t.title, ...(t.requiredChecks ? { requiredChecks: t.requiredChecks } : {}), baseRef: this.baseRefFor(w, t), workflowId: w.id, taskId }, SYSTEM);
       }
     } catch (e) {
+      d.commit([this.taskEvent(w.id, taskId, { status: 'blocked', reason: (e as Error).message })]);
+      return;
+    }
+    try { a = applyWorkflowOptions(d, a, t); }
+    catch (e) {
+      this.cancelQuietly(a, SYSTEM);
       d.commit([this.taskEvent(w.id, taskId, { status: 'blocked', reason: (e as Error).message })]);
       return;
     }

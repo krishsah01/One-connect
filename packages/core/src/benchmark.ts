@@ -97,7 +97,7 @@ export function benchmarkRegressions(r: ContextBenchmarkResult): string[] {
   const out: string[] = [];
   const stack = r.arms.find(a => a.id === 'dictionary');
   const base = r.arms.find(a => a.id === 'full_context');
-  if (!stack || stack.status !== 'measured') return ['Dictionary arm was not measured'];
+  if (!stack || stack.status !== 'measured') return ['One Ask arm was not measured'];
   if ((stack.retrievalAccuracy ?? 0) < 1) out.push(`retrieval accuracy ${(100 * (stack.retrievalAccuracy ?? 0)).toFixed(0)}% < 100% on the labelled set`);
   if ((stack.citationIntegrity ?? 0) < 1) out.push('a citation did not match the committed source');
   if ((stack.abstentionAccuracy ?? 0) < 1) out.push('abstention accuracy < 100%');

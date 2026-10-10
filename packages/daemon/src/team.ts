@@ -45,6 +45,11 @@ export class Team {
       const run = this.d.state.runs[runId];
       if (!run || (sender.type === 'agent' && run.agentId !== sender.id) || (workItemId && run.workItemId !== workItemId)) throw new CommandError('run reference does not belong to sender and issue', 403);
     }
+    if (sender.type === 'agent') {
+      if (!runId && Object.values(this.d.state.assignments).some(a => a.agentId === sender.id && a.consults !== undefined && ['now', 'next'].includes(a.position))) throw new CommandError('A workflow message requires its authenticated run', 403);
+      const assignment = runId ? this.d.state.assignments[this.d.state.runs[runId].assignmentId] : null;
+      if (assignment?.consults !== undefined && recipients.some(id => !assignment.consults!.includes(id))) throw new CommandError('This peer is not connected to your workflow assignment', 403);
+    }
     const replyTo = input.replyTo ?? null;
     if (replyTo) {
       const parent = this.d.state.teamMessages[replyTo];

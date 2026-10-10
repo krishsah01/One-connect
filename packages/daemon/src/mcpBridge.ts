@@ -145,7 +145,7 @@ export class McpBridge {
         return { ok: true, decision: review.decision, independent: review.independent, note: 'Recorded as an independent, advisory review. A human makes the final approval.' };
       }
       case 'list_connector_tools':
-        return { connectors: d.connectors.toolsForAgents() };
+        return { connectors: d.connectors.toolsForAgents(run.assignmentId) };
       case 'call_connector_tool': {
         const created = d.connectors.requestToolCall(String(args.connector ?? ''), String(args.tool ?? ''), (args.arguments ?? {}) as Record<string, unknown>, { runId: run.id, workItemId: run.workItemId, requester: agentActor(run.agentId) });
         const req = created.request;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Dictionary UI: honest per-stage status, progress and cancel, evidence verdicts, verbatim
+// One Ask UI: honest per-stage status, progress and cancel, evidence verdicts, verbatim
 // citations that open the committed file at the cited lines, and the structure explorer.
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,7 +39,7 @@ beforeEach(() => {
   }));
 });
 
-describe('Dictionary status', () => {
+describe('One Ask status', () => {
   it('spells out every stage, marks an older graph as stale, and summarizes the incremental change', () => {
     render(<DictionaryStatusCard status={status()} />);
     expect(screen.getByText('Partial')).toBeTruthy();
@@ -71,7 +71,7 @@ describe('Ask and sources', () => {
     const opened: unknown[] = [];
     render(<AskPanel disabled={false} onOpenFile={(...a) => opened.push(a)} />);
     fireEvent.change(screen.getByLabelText('Ask about this project'), { target: { value: 'quarterly budget forecast' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Ask Dictionary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask One Ask' }));
     expect(await screen.findByText('Insufficient evidence')).toBeTruthy();
     expect(screen.getByText(/do not clearly answer this \(not found: budget, forecast\)/)).toBeTruthy();
     expect(screen.getByText(/related by imports/)).toBeTruthy();
@@ -86,7 +86,7 @@ describe('Ask and sources', () => {
   });
 });
 
-describe('Dictionary late responses',()=>{
+describe('One Ask late responses',()=>{
   it('keeps the cited revision in the request and ignores a response for the previously opened file',async()=>{
     let finishOld!:(response:Response)=>void;
     vi.stubGlobal('fetch',vi.fn(async(url:string)=>{

@@ -346,6 +346,9 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
     case 'decision.consumed':
       s.decisions = patchIn(s.decisions, e.data.decisionId, d => ({ ...d, consumedAt: ts, outcome: e.data.outcome }));
       break;
+    case 'workflow_link.saved':
+      s.workflowLinks = put(s.workflowLinks ?? {}, e.data.link.id, e.data.link);
+      break;
     case 'workflow.saved':
       s.workflows = put(s.workflows ?? {}, e.data.workflow.id, e.data.workflow);
       break;

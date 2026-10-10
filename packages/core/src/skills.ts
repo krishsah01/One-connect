@@ -224,12 +224,12 @@ This skill guides local development steps; it does not grant prod access or bypa
   },
   {
     id: 'dictionary-research',
-    title: 'Cited Dictionary research',
+    title: 'Cited One Ask research',
     description: 'Research using search_context and notes with citations.',
     license: 'Apache-2.0',
     draft: {
       id: 'dictionary-research',
-      name: 'Cited Dictionary research',
+      name: 'Cited One Ask research',
       description: 'Use when answering a product or architecture question that needs cited context from committed sources and team notes.',
       instructions: `Gather cited context before recommending a change.
 

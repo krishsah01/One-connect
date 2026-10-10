@@ -38,13 +38,15 @@ export function allowedHosts(cfg: ControlCenterConfig): string[] {
   return [...hosts];
 }
 
-export type Fetch = (url: string, init?: RequestInit & { notificationPermit?: string }) => Promise<Response>;
+export type Fetch = (url: string, init?: RequestInit & { notificationPermit?: string; marketplacePermit?: string }) => Promise<Response>;
 
 export interface Egress {
   fetch: Fetch;
   allowed: string[];
   /** Redeems one exact message authorization without granting its entire host. */
   authorizeNotification?: (token: string, url: string, init?: RequestInit) => boolean;
+  /** Exact one-shot public catalog GETs minted only inside marketplace HTTP routes. */
+  authorizeMarketplace?: (token: string, url: string, init?: RequestInit) => boolean;
   /** Every request made, for the audit view and tests. */
   log: { at: string; host: string; method: string; purpose: string; allowed: boolean }[];
 }
@@ -53,15 +55,16 @@ export function createEgress(cfg: ControlCenterConfig, underlying: Fetch = globa
   const allowed = allowedHosts(cfg);
   const log: Egress['log'] = [];
   const isAllowed = (u: URL) => allowed.includes(u.host) || allowed.includes(u.hostname);
-  const guarded = (async (url: string, init?: RequestInit & { purpose?: string; notificationPermit?: string }) => {
+  const guarded = (async (url: string, init?: RequestInit & { purpose?: string; notificationPermit?: string; marketplacePermit?: string }) => {
     const u = new URL(url);
     const token = init?.notificationPermit;
-    const ok = token !== undefined ? Boolean(egress.authorizeNotification?.(token, url, init)) : isAllowed(u);
-    log.push({ at: new Date().toISOString(), host: u.host, method: init?.method ?? 'GET', purpose: token !== undefined ? 'notification delivery' : init?.purpose ?? '', allowed: ok });
+    const market = init?.marketplacePermit;
+    const ok = market !== undefined ? Boolean(egress.authorizeMarketplace?.(market, url, init)) : token !== undefined ? Boolean(egress.authorizeNotification?.(token, url, init)) : isAllowed(u);
+    log.push({ at: new Date().toISOString(), host: u.host, method: init?.method ?? 'GET', purpose: market !== undefined ? 'marketplace preview/import' : token !== undefined ? 'notification delivery' : init?.purpose ?? '', allowed: ok });
     if (log.length > 500) log.splice(0, log.length - 500);
     if (!ok) throw new EgressDenied(`blocked outbound request to ${u.host}: not a configured connection`);
     // A configured host cannot redirect a request (or credentials) to another host.
-    const { notificationPermit: _permit, purpose: _purpose, ...request } = init ?? {};
+    const { notificationPermit: _permit, marketplacePermit: _market, purpose: _purpose, ...request } = init ?? {};
     return underlying(url, { ...request, redirect: 'error' });
   }) as Fetch;
   const egress: Egress = { fetch: guarded, allowed, log };

@@ -730,6 +730,11 @@ export class RunManager {
     if (run) this.getCtx(run).mcpHandoff = h;
   }
 
+  /** A parsed MCP handoff may arrive before exit; pickup capture must retain it before stop clears context. */
+  stagedHandoff(runId: string): Handoff | null {
+    return this.ctx.get(runId)?.mcpHandoff ?? null;
+  }
+
   // ---- diff / scope ------------------------------------------------------------------------
 
   async refreshDiff(assignmentId: string): Promise<void> {

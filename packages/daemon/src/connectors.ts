@@ -372,7 +372,7 @@ export class Connectors {
       }
       case 'github-issues': return `Allow "${c.name}" to read open issues of ${c.config.repo} through your gh login for import previews? (config ${short})`;
       case 'linear': return `Allow "${c.name}" to send your stored Linear key to api.linear.app to read team ${c.config.team}${c.config.project ? ` / ${c.config.project}` : ''} issues for import previews? (config ${short})`;
-      case 'obsidian': return `Allow "${c.name}" to index ${c.config.folders.join(', ')} in ${c.config.vault} for Dictionary and agent search? One Connect also writes project notes to its own folder there. (config ${short})`;
+      case 'obsidian': return `Allow "${c.name}" to index ${c.config.folders.join(', ')} in ${c.config.vault} for One Ask and agent search? One Connect also writes project notes to its own folder there. (config ${short})`;
       case 'docker': return `Allow "${c.name}" to list this project's Compose containers and read their logs? Start/stop/restart still ask each time. (config ${short})`;
       case 'mcp': return `Allow "${c.name}" to make eligible exactly \`${[c.config.command, ...c.config.args].join(' ')}\` with tools ${c.config.tools.join(', ')} and read roots ${c.config.read_roots.join(', ') || '(none)'}? This approves only the reviewed inventory. Each tool call still needs its own Decision with exact arguments. Network and filesystem access of that program are not mediated by One Connect. (config ${short})`;
     }
@@ -381,6 +381,7 @@ export class Connectors {
   requestActivation(id: string, action: ConnectorAction) {
     const c = this.get(id);
     if (!this.bound(c)) throw new CommandError('Project or release configuration changed. Save matching settings before requesting a new Decision.', 409);
+    if (c.config.kind === 'mcp' && !c.config.tools.length) throw new CommandError('Review and configure the actual tool names before activation.', 428);
     if (c.disabled) throw new CommandError('Enable this connection first.', 409);
     if (!CONNECTOR_DESCRIPTORS[c.kind].actions.some(a => a.id === action)) throw new CommandError(`${CONNECTOR_DESCRIPTORS[c.kind].title} has no ${action} action`);
     if (this.allows(c, action)) return { decision: null, connection: this.view(c) };
@@ -660,6 +661,11 @@ export class Connectors {
 
   /** Preview only: creates a per-call Decision; no process start or outbound call. */
   requestToolCall(id: string, tool: string, args: Record<string, unknown> = {}, o: { runId?: string | null; workItemId?: string | null; requester?: Actor } = {}) {
+    if (o.runId) {
+      const run = this.d.state.runs[o.runId];
+      const a = run && this.d.state.assignments[run.assignmentId];
+      if (a?.connectors !== undefined && !a.connectors.includes(id)) throw new CommandError('This connector is not attached to your workflow assignment', 403);
+    }
     return this.toolActions.request(id, tool, args, o);
   }
 
@@ -680,8 +686,8 @@ export class Connectors {
   }
 
   /** Approved tool connections an agent may call, with the descriptions it needs. */
-  toolsForAgents() {
-    return Object.values(this.all()).filter(c => c.config.kind === 'mcp' && connectorAllows(c, 'execute')).map(c => ({ connector: c.id, name: c.name, tools: c.config.kind === 'mcp' ? c.config.tools : [] }));
+  toolsForAgents(assignmentId?: string) {
+    return Object.values(this.all()).filter(c => c.config.kind === 'mcp' && connectorAllows(c, 'execute') && (assignmentId === undefined || this.d.state.assignments[assignmentId]?.connectors === undefined || this.d.state.assignments[assignmentId].connectors!.includes(c.id))).map(c => ({ connector: c.id, name: c.name, tools: c.config.kind === 'mcp' ? c.config.tools : [] }));
   }
 
   /** Appended to assignment prompts for imported issues. */

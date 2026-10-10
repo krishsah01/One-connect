@@ -128,7 +128,7 @@ export class Decisions {
 
   /** Plain answers cannot consume an approval owned by a specialized action executor. */
   answer(id: string, answer: string, o: AnswerOptions = {}, actor: Actor = HUMAN): Decision {
-    if (['settings:decision:', 'agent-cost:', 'connector:decision:', 'connector-tool:', 'env-action:', 'docker:', 'remote:decision:', 'notify:decision:', 'release:', 'release-rollback:', 'release-inspect:'].some(prefix => this.d.store.kvGet(`${prefix}${id}`))) {
+    if (['workflow-link:decision:', 'settings:decision:', 'agent-cost:', 'connector:decision:', 'connector-tool:', 'env-action:', 'docker:', 'remote:decision:', 'notify:decision:', 'release:', 'release-rollback:', 'release-inspect:'].some(prefix => this.d.store.kvGet(`${prefix}${id}`))) {
       throw new CommandError('Answer this bound action through its action executor', 409);
     }
     return this.answerAtomic(id, answer, o, actor);
@@ -137,6 +137,11 @@ export class Decisions {
   /** All dashboard surfaces use the same action router, including the phone inbox. */
   async respond(id: string, answer: string, o: AnswerOptions = {}, actor: Actor = HUMAN) {
     this.validateAnswer(id, answer, o, actor);
+    const workflowLinkId = this.d.store.kvGet(`workflow-link:decision:${id}`);
+    if (workflowLinkId) {
+      const link = await this.d.workflowLinks.decide(workflowLinkId, answer, actor, o);
+      return { decision: this.d.state.decisions[id], link };
+    }
     if (this.d.store.kvGet(`settings:decision:${id}`)) {
       const settings = await this.d.settings.resolve(id, answer, o);
       return { decision: this.d.state.decisions[id], settings };

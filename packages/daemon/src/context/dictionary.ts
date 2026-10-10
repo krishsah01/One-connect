@@ -206,7 +206,7 @@ export class Dictionary {
     const repo=this.d.config.project.repo,branch=this.d.config.project.integration_branch;
     const integration=await projectCommit(repo,`refs/heads/${branch}`),sha=integration??await projectCommit(repo,'HEAD');
     const ref=this.d.redactText(integration?branch:'HEAD');
-    if(!sha)throw new Error('Commit the project before indexing it. Dictionary reads exact committed revisions.');
+    if(!sha)throw new Error('Commit the project before indexing it. One Ask reads exact committed revisions.');
     job.revision=sha;this.saveJob(job,true);
     const policy=this.policy(),scope=this.scope(ref),generationId=hash(`${sha}\n${policy}\n${scope}`);
     const current=this.manifest.current();

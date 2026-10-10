@@ -70,7 +70,7 @@ export class PacketBuilder {
     const answer=this.ctx.answer.status,generation=this.ctx.answer.manifest.meta('current');
     const key='0'.repeat(64);
     const stages=Object.fromEntries(Object.entries(answer.stages??{}).map(([k,v])=>[k,{state:v.state,revision:v.revision}]));
-    const warnings=[answer.truncated?'Source limits reached: the index is partial.':null,answer.state!=='ready'?`Dictionary is ${answer.state}${answer.error?`: ${answer.error}`:''}`:null].filter(Boolean) as string[];
+    const warnings=[answer.truncated?'Source limits reached: the index is partial.':null,answer.state!=='ready'?`One Ask is ${answer.state}${answer.error?`: ${answer.error}`:''}`:null].filter(Boolean) as string[];
     const project={name:red(this.d.config.project.name),ref:answer.ref,revision:answer.notesRevision,generation,state:answer.state,stages,partial:answer.state!=='ready',warnings:warnings.map(red)};
 
     let basis:ContextPacket['basis']=null,ownWork:ContextPacket['ownWork']=null;

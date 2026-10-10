@@ -4,6 +4,7 @@ import type { AdapterType, AgentConfig, Effort, ProjectConfig, Policy, Role, Rul
 import type { BlockedOn, LifecycleState, TrackerCategory } from './lifecycle.ts';
 import type { DesignRevision } from './design.ts';
 import type { Workflow } from './workflows.ts';
+import type { WorkflowLink } from './workflowLinks.ts';
 import type { IntegrationMerge, ReviewRecord } from './reviews.ts';
 import type { ProjectSkill, SkillRef } from './skills.ts';
 import type { Connector } from './connectors.ts';
@@ -192,6 +193,11 @@ export interface Assignment {
   designRevision?: string | null;
   /** Skill versions frozen at creation; later library edits never change a running task. */
   skills?: SkillRef[];
+  connectors?: string[];
+  consults?: string[];
+  workflowContext?: string | null;
+  pickup?: string | null;
+  mockBinding?: { artifactId: string; rev: number; hash: string };
   preflight: PreflightResult | null;
   createdAt: string;
   dispatchedAt: string | null;
@@ -579,6 +585,7 @@ export interface ControlState {
   context: { vault: VaultStatus | null; graph: GraphStatus | null; docs?: DocsStatus | null;answer?:DictionaryStatus|null };
   design:DesignRevision|null;
   workflows: Record<string, Workflow>;
+  workflowLinks?: Record<string, WorkflowLink>;
   reviews: Record<string, ReviewRecord>;
   merges: Record<string, IntegrationMerge>;
   /** Durable ordered release plans. Steps cannot be skipped. */
@@ -614,6 +621,7 @@ export function emptyState(): ControlState {
     context: { vault: null, graph: null },
     design:null,
     workflows: {},
+    workflowLinks: {},
     reviews: {},
     merges: {},
     releases: {},

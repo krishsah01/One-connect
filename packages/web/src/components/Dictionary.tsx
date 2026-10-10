@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Dictionary building blocks: intake status and progress, per-stage freshness, change report,
+// One Ask building blocks: intake status and progress, per-stage freshness, change report,
 // installed local models, cited search with an evidence verdict, the committed-file viewer, the
 // declarative structure explorer and the agent context-packet preview. Every status is spelled
 // out in text; color only reinforces it.
@@ -25,7 +25,7 @@ const STATE_TEXT: Record<DictionaryStatus['state'], string> = { missing: 'Not in
 export const stateTone = (s: DictionaryStatus['state'] | undefined): Tone => (s === 'ready' ? 'ok' : s === 'error' ? 'crit' : s === 'extracting' || s === 'indexing' ? 'info' : s ? 'warn' : 'idle');
 const running = (s: DictionaryStatus | null | undefined) => Boolean(s && (s.job?.state === 'running' || ['extracting', 'indexing'].includes(s.state)));
 
-/** Compact, reusable status: suitable for the project overview as well as the Dictionary page. */
+/** Compact, reusable status: suitable for the project overview as well as the One Ask page. */
 /** A changed selection/unmount revokes late output and errors from earlier requests. */
 function useLatestRequest() {
   const epoch=useRef(0),alive=useRef(true);
@@ -46,7 +46,7 @@ export function DictionaryStatusCard({ status, compact, onChanged }: { status: D
   const job = status?.job, active = running(status);
   const pct = job && job.total ? Math.round((job.done / job.total) * 100) : null;
   return (
-    <section className="card oa-status" aria-label="Dictionary intake status"><div className="card-b col">
+    <section className="card oa-status" aria-label="One Ask intake status"><div className="card-b col">
       <div className="row wrap"><h2>Project intake</h2><Badge tone={stateTone(status?.state)}>{status ? STATE_TEXT[status.state] : 'Not indexed'}</Badge><span className="spacer" />
         {active
           ? <button className="btn" disabled={busy} onClick={() => void run(async () => { await post('/api/context/answer/cancel'); onChanged?.(); })}>Cancel intake</button>
@@ -134,11 +134,11 @@ export function AskPanel({ disabled, onOpenFile }: { disabled: boolean; onOpenFi
       <form className="docs-question" onSubmit={(e) => { e.preventDefault(); void run(()=>post<DocAnswer & {intake?:DictionaryStatus}>('/api/context/answer/search',{query}),setResult); }}>
         <label htmlFor={`${id}-q`}>Ask about this project</label>
         <textarea id={`${id}-q`} value={query} maxLength={1200} rows={2} disabled={busy || disabled} onChange={(e) => {invalidate();setResult(null);setQuery(e.target.value);}} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) (e.currentTarget.form as HTMLFormElement | null)?.requestSubmit(); }} placeholder="Where is login handled, and what does it depend on?" />
-        <div className="row"><span className="small faint">Cited sources from the committed revision · ⌘↵ to ask</span><span className="spacer" /><button className="btn primary" disabled={busy || disabled || !query.trim()}>{busy ? 'Searching…' : 'Ask Dictionary'}</button></div>
+        <div className="row"><span className="small faint">Cited sources from the committed revision · ⌘↵ to ask</span><span className="spacer" /><button className="btn primary" disabled={busy || disabled || !query.trim()}>{busy ? 'Searching…' : 'Ask One Ask'}</button></div>
       </form>
       <ErrorLine error={error} />
       {result ? <Results result={result} onOpenFile={onOpenFile} /> : (
-        <div className="docs-welcome"><div className="docs-glyph" aria-hidden="true">↗</div><h2>Dictionary, with its sources</h2><p>Ask about code, docs, design rules and team decisions. Agents use this same index through <code>get_project_context</code>, <code>search_context</code> and <code>ask_project</code>.</p></div>
+        <div className="docs-welcome"><div className="docs-glyph" aria-hidden="true">↗</div><h2>One Ask, with its sources</h2><p>Ask about code, docs, design rules and team decisions. Agents use this same index through <code>get_project_context</code>, <code>search_context</code> and <code>ask_project</code>.</p></div>
       )}
     </div>
   );

@@ -144,8 +144,8 @@ function intake(g: ProjectInspection['git'], dir: string): ProjectInspection['in
   // Mirrors Dictionary: the integration branch when it exists, otherwise HEAD.
   const ref = g.integrationBranch ?? 'HEAD';
   const sha = g.integrationHead ?? g.head!;
-  if (g.state === 'dirty') return { indexable: true, revision: sha, ref, message: `Dictionary indexes committed ${ref} at ${sha.slice(0, 12)}. ${g.dirtyFiles} changed and ${g.untrackedFiles} untracked files are excluded until committed.`, steps: [{ ...commitStep, id: 'commit-changes', title: 'Commit local changes to include them', commands: [['git', 'status'], ['git', 'add', '-A'], ['git', 'commit', '-m', 'Work in progress']] }] };
-  return { indexable: true, revision: sha, ref, message: `Dictionary indexes committed ${ref} at ${sha.slice(0, 12)}.`, steps: [] };
+  if (g.state === 'dirty') return { indexable: true, revision: sha, ref, message: `One Ask indexes committed ${ref} at ${sha.slice(0, 12)}. ${g.dirtyFiles} changed and ${g.untrackedFiles} untracked files are excluded until committed.`, steps: [{ ...commitStep, id: 'commit-changes', title: 'Commit local changes to include them', commands: [['git', 'status'], ['git', 'add', '-A'], ['git', 'commit', '-m', 'Work in progress']] }] };
+  return { indexable: true, revision: sha, ref, message: `One Ask indexes committed ${ref} at ${sha.slice(0, 12)}.`, steps: [] };
 }
 
 function existingConfig(root: string): ProjectInspection['config'] {
@@ -180,7 +180,7 @@ export async function inspectProject(dir: string): Promise<ProjectInspection> {
     try { compose = parseCompose(composeFile, path.basename(resolved)); warnings.push(...compose.warnings); }
     catch (e) { warnings.push((e as Error).message); }
   }
-  if (git.state === 'dirty' && git.integrationBranch === null) warnings.push('No integration branch yet; Dictionary will index HEAD and agent worktrees will create integration from the protected branch.');
+  if (git.state === 'dirty' && git.integrationBranch === null) warnings.push('No integration branch yet; One Ask will index HEAD and agent worktrees will create integration from the protected branch.');
   return {
     path: resolved,
     name,

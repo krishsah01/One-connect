@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Dictionary page. Uses the shared design tokens only. */
+/* One Ask page. Uses the shared design tokens only. */
 .oa-status h2 { margin: 0; }
 .oa-identity { display: flex; flex-wrap: wrap; gap: 12px; }
 .oa-progress { display: flex; flex-direction: column; gap: 6px; }

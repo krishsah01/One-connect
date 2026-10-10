@@ -252,8 +252,35 @@ export class Jev {
     try { return await this.requestOnce(id, input, actor); } finally { this.inFlight.delete(id); }
   }
 
-  private async requestOnce(id: string, input: { inputHash?: string; confirm?: JevConfirm }, actor: Actor = HUMAN): Promise<Decision> {
-    this.requireHuman(actor);
+  assertWorkflowGate(linkId: string): void {
+    const link = this.d.workflowLinks.get(linkId), policy = link.gate?.jev;
+    const dec = link.decisionId ? this.openDecision(link.decisionId) : null;
+    const config = this.config();
+    if (link.status !== 'open' || link.gate?.kind !== 'jev' || !policy || !policy.confirmedAt || !policy.confirmedBy || !config.enabled || policy.host !== new URL(config.endpoint).host || !config.confirmations.includes('cost') || !config.confirmations.includes('network') || !config.confirmations.includes('data')) throw new CommandError('No current owner-confirmed Jev workflow policy', 409);
+    if (!dec || dec.kind !== 'question' || dec.irreversible || dec.action || dec.risk !== 'low' || dec.confirmOptions?.length || this.d.store.kvGet(`workflow-link:decision:${dec.id}`) !== linkId || dec.question !== link.gate.question || JSON.stringify(dec.options) !== JSON.stringify(link.gate.options.map(o => o.label)) || this.d.workflows.get(link.from).status !== 'completed') throw new CommandError('Jev can route only the bound low-risk workflow question', 403);
+    const bytes = Buffer.byteLength(JSON.stringify(systemOneRequest(this.buildEvidence(dec).payload)));
+    if (bytes > policy.maxEvidenceBytes) throw new CommandError('Gate evidence exceeds the owner-confirmed byte limit', 409);
+    for (const id of link.to) {
+      const target = this.d.workflows.get(id);
+      if (target.status !== 'draft' || target.version !== link.targetVersions[id]) throw new CommandError('Workflow gate target changed', 409);
+    }
+  }
+
+  async requestWorkflowGate(linkId: string): Promise<Decision> {
+    this.assertWorkflowGate(linkId);
+    const link = this.d.workflowLinks.get(linkId), policy = link.gate!.jev!;
+    const preview = await this.preview(link.decisionId!);
+    if (!preview.canRequest) throw new CommandError(preview.blocked ?? 'Jev is not configured', 409);
+    this.d.commit([{ type: 't.system', actor: JEV_ACTOR, data: { text: JSON.stringify({ kind: 'workflow-gate-jev-preview', linkId, host: preview.host, inputHash: preview.inputHash, requestBody: preview.requestBody, confirmedAt: policy.confirmedAt, confirmedBy: policy.confirmedBy, maxEvidenceBytes: policy.maxEvidenceBytes }) } }]);
+    const id = link.decisionId!;
+    if (this.inFlight.has(id)) throw new CommandError('Jev request already in flight', 409);
+    this.inFlight.add(id);
+    try { return await this.requestOnce(id, { inputHash: preview.inputHash, confirm: { host: policy.host, cost: true, network: true, data: true } }, JEV_ACTOR, linkId); }
+    finally { this.inFlight.delete(id); }
+  }
+
+  private async requestOnce(id: string, input: { inputHash?: string; confirm?: JevConfirm }, actor: Actor = HUMAN, workflowLinkId?: string): Promise<Decision> {
+    if (workflowLinkId) this.assertWorkflowGate(workflowLinkId); else this.requireHuman(actor);
     const dec = this.openDecision(id);
     const c = this.config();
     if (!c.enabled) throw new CommandError('Jev is disabled', 409);
@@ -303,6 +330,7 @@ export class Jev {
     if (!tokenCount(usageIn.input_tokens) || !tokenCount(usageIn.output_tokens)) throw new CommandError('Jev did not report valid token usage. Nothing was recorded.', 502);
     const usage = { input_tokens: usageIn.input_tokens, output_tokens: usageIn.output_tokens };
     // A late network response must never advise on a different action or a closed decision.
+    if (workflowLinkId) this.assertWorkflowGate(workflowLinkId);
     const current = this.openDecision(id);
     if (!this.config().enabled || this.config().endpoint !== c.endpoint || this.buildEvidence(current).hash !== ev.hash) throw new CommandError('The decision evidence or Jev configuration changed while the request was running; no advisory was recorded.', 409);
     const advisory: JevAdvisory = {
