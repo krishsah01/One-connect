@@ -127,7 +127,8 @@ export function emptyTaskState(at: string): WorkflowTaskState {
 export function normalizeWorkflow(input: unknown): WorkflowDefinition {
   const raw = (input ?? {}) as Partial<WorkflowDefinition> & { tasks?: Partial<WorkflowTaskDef>[] };
   const mode: WorkflowMode = raw.mode === 'independent' ? 'independent' : 'collaborative';
-  const tasks = (Array.isArray(raw.tasks) ? raw.tasks : []).map((t) => {
+  const tasks = (Array.isArray(raw.tasks) ? raw.tasks : []).map((entry) => {
+    const t = (entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {}) as Partial<WorkflowTaskDef>;
     const kind: WorkflowTaskKind = (WORKFLOW_TASK_KINDS as readonly string[]).includes(String(t.kind)) ? (t.kind as WorkflowTaskKind) : 'code';
     const reviewOf = kind === 'review' && typeof t.reviewOf === 'string' && t.reviewOf ? t.reviewOf : null;
     const dependsOn = [...new Set([...(Array.isArray(t.dependsOn) ? t.dependsOn.map(String).filter(Boolean) : []), ...(reviewOf ? [reviewOf] : [])])];

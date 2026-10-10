@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HUMAN, SYSTEM } from '@acc/core';
-import { applyWorkflowOptions, terminateWithPickup } from '../src/workflowOptions.ts';
+import { applyWorkflowOptions, terminateWithPickup, saveWorkflowDefaults } from '../src/workflowOptions.ts';
 import { makeConfig, makeRepo, startDaemon, waitFor, type Harness } from './helpers.ts';
 let h: Harness | null = null;
 afterEach(async () => { vi.restoreAllMocks(); await h?.close(); h = null; });
@@ -12,6 +12,17 @@ async function setup() {
   return { d: h.d, item };
 }
 describe('workflow assignment options', () => {
+  it('adds owner-configured project connector defaults without granting connector approval', async () => {
+    const { d, item } = await setup();
+    const c = d.connectors.save({ id: 'project-tools', name: 'Project tools', config: { kind: 'mcp', command: process.execPath, tools: ['read'], args: [], read_roots: [] } },null);
+    expect(saveWorkflowDefaults(d,[c.id],HUMAN)).toEqual([c.id]);
+    const a = d.createAssignment({ workItemId: item.id, agentId: 'ag' });
+    const assigned = applyWorkflowOptions(d,a,{ id:'build',title:'Build',workItemId:item.id,agentId:'ag',kind:'code',dependsOn:[],allowedPaths:[],requiredChecks:null,reviewOf:null,connectors:[] });
+    expect(assigned.connectors).toEqual([c.id]);
+    expect(d.state.connectors![c.id].approvals).toEqual({});
+    expect(d.connectors.toolsForAgents(assigned.id)).toEqual([]);
+    expect(() => saveWorkflowDefaults(d,[c.id],SYSTEM)).toThrow('owner');
+  });
   it('freezes selected skills, persists prompt context and scopes tools and peers through dispatch', async () => {
     const { d, item } = await setup();
     const draft = { id: 'selected-skill', name: 'selected-skill', description: 'Use when reviewing workflow steps.', instructions: 'Inspect relevant workflow boundaries.', references: [] };
@@ -53,6 +64,38 @@ describe('workflow assignment options', () => {
     expect(d.runs.send).toHaveBeenCalledOnce();
     expect(pickups.build).toContain('Finish validation');
     expect(d.workflows.get(w.id).status).toBe('canceled');
+  });
+  it('cancels a streaming run after the bounded pickup deadline', async () => {
+    const { d, item } = await setup();
+    const w = d.workflows.save({ definition: { name: 'Timeout', tasks: [{ id: 'build', agentId: 'ag', workItemId: item.id }] } });
+    await d.workflows.launch(w.id);
+    const run = Object.values(d.state.runs).find(r => r.assignmentId === d.workflows.get(w.id).tasks.build.assignmentId)!;
+    d.state.runs[run.id] = { ...run, adapter: 'claude-headless', state: 'running' };
+    vi.spyOn(d.runs, 'send').mockResolvedValue({ delivered: 'live' });
+    expect((await terminateWithPickup(d,w.id,HUMAN,5)).build).toContain('Previous run:');
+    expect(d.workflows.get(w.id).status).toBe('canceled');
+  });
+  it('binds an approved mock to the normal engineering studio identity and pins agent reads', async () => {
+    const { d, item } = await setup();
+    const hash = 'a'.repeat(64);
+    // Minimal immutable mock lifecycle fixture; contract token behavior is covered by designer tests.
+    const revision = { rev: 1, hash: 'b'.repeat(64), entry: 'index.html', files: [], designRevision: { hash, version: 1 }, gitSha: null, runId: null, findings: [], exceptions: [], reviews: [{ decision: 'approved', note: 'Reviewed', by: HUMAN, at: d.nowIso() }], evidence: [], capturedAt: d.nowIso(), by: { type: 'agent', id: 'claude' } } as import('@acc/core').MockRevision;
+    const art = { id: 'mock-pinned', title: 'Pinned mock', dir: 'design/pinned', workItemId: item.id, assignmentId: 'author', revisions: [revision], createdAt: d.nowIso() } as import('@acc/core').MockArtifact;
+    d.state.design = { hash, version: 1 } as import('@acc/core').DesignRevision;
+    d.state.mocks = { [art.id]: art };
+    const a = d.createAssignment({ workItemId: item.id, agentId: 'ag' });
+    const t = { id: 'build', title: 'Build', workItemId: item.id, agentId: 'ag', kind: 'code', dependsOn: [], reviewOf: null, requiredChecks: null, allowedPaths: [], design: { artifactId: art.id, rev: 1 } } as import('@acc/core').WorkflowTaskDef;
+    // Freeze contract lookup for this focused assignment fixture.
+    vi.spyOn(d.designer, 'revision').mockReturnValue(null);
+    const assigned = applyWorkflowOptions(d,a,t);
+    expect(assigned.mockBinding).toEqual({ artifactId: art.id, rev: 1, hash: revision.hash });
+    expect(d.designer.studio.jobForAssignment(a.id)).toMatchObject({ kind: 'engineering', artifactId: art.id, fromRev: 1 });
+    expect(d.mocks.agentRead(art.id,1,a.id).hash).toBe(revision.hash);
+    art.revisions.push({ ...revision, rev: 2, hash: 'c'.repeat(64) });
+    expect(() => d.mocks.agentRead(art.id,'latest',a.id)).toThrow('approved workflow');
+    d.state.design = { hash: 'd'.repeat(64), version: 2 } as import('@acc/core').DesignRevision;
+    expect(() => applyWorkflowOptions(d,a,t)).toThrow('current contract');
+    d.state.design = null;
   });
   it('rechecks option resources immediately before assignment dispatch', async () => {
     const { d, item } = await setup();

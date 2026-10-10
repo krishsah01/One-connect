@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Actor, Assignment, Run, WorkflowTaskDef } from '@acc/core';
-import { containsSecret, isActiveRun, mockGate, SYSTEM } from '@acc/core';
+import type { Actor, Assignment, DesignJob, NewEvent, Run, WorkflowTaskDef } from '@acc/core';
+import { containsSecret, isActiveRun, mockGate, newId, SYSTEM } from '@acc/core';
 import { adapterFor } from './adapters/agents/index.ts';
 import { revParse } from './adapters/vcs/git.ts';
 import { CommandError, type Daemon } from './daemon.ts';
@@ -25,23 +25,39 @@ export function applyWorkflowOptions(d: Daemon, a: Assignment, t: WorkflowTaskDe
     connectors: [...new Set([...(t.connectors ?? []), ...projectConnectorDefaults(d)])],
     consults: [...new Set(t.consults ?? [])], workflowContext: t.context ?? null, pickup: t.pickup ?? null,
   };
+  const bindingEvents: NewEvent[] = [];
   if (t.design) {
     const art = d.mocks.get(t.design.artifactId), rev = d.mocks.rev(art, t.design.rev);
     if (!d.state.design || mockGate(rev, d.state.design.hash).state !== 'approved' || rev.designRevision?.hash !== d.state.design.hash) throw new CommandError('Design approval or contract changed', 409);
     patch.designRevision = rev.designRevision.hash;
     patch.mockBinding = { artifactId: art.id, rev: rev.rev, hash: rev.hash };
+    const job: DesignJob = {
+      id: newId('dj'), kind: 'engineering', title: art.title, brief: null,
+      slug: art.dir.replace(/^design\//, ''), dir: art.dir, workItemId: a.workItemId, assignmentId: a.id,
+      artifactId: art.id, fromRev: rev.rev, identity: { contentHash: rev.hash, designHash: rev.designRevision.hash, designVersion: rev.designRevision.version },
+      request: null, mode: 'new-assignment', runId: null, designRevision: rev.designRevision, createdAt: d.nowIso(), by: SYSTEM,
+    };
+    bindingEvents.push({ type: 'design.studio', actor: SYSTEM, assignmentId: a.id, workItemId: a.workItemId, agentId: a.agentId, data: { kind: 'job_created', job } });
   }
   patch.prompt = d.assignmentText({ ...a, ...patch });
-  d.commit([{ type: 'assignment.updated', actor: SYSTEM, agentId: a.agentId, workItemId: a.workItemId, assignmentId: a.id, data: { patch } }]);
+  d.commit([...bindingEvents, { type: 'assignment.updated', actor: SYSTEM, agentId: a.agentId, workItemId: a.workItemId, assignmentId: a.id, data: { patch } }]);
   return d.state.assignments[a.id];
 }
 
-function projectConnectorDefaults(d: Daemon): string[] {
+export function projectConnectorDefaults(d: Daemon): string[] {
   const raw = d.store.kvGet('workflow:default-connectors');
   if (!raw) return [];
   const value: unknown = JSON.parse(raw);
   if (!Array.isArray(value) || value.length > 32 || value.some(id => typeof id !== 'string' || !d.state.connectors?.[id] || d.state.connectors[id].disabled)) throw new CommandError('Project connector defaults are invalid');
   return value;
+}
+
+export function saveWorkflowDefaults(d: Daemon, raw: unknown, actor: Actor): string[] {
+  if (actor.type !== 'human' || /^jev$/i.test(actor.id)) throw new CommandError('Only the owner can configure workflow defaults', 403);
+  if (!Array.isArray(raw) || raw.length > 32 || raw.some(id => typeof id !== 'string' || !d.state.connectors?.[id] || d.state.connectors[id].disabled)) throw new CommandError('Choose up to 32 existing enabled connector ids');
+  const connectors = [...new Set(raw)] as string[];
+  d.commit([{ type: 'workflow.defaults_saved', actor, data: { connectors } }], [], () => d.store.kvSet('workflow:default-connectors', JSON.stringify(connectors)));
+  return connectors;
 }
 
 async function requestPickup(d: Daemon, run: Run, timeoutMs: number): Promise<void> {

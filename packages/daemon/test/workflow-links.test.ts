@@ -39,6 +39,22 @@ describe('durable workflow links', () => {
     expect(h.d.workflowLinks.get(link.id).status).toBe('started');
     expect(Object.keys(h.d.state.assignments)).toHaveLength(count);
   });
+  it('recovers after only one target start receipt is committed', async () => {
+    const { d, cfg, from, a, b } = await setup();
+    const link = d.workflowLinks.save({ id: 'canvas-chain-fixture', from, to: [a,b], gate: null });
+    const launch = d.workflows.launch.bind(d.workflows);
+    vi.spyOn(d.workflows,'launch').mockImplementation(async (...args) => {
+      const result = await launch(...args);
+      d.workflowLinks.stop();
+      return result;
+    });
+    complete(d,from); await d.workflowLinks.idle();
+    expect(d.workflowLinks.get(link.id)).toMatchObject({ status: 'decided', started: [a] });
+    const dataDir = h!.dataDir; await h!.close(); h = null;
+    h = await startDaemon(cfg,{ dataDir, server: false }); await h.d.workflowLinks.idle();
+    expect(h.d.workflowLinks.get(link.id)).toMatchObject({ status: 'started', started: [a,b] });
+    expect(Object.values(h.d.state.assignments).filter(x => x.workflowId === a)).toHaveLength(1);
+  });
   it('keeps a human decision across restart and routes phone/inbox answers through Decisions', async () => {
     const { d, cfg, from, a, b } = await setup();
     const link = d.workflowLinks.save({ from, to: [a, b], gate: gate(a, b) });

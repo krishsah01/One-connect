@@ -32,13 +32,18 @@ export class WorkflowLinks {
     const input = parsed.data;
     if (containsSecret(JSON.stringify(input), { denylist: this.d.denylist() }).length) throw new CommandError('Remove credentials from workflow links');
     const old = input.id ? this.d.state.workflowLinks?.[input.id] : null;
-    if (input.id && !old) throw new CommandError('Unknown workflow link', 404);
     if (old && old.status !== 'waiting') throw new CommandError('Only waiting links can be edited', 409);
     const source = this.d.workflows.get(input.from);
     if (source.status === 'canceled') throw new CommandError('Source workflow is canceled', 409);
     if (input.to.includes(input.from) || new Set(input.to).size !== input.to.length) throw new CommandError('Targets must be distinct and cannot include the source');
     const versions: Record<string, number> = {};
-    for (const id of input.to) { const w = this.d.workflows.get(id); if (w.status !== 'draft') throw new CommandError('Targets must be saved drafts', 409); versions[id] = w.version; }
+    for (const id of input.to) {
+      const w = this.d.workflows.get(id);
+      if (w.status !== 'draft') throw new CommandError('Targets must be saved drafts', 409);
+      const { issues } = this.d.workflows.validate(w.definition, { workflowId: id });
+      if (issues.length) throw new CommandError(issues.map(i => i.message).join('; '), 422, issues);
+      versions[id] = w.version;
+    }
     if (input.gate) {
       if (new Set(input.gate.options.map(o => o.label)).size !== input.gate.options.length || new Set(input.gate.options.map(o => o.to)).size !== input.to.length || input.gate.options.length !== input.to.length || input.gate.options.some(o => !input.to.includes(o.to))) throw new CommandError('Gate options must name each target exactly once with unique labels');
       if (input.gate.kind === 'human' && input.gate.jev) throw new CommandError('Human gates cannot have a Jev policy');
@@ -53,7 +58,7 @@ export class WorkflowLinks {
     const reaches = (id: string, seen = new Set<string>()): boolean => { if (id === input.from) return true; if (seen.has(id)) return false; seen.add(id); return edges.filter(l => l.from === id).some(l => l.to.some(to => reaches(to, seen))); };
     if (input.to.some(id => reaches(id))) throw new CommandError('Workflow links cannot form a cycle');
     if (edges.some(l => !['started', 'canceled'].includes(l.status) && l.to.some(id => input.to.includes(id)))) throw new CommandError('A target already belongs to another pending link', 409);
-    const link: WorkflowLink = { id: old?.id ?? newId('wfl'), from: input.from, to: input.to, gate: input.gate, status: 'waiting', decision: null, decisionId: null, targetVersions: versions, started: [], jevAttempted: false, reason: null };
+    const link: WorkflowLink = { id: old?.id ?? input.id ?? newId('wfl'), from: input.from, to: input.to, gate: input.gate, status: 'waiting', decision: null, decisionId: null, targetVersions: versions, started: [], jevAttempted: false, reason: null };
     this.persist(link, actor); return this.get(link.id);
   }
   cancel(id: string, actor: Actor = HUMAN): WorkflowLink {
