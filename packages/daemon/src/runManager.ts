@@ -20,7 +20,7 @@ import { changedFiles, commitOnBranch, commitsSince, createWorktree, ensureBranc
 import { runChecks } from './checks.ts';
 import { CommandError, type Daemon } from './daemon.ts';
 import { Supervisor, type ExitInfo, type TailOffsets } from './runner/supervisor.ts';
-import type { OutboxOp } from './store/eventStore.ts';
+import { MAX_LIST, type OutboxOp } from './store/eventStore.ts';
 import { writePrivate } from './paths.ts';
 
 export const MCP_SERVER_PATH = fileURLToPath(new URL('./mcp/server.ts', import.meta.url));
@@ -412,9 +412,7 @@ export class RunManager {
   }
 
   private lastAssistantText(runId: string): string | null {
-    const msgs = this.d.store.list({ runId, types: ['t.message'], limit: 10_000 });
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      const m = msgs[i];
+    for (const m of this.d.store.list({ runId, types: ['t.message'], limit: MAX_LIST, order: 'desc' })) {
       if (m.type === 't.message' && m.data.role === 'assistant') return m.data.text;
     }
     return null;
@@ -422,7 +420,8 @@ export class RunManager {
 
   private recordedCommands(runId: string): { command: string; exitCode: number | null | undefined }[] {
     return this.d.store
-      .list({ runId, types: ['t.command'], limit: 10_000 })
+      .list({ runId, types: ['t.command'], limit: MAX_LIST, order: 'desc' })
+      .reverse()
       .flatMap((e) => (e.type === 't.command' && e.data.status !== 'started' ? [{ command: e.data.command, exitCode: e.data.exitCode }] : []));
   }
 

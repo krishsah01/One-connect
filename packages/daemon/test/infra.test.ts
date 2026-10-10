@@ -34,6 +34,20 @@ describe('event store', () => {
     again.close();
   });
 
+  it('reads newest-first pages, filters by mentioned ids and treats kv prefixes literally', () => {
+    const s = new EventStore(path.join(tmpDir('es'), 'e.sqlite'));
+    s.append(Array.from({ length: 5 }, (_, i) => ({ type: 'rule.toggled' as const, data: { rule: 'auto_refill' as const, enabled: i % 2 === 0 } })));
+    s.append([{ type: 'alert.resolved', data: { alertId: 'al_target', resolution: 'x' } }, { type: 'alert.resolved', data: { alertId: 'al_other', resolution: 'y' } }]);
+    expect(s.list({ types: ['rule.toggled'], limit: 2, order: 'desc' }).map((e) => e.seq)).toEqual([5, 4]);
+    expect(s.list({ types: ['rule.toggled'], limit: 2 }).map((e) => e.seq)).toEqual([1, 2]);
+    expect(s.list({ containsAny: ['al_target'] }).map((e) => e.seq)).toEqual([6]);
+    expect(s.list({ limit: Number.NaN })).toHaveLength(7);
+    s.kvSet('a_b:1', 'x');
+    s.kvSet('aXb:2', 'y');
+    expect(s.kvKeys('a_b:')).toEqual(['a_b:1']);
+    s.close();
+  });
+
   it('refuses temp directories for durable state unless explicitly allowed (tests)', () => {
     const t = tmpDir('dd');
     expect(isUnderTemp(t)).toBe(true);

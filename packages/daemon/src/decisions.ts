@@ -5,6 +5,7 @@ import { randomBytes } from 'node:crypto';
 import type { Actor, Decision, EventEnvelope, NewEvent } from '@acc/core';
 import { HUMAN, newId } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';
+import { MAX_LIST } from './store/eventStore.ts';
 import { sha256 } from './util/hash.ts';
 
 const CONFIRM_TTL_MS = 2 * 60_000;
@@ -27,6 +28,8 @@ export interface DecisionExecutor {
 }
 
 /** Decision kinds that only an executor may answer; a missing binding must never fall through. */
+const HISTORY_TYPES = ['decision.created', 'decision.recommended', 'decision.confirmation_requested', 'decision.answered', 'decision.consumed', 'decision.advisory', 'decision.advisory_invalidated', 'jev.cancelled', 'connector.activated', 'connector.activation_denied', 'docker.action', 'merge.completed', 'merge.refused', 'merge.post_checks', 'release.saved'];
+
 const BOUND_KINDS: readonly string[] = ['settings', 'cost', 'connector', 'environment', 'docker', 'remote', 'notification', 'release'];
 
 export class Decisions {
@@ -206,13 +209,16 @@ export class Decisions {
   /** Audit trail for one decision, oldest first. */
   history(id: string): EventEnvelope[] {
     if (!this.d.state.decisions[id]) throw new CommandError(`unknown decision ${id}`, 404);
+    // Post-merge checks name only the merge, so the decision's merges are matched too.
+    const mergeIds = Object.values(this.d.state.merges ?? {}).filter((m) => m.decisionId === id).map((m) => m.id);
     return this.d.store
-      .list({ kind: 'control', types: ['decision.created', 'decision.recommended', 'decision.confirmation_requested', 'decision.answered', 'decision.consumed', 'decision.advisory', 'decision.advisory_invalidated', 'jev.cancelled', 'connector.activated', 'connector.activation_denied', 'docker.action', 'merge.completed', 'merge.refused', 'merge.post_checks', 'release.saved'], limit: 100_000 })
+      .list({ kind: 'control', types: HISTORY_TYPES, containsAny: [id, ...mergeIds], limit: MAX_LIST })
       .filter((e) => {
         const data = e.data as { decisionId?: string; decision?: { id: string }; merge?: { decisionId: string }; mergeId?: string; plan?: { steps?: { decisionId?: string | null }[] } };
         if (data.decisionId === id || data.decision?.id === id || data.merge?.decisionId === id) return true;
         if (data.plan?.steps?.some((s) => s.decisionId === id)) return true;
-        return Boolean(data.mergeId && this.d.state.merges[data.mergeId]?.decisionId === id);
+        return Boolean(data.mergeId && mergeIds.includes(data.mergeId));
       });
   }
+
 }

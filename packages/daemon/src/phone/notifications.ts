@@ -7,6 +7,7 @@ import { candidatesFromEvents, candidatesFromTick, defaultNotificationConfig, HU
 import { CommandError, type Daemon } from '../daemon.ts';
 import { projectNamespace } from '../context/vault.ts';
 import { run } from '../exec.ts';
+import { MAX_LIST } from '../store/eventStore.ts';
 import { sha256 } from '../util/hash.ts';
 
 const DECISION_TTL_MS = 10 * 60_000;
@@ -395,7 +396,8 @@ export class Notifications {
     return this.getConfig();
   }
   list(limit = 100): NotificationRecord[] {
-    const evs = this.d.store.list({ types: ['notification.emitted', 'notification.acked', 'notification.delivered'], limit: 10_000 });
+    // Newest events, replayed oldest-first: acks and deliveries always follow their notification.
+    const evs = this.d.store.list({ types: ['notification.emitted', 'notification.acked', 'notification.delivered'], limit: MAX_LIST, order: 'desc' }).reverse();
     const byId = new Map<string, NotificationRecord>();
     for (const e of evs) {
       if (e.type === 'notification.emitted') byId.set(e.data.notification.id, structuredClone(e.data.notification));

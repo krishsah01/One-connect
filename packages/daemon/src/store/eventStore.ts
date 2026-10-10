@@ -60,6 +60,9 @@ export interface OutboxRow extends OutboxOp {
 
 type Row = Record<string, SQLInputValue>;
 
+/** Upper bound for one list() page. */
+export const MAX_LIST = 10_000;
+
 export class EventStore {
   readonly db: DatabaseSync;
 
@@ -147,7 +150,12 @@ export class EventStore {
     for (const r of rows) yield this.toEnvelope(r);
   }
 
-  list(opts: { afterSeq?: number; kind?: 'control' | 'transcript'; runId?: string; workItemId?: string; limit?: number; types?: string[] } = {}): EventEnvelope[] {
+  /**
+   * Events matching every given filter, by seq. `order: 'desc'` returns the newest first, so
+   * "latest N" reads never silently stop at the oldest rows. `containsAny` keeps events whose
+   * JSON data mentions one of the given ids (a fast prefilter; callers still check exactly).
+   */
+  list(opts: { afterSeq?: number; kind?: 'control' | 'transcript'; runId?: string; workItemId?: string; limit?: number; types?: string[]; containsAny?: string[]; order?: 'asc' | 'desc' } = {}): EventEnvelope[] {
     const where: string[] = ['seq > ?'];
     const args: SQLInputValue[] = [opts.afterSeq ?? 0];
     if (opts.kind) {
@@ -166,8 +174,14 @@ export class EventStore {
       where.push(`type IN (${opts.types.map(() => '?').join(',')})`);
       args.push(...opts.types);
     }
-    const limit = Math.min(opts.limit ?? 1000, 10_000);
-    const rows = this.db.prepare(`SELECT * FROM events WHERE ${where.join(' AND ')} ORDER BY seq LIMIT ${limit}`).all(...args) as Row[];
+    if (opts.containsAny?.length) {
+      where.push(`(${opts.containsAny.map(() => 'instr(data, ?) > 0').join(' OR ')})`);
+      args.push(...opts.containsAny);
+    }
+    const requested = opts.limit ?? 1000;
+    const limit = Number.isSafeInteger(requested) && requested > 0 ? Math.min(requested, MAX_LIST) : 1000;
+    const order = opts.order === 'desc' ? 'DESC' : 'ASC';
+    const rows = this.db.prepare(`SELECT * FROM events WHERE ${where.join(' AND ')} ORDER BY seq ${order} LIMIT ?`).all(...args, limit) as Row[];
     return rows.map((r) => this.toEnvelope(r));
   }
 
@@ -263,7 +277,8 @@ export class EventStore {
     this.db.prepare('DELETE FROM kv WHERE key = ?').run(key);
   }
 
+  /** Keys starting with `prefix` exactly (no LIKE wildcards: `_` and `%` are literal). */
   kvKeys(prefix: string): string[] {
-    return this.db.prepare('SELECT key FROM kv WHERE key LIKE ?').all(`${prefix}%`).map((r) => String((r as Row).key));
+    return this.db.prepare('SELECT key FROM kv WHERE substr(key, 1, length(?1)) = ?1').all(prefix).map((r) => String((r as Row).key));
   }
 }
