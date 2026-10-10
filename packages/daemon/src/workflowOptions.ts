@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Actor, Assignment, DesignJob, NewEvent, Run, WorkflowTaskDef } from '@acc/core';
+import type { Actor, Assignment, DesignJob, Handoff, NewEvent, Run, WorkflowTaskDef } from '@acc/core';
 import { containsSecret, isActiveRun, mockGate, newId, SYSTEM } from '@acc/core';
 import { adapterFor } from './adapters/agents/index.ts';
 import { revParse } from './adapters/vcs/git.ts';
@@ -60,13 +60,16 @@ export function saveWorkflowDefaults(d: Daemon, raw: unknown, actor: Actor): str
   return connectors;
 }
 
-async function requestPickup(d: Daemon, run: Run, timeoutMs: number): Promise<void> {
+async function requestPickup(d: Daemon, run: Run, timeoutMs: number): Promise<Handoff | null> {
   const adapter = adapterFor(run.adapter);
-  if (!isActiveRun(run) || !adapter.capabilities.streamingInput || !adapter.encodeMessage) return;
-  await new Promise<void>(resolve => {
+  if (!isActiveRun(run) || !adapter.capabilities.streamingInput || !adapter.encodeMessage) return d.runs.stagedHandoff(run.id);
+  const initial = d.runs.stagedHandoff(run.id);
+  return new Promise<Handoff | null>(resolve => {
     let done = false;
-    const finish = () => { if (done) return; done = true; clearTimeout(timer); d.bus.off('events', changed); resolve(); };
-    const changed = (events: { type: string; runId?: string | null }[]) => { if (events.some(e => e.runId === run.id && (e.type === 'run.handoff' || e.type === 'run.ended'))) finish(); };
+    const finish = () => { if (done) return; done = true; clearTimeout(timer); d.bus.off('events', changed); resolve(d.runs.stagedHandoff(run.id) ?? d.state.runs[run.id]?.handoff ?? initial); };
+    const changed = (events: { type: string; runId?: string | null }[]) => {
+      if (events.some(e => e.runId === run.id && (e.type === 'run.handoff' || e.type === 'run.ended' || (e.type === 't.system' && d.runs.stagedHandoff(run.id) !== initial)))) finish();
+    };
     const timer = setTimeout(finish, Math.min(60_000, Math.max(0, timeoutMs)));
     d.bus.on('events', changed);
     void d.runs.send(run.id, 'The owner is terminating this workflow. At the next safe boundary, write a pickup point using the assignment handoff format: done, evidence, last commit, blocked and next. Do not begin new work.', SYSTEM).catch(finish);
@@ -78,7 +81,10 @@ export async function terminateWithPickup(d: Daemon, id: string, actor: Actor, t
   if (w.status === 'draft' || w.status === 'completed' || w.status === 'canceled') throw new CommandError(`Cannot terminate a ${w.status} workflow`, 409);
   if (w.status !== 'paused') await d.workflows.pause(id, actor);
   const runs = w.definition.tasks.map(t => ({ task: t, run: Object.values(d.state.runs).filter(r => r.assignmentId === w.tasks[t.id]?.assignmentId).sort((a,b) => a.createdAt.localeCompare(b.createdAt)).at(-1) }));
-  await Promise.all(runs.filter(x => w.tasks[x.task.id]?.status !== 'done').map(x => x.run ? requestPickup(d, x.run, timeoutMs) : Promise.resolve()));
+  const staged = new Map<string, Handoff | null>();
+  await Promise.all(runs.filter(x => w.tasks[x.task.id]?.status !== 'done').map(async x => {
+    staged.set(x.task.id, x.run ? await requestPickup(d, x.run, timeoutMs) : null);
+  }));
   await d.workflows.cancel(id, actor);
   const pickups: Record<string, string | null> = {};
   for (const { task, run } of runs) {
@@ -86,7 +92,7 @@ export async function terminateWithPickup(d: Daemon, id: string, actor: Actor, t
     const current = run ? d.state.runs[run.id] : null;
     const a = current ? d.state.assignments[current.assignmentId] : null;
     const commit = current?.handoff?.commit?.sha ?? (a?.branch ? await revParse(d.config.project.repo, `refs/heads/${a.branch}`) : null);
-    const h = current?.handoff;
+    const h = current?.handoff ?? staged.get(task.id);
     const text = current ? [h?.done ?? current.lastMeaningful?.summary ?? 'No handoff recorded.', `Last commit: ${commit ?? 'none'}`, h?.blocked ? `Blocked: ${h.blocked.what}` : '', `Next: ${h?.next ?? task.title}`, `Previous run: ${current.id}`].filter(Boolean).join('\n').slice(0, 2000) : task.pickup ?? null;
     pickups[task.id] = text ? d.redactText(text) : null;
     if (pickups[task.id] && containsSecret(pickups[task.id]!, { denylist: d.denylist() }).length) pickups[task.id] = 'Pickup contained credentials; inspect the redacted run transcript.';

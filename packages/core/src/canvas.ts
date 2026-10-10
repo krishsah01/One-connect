@@ -296,7 +296,7 @@ export function deriveGraph(tasks: (WorkflowTaskDef & TaskExtras)[], extraIssues
   const edges: GraphEdge[] = [];
   const add = (n: GraphNode) => { if (!nodes.some((x) => x.id === n.id)) nodes.push({ ...n, data: nodeData(n.type, n.data) }); return n.id; };
   const link = (from: string, fromPort: string, to: string, toPort: string) => edges.push({ id: `${from}.${fromPort}>${to}.${toPort}`, from, fromPort, to, toPort });
-  const agentKey = (t: WorkflowTaskDef & TaskExtras) => [t.agentId, t.model ?? '', t.effort ?? ''].join('|');
+  const agentKey = (t: WorkflowTaskDef & TaskExtras) => [t.agentId, t.model ?? '', t.effort ?? '', JSON.stringify([...new Set(t.consults ?? [])].sort())].join('|');
   const agentIds = new Map<string, string>();
   for (const t of tasks) {
     if (!t.agentId) continue;
@@ -306,6 +306,19 @@ export function deriveGraph(tasks: (WorkflowTaskDef & TaskExtras)[], extraIssues
       const id = [...agentIds.values()].includes(base) ? `${base}:${agentIds.size}` : base;
       agentIds.set(key, id);
       add({ id, type: 'agent', data: { agentId: t.agentId, model: t.model ?? null, effort: t.effort ?? null } });
+    }
+  }
+  // Consult edges are bidirectional. Reuse a task's peer node only for reciprocal scopes;
+  // otherwise draw a peer-only avatar so re-compilation cannot grant that peer new access.
+  const consultEdges = new Set<string>();
+  for (const t of tasks) {
+    const from = agentIds.get(agentKey(t));
+    if (!from) continue;
+    for (const peer of [...new Set(t.consults ?? [])].filter(id => id && id !== t.agentId)) {
+      const reciprocal = tasks.find(other => other.agentId === peer && other.consults?.includes(t.agentId));
+      const to = reciprocal ? agentIds.get(agentKey(reciprocal))! : add({ id: `p:${peer}`.slice(0, 96), type: 'agent', data: { agentId: peer } });
+      const key = [from, to].sort().join('|');
+      if (!consultEdges.has(key)) { consultEdges.add(key); link(from, 'consult', to, 'consult'); }
     }
   }
   for (const w of [...tasks.filter((t) => t.kind !== 'review' && t.workItemId).map((t) => t.workItemId), ...extraIssues]) add({ id: `i:${w}`.slice(0, 96), type: 'issue', data: { workItemId: w } });
