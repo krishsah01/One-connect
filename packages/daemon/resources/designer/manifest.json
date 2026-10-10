@@ -123,6 +123,62 @@
           "sha256": "c8c1f3530d371025cc8710c1a84dc0eb3093b6e1d63ae9e97ee55dfe5d6f3930"
         }
       ]
+    },
+    {
+      "id": "product-ui-patterns",
+      "name": "Product UI patterns",
+      "description": "Dashboards, tables, forms and settings with complete states.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "f34e6ade1e4d5b645bb9828d96eee0e0e41a86ee836fc3c999e868082600aa91"
+        }
+      ]
+    },
+    {
+      "id": "typography-content",
+      "name": "Typography and content",
+      "description": "Hierarchy, labels, numbers and microcopy for product screens.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "5da7bf70e879d2b271b5365d22f2f27f2de24c0882f89ab9cf4cdafaa8939953"
+        }
+      ]
+    },
+    {
+      "id": "design-system-implementation",
+      "name": "Design system implementation",
+      "description": "Implement an approved contract and mock in application code.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "3a5602c2a8c86cf42ddbc7b3203bd1e13d5656c0ec30a9b5c54cabcd3a6e868a"
+        }
+      ]
+    },
+    {
+      "id": "visual-critique",
+      "name": "Visual critique",
+      "description": "Independent review of one exact mock revision with honest evidence.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "c2a27b67e14c6765377d301229b828d53699e2401f5bc6ccbdb1f6603d569161"
+        }
+      ]
     }
   ]
 }

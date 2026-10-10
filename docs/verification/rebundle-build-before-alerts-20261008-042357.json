@@ -1,0 +1,23 @@
+{
+  "built_at": "2026-10-08T03:54:44.155105+00:00",
+  "app_path": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect.app",
+  "previous_app_path": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect-before-integration-20261008-035444.app",
+  "profile": "development/debug, unsigned local preview",
+  "platform": "macOS arm64",
+  "engine_sha256": "3c831ac5302819c7fdcb5d693f347980339cdc4883cf8b1b94ad284f80e92b11",
+  "node": "24.21.0",
+  "network": "Offline build, no downloads or live integrations activated",
+  "build_result": "tauri build --debug --bundles app --no-sign --ci -- --offline --locked: success",
+  "source_manifest": "docs/verification/rebundle-integrated-source-manifest.json",
+  "full_product_acceptance": "pending",
+  "isolated_archive_import": "Node 24 extracted CLI help succeeded without provider probe",
+  "checks": {
+    "web": "98 passed",
+    "native": "16 passed",
+    "typecheck": "All workspace packages passed",
+    "licenses": "166 runtime dependencies compatible; regenerated notices checked",
+    "workspaceSuite": "Still running; not yet accepted"
+  },
+  "native_rendered_status": "Rebuilt bundle opened; restored Study-Bro project reached live Mission Control. Connectors and GitHub issue draft form, Phone & alerts (remote disabled) and Release cockpit (no merge or plan) rendered correctly. No external integration activated.",
+  "native_observed_at": "2026-10-08T03:59:22.498442+00:00"
+}

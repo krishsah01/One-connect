@@ -37,6 +37,11 @@ export async function detectVendors(configured: { adapter: string; id: string }[
   return out;
 }
 
+/** Whether a configured agent still points at an older binary than another installed copy. */
+export function agentHasNewerBinary(agent: { binary: BinaryInfo | null; binaryCandidates: BinaryInfo[] }): BinaryInfo | null {
+  return newerCandidate(agent.binary, agent.binaryCandidates);
+}
+
 export async function onboardingReport(d: Daemon) {
   const vendors = await detectVendors(Object.values(d.state.agents).map((a) => ({ adapter: a.config.adapter, id: a.id })));
   const agents = Object.values(d.state.agents).map((a) => {

@@ -1,0 +1,97 @@
+{
+  "at": "2026-10-08T05:01:11.076610+00:00",
+  "workspace": "/private/tmp/one-connect-parallel-20261007/native-onboarding",
+  "baseline": "d19277b125dc542dcd29e293880324d87aa8383a",
+  "sessionId": "a033f9ff-f2ef-4c9b-9797-b65483d2f907",
+  "model": "composer-2.5",
+  "backup": "/private/tmp/one-connect-native-onboarding-before-20261008-050111",
+  "state": "integrated-bundled",
+  "bundled": true,
+  "files": [
+    {
+      "path": "packages/daemon/src/onboarding.ts",
+      "baselineSha256": "36d3b6e57044e6385e60774d20cec9a5ee1ffb83eaf6c427620b26bc98c3e381",
+      "acceptedSha256": "ec0e140628a5a71b04c03fd878e8e4eefada23281bb2c46f63fcbe67c426aa37"
+    },
+    {
+      "path": "packages/desktop/src-tauri/src/terminal.rs",
+      "baselineSha256": "8a97dc64779b8f22fdd1f0ea1f367b553a119d935d5949e3df0d55fd2c18fa7b",
+      "acceptedSha256": "03bcb8f58c3bdf58aed9188e4ac7548a996bafd75c708a10010e23dced05f59d"
+    },
+    {
+      "path": "packages/web/src/components/NativeTerminal.tsx",
+      "baselineSha256": "30357a689fe8aabf61c4c9d977e566048b2cef976b00a852d5fe1487eaa91ae7",
+      "acceptedSha256": "44393fbbcd9b15c0600cf8c7130a10722758d601453c369f7f65108cc05a4648"
+    },
+    {
+      "path": "packages/web/src/pages/AgentsSetup.tsx",
+      "baselineSha256": "683bffb829d123164a70ab2e70422072e1917ed6d717cb68bfb68111dae4b0aa",
+      "acceptedSha256": "870c6f9b3ac69e409f70fde62a8da1b504d01ac5fe39ae14789aabdc57502545"
+    },
+    {
+      "path": "packages/web/src/pages/Workspace.tsx",
+      "baselineSha256": "2f9f2bd1fcbb0246453fc45cad1b004656faeb987d6c0942c1b136383a683714",
+      "acceptedSha256": "65202c38227ad9f5f2878df8b485ccb9f57b77d03450fec0a53ff99d8435e4ab"
+    },
+    {
+      "path": "packages/web/src/lib/nativeTerminal.ts",
+      "baselineSha256": null,
+      "acceptedSha256": "3d285a02855e59e110fd9038360638e4cbf184d4fa1cc0e2517eed9038ad31e3"
+    },
+    {
+      "path": "packages/web/src/lib/onboarding.ts",
+      "baselineSha256": null,
+      "acceptedSha256": "19270c01536e35ef8df906c03ffeb9c59d67676ee38ce7d83fa485b156174794"
+    },
+    {
+      "path": "packages/daemon/test/onboarding.test.ts",
+      "baselineSha256": null,
+      "acceptedSha256": "f0c304e7abf96a5ad577a603696cb61c953a79a11b717d46a1ebe9b071847f47"
+    },
+    {
+      "path": "packages/web/test/native-terminal-transport.test.tsx",
+      "baselineSha256": null,
+      "acceptedSha256": "9c4cb48e5b768089b8eeffd37b4371133af90a6a6fb129078917506c51798f7a"
+    },
+    {
+      "path": "packages/web/test/native-terminal.test.tsx",
+      "baselineSha256": null,
+      "acceptedSha256": "7c4c9ccf1fa2406f48903ed5fe7217456ab36d0b1102830d19bf7d6c03d88a53"
+    },
+    {
+      "path": "packages/web/test/onboarding-guidance.test.tsx",
+      "baselineSha256": null,
+      "acceptedSha256": "783a4ac2608b8109b7149f97cfee77c15745f15e11793c1271c79806cda7eadb"
+    },
+    {
+      "path": "docs/verification/delegation/CURSOR_NATIVE_ONBOARDING_HANDOFF.md",
+      "baselineSha256": null,
+      "acceptedSha256": "37ef892a6406ab4a9ab24dde9ebe6efdddc3c39337d8a80e854c6d0326059cfb"
+    }
+  ],
+  "parentCorrections": [
+    "Workspace retries retain an opening component; use fresh HTTP probe response; remount per project",
+    "Abandon unpublished sessions during resize/attach failures while retaining owned sessions across navigation",
+    "Distinguish output failure from process exit and expose actual exit metadata",
+    "Canonical binary aliases accepted; absent probe refuses login",
+    "Real PTY test closes stdin too and requires actual reader completion; no conditional pass",
+    "Retain child ownership/reaping after lost output"
+  ],
+  "validation": {
+    "focusedWeb": 20,
+    "nativeRust": 22,
+    "webTypecheck": "passed",
+    "daemonTypecheck": "passed",
+    "workspacePassed": 641,
+    "workspaceSkipped": 0,
+    "workspaceFailed": 0,
+    "workspaceTestFiles": 72,
+    "webBuild": "passed",
+    "spdxSourceFiles": 292
+  },
+  "limitations": [
+    "Live vendor login/model not exercised",
+    "Native rendered onboarding not yet verified; open Designer draft preserved"
+  ],
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect-next.app"
+}

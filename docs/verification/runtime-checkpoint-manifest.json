@@ -1,0 +1,20 @@
+{
+  "source": "frozen Descartes checkpoint",
+  "files": {
+    "packages/daemon/src/adapters/agents/opencode.ts": "89aac8b1e27a70192b5b9e38fee56e857ce82d700e9ad710b0af3d9ae643f1a0",
+    "packages/daemon/src/adapters/agents/opencode/protocol.ts": "98634c889b96077136284ebe7973cee639b5d6ae899ab39af7ad49e91231bb98",
+    "packages/daemon/src/adapters/agents/opencode/bridge.ts": "c09dc134f0729ed84d7abd2b5d5e8748b738fcb7cbcabce3c9db8e7135508d3a",
+    "packages/daemon/src/jev.ts": "93767e93d613bf3994d8d31f0cbfd29e1e1fea9e9ba001b2375e657b3dd629e9",
+    "packages/daemon/test/opencode-protocol.test.ts": "94bfa3f7496236ed16723d5e8fa7277791f908be7a12d09c8b8fb952db30119a",
+    "packages/daemon/test/opencode-harness.test.ts": "8b3c3b0894cc8edd2238fc433e90fabd00cee50b52ece22a78139290bb5d7d2f",
+    "packages/daemon/test/fixtures/opencode-current.mjs": "5e6e17a4c704b4028759c7b1d2830e986e30a81107de524384eea7f825219f47",
+    "packages/daemon/test/ollama.test.ts": "18fd201957ad6089c99258fac0c3e3ab5ed9b519e913568c06969456a08b6b4f",
+    "packages/daemon/test/jev.test.ts": "9efe905192b58e231fcd058899165140b4d3d33e9e8104a1bbb3a329e398a682",
+    "packages/daemon/test/runtime-adapters.strip.test.mjs": "ce939f0eaa077985892cb6d7870e056335195a7a837ee10ebe0f59499046222d",
+    "docs/harnesses.md": "5bb7f6f002597796290c554da228f4621f8317b139673be460aaa88c61a752c4",
+    "docs/adapter-protocols.md": "f264d34b0f4c66431f7d56f38984faa44acb9d42689a770f9ecec455fd2df3e2",
+    "docs/verification/delegation/runtime-adapters-handoff.md": "43f4219fb46063439efadd5c0b68ac8361ccf98a1ebc7fc679d64083ca1f4469"
+  },
+  "native_bundle": "Current running preview predates this checkpoint; incorporate on next rebuild.",
+  "verification": "Worker reported 66 focused fixture tests and 7 direct Node24 checks; real provider acceptance pending."
+}

@@ -50,4 +50,5 @@ export const VENDOR_HOSTS: Record<string, string> = {
   'cursor-agent-cli': 'api2.cursor.sh',
   'generic-cli': 'example.com',
   relay: 'example.com',
+  'opencode-server': '127.0.0.1',
 };

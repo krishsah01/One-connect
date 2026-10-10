@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Independent review and local integration merge controls for one work item.
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import type { ControlState, MergeGate, ReviewRecord, WorkItem } from '@acc/core';
 import { reviewsForItem } from '@acc/core';
 import { Badge, ErrorLine, useAction } from './common';
@@ -11,13 +11,14 @@ import { type Tone } from '../lib/format';
 const GATE_TONE = (g: MergeGate): Tone => (g.ok ? 'ok' : 'crit');
 
 export function ReviewMergePanel({ item, state }: { item: WorkItem; state: ControlState }) {
+  const navigate = useNavigate();
   const { busy, error, run } = useAction();
   const [gates, setGates] = useState<MergeGate[] | null>(null);
   const [reviewer, setReviewer] = useState('');
   const [acceptance, setAcceptance] = useState('');
   const reviews = reviewsForItem(state, item.id);
   const merge = Object.values(state.merges ?? {}).filter((m) => m.workItemId === item.id).sort((a, b) => a.at.localeCompare(b.at)).at(-1);
-  const reviewers = Object.values(state.agents).filter((a) => a.id !== item.ownerAgentId && a.config.mode !== 'coordinator-only');
+  const reviewers = Object.values(state.agents).filter((a) => a.id !== item.ownerAgentId && a.config.enabled !== false && a.config.mode !== 'coordinator-only');
 
   useEffect(() => {
     void run(async () => {
@@ -36,7 +37,7 @@ export function ReviewMergePanel({ item, state }: { item: WorkItem; state: Contr
   const requestMerge = () =>
     run(async () => {
       const r = await post<{ decision: { id: string } }>(`/api/work-items/${item.id}/merge-request`);
-      window.location.href = `/decisions#${r.decision.id}`;
+      navigate(`/decisions?focus=${encodeURIComponent(r.decision.id)}`);
     });
 
   const recordAcceptance = () =>

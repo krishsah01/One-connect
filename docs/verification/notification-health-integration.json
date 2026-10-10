@@ -1,0 +1,120 @@
+{
+  "promotedAt": "2026-10-08T04:10:54.676852+00:00",
+  "workspace": "/private/tmp/one-connect-parallel-20261007/notification-health",
+  "baseline": "a499d2589ff279acf694cb86257adbc836bce1d3",
+  "status": "source-accepted-bundled-and-native-observed",
+  "files": [
+    {
+      "file": "packages/core/src/phone.ts",
+      "before": "1561fcfed8a5528455af11c3b7550f08c8f4947008606b8bf04d750f57f8d30e",
+      "worker": "9f85b45e19c2d891ec1c2ed1d7cd7668d23ba7aa939d6e40c946819ea4c40c4c"
+    },
+    {
+      "file": "packages/core/src/reports.ts",
+      "before": "319dad4b4d04a0c389e6daf1ee114852e57499e20aa5aa801dfea7306f83bb7d",
+      "worker": "49b3d1af795f094aed208de6ff30bc232ed29c435afd59799b9baf968f2272d1"
+    },
+    {
+      "file": "packages/core/test/phone-policy.test.ts",
+      "before": "a177283d84c50f110826e521f0c1016b497b5f29f0620ce57d5e956bbcf7acfc",
+      "worker": "a2c5262e31f8239b5ebd0d74247bdf56050d049f2b0bbe55c97187dcdac21710"
+    },
+    {
+      "file": "packages/core/test/reports-infra.test.ts",
+      "before": null,
+      "worker": "c260741e9ae10e25e2a4455555849b873b427405cbc5048b97b9ae7629b92c6f"
+    },
+    {
+      "file": "packages/daemon/src/infra/health.ts",
+      "before": "290bf7ae4d16eda3c7b40d6440fdc34cd33956421fcc865280bf0bdc9d07a607",
+      "worker": "62829942667cd5e70bf5040a42b2feecc6c295ffdf85941501c3e02877508dc5"
+    },
+    {
+      "file": "packages/daemon/src/infra/migrations.ts",
+      "before": "682339497a348ab297a06dc0fac53eb21271c63a36e17532fc8ae9f0cf51ec5e",
+      "worker": "661a3f71a3f1a37ddde81b511656b06cc2b70043e6a35d8bea0de35e3cdca0eb"
+    },
+    {
+      "file": "packages/daemon/src/phone/notifications.ts",
+      "before": "7afcbef89df129a84887df3aad9d4facf6f890d741e05518d58b855ad7ce0c14",
+      "worker": "756c9ba23f718e4a66e0a64cb3134c58a984dc980cfb0a791f15c553379bd33b"
+    },
+    {
+      "file": "packages/daemon/test/infra-health.test.ts",
+      "before": "1dd8fc83760d4b046cca4b2700c8f205ec71c82577d6e26b08fe7092fe2330f9",
+      "worker": "34bb97bb277ef08e036008ec78e8679bf6136841f27b0f73c3c84b57c7d13592"
+    },
+    {
+      "file": "packages/daemon/test/phone-notifications.test.ts",
+      "before": "b9dbb20d5e8c0fddc9dab5adf3152b8013fe9deeeea2e60d2df940b61480f667",
+      "worker": "b273d2812d129018a92d273f4bdb20ff1c040ac9e1c9a85f2e72e8f2694fb172"
+    }
+  ],
+  "liveNotifications": "disabled; no outbound delivery enabled",
+  "parentCorrections": [
+    "Unknown observations never clear failure suppression; only positive component recovery resets seen and acknowledged fingerprints.",
+    "All prior recovered failure variants clear; processing preserves event order within a batch.",
+    "CI/release/check acknowledgements keep cooldown repetition instead of permanent suppression.",
+    "Repository identity and legacy private-store cooldown migration; maps bounded to 2000 keys with seven-day retention.",
+    "Revoked/refused Supabase reads remain unchecked; failed authorized reads are errors.",
+    "Kept generic component/release status:error failure classification.",
+    "Stopped background outbox timer in the queued-row fixture; retained atomic mirror and legitimate status-write assertions."
+  ],
+  "parentSource": [
+    {
+      "path": "packages/core/src/phone.ts",
+      "sha256": "9f85b45e19c2d891ec1c2ed1d7cd7668d23ba7aa939d6e40c946819ea4c40c4c"
+    },
+    {
+      "path": "packages/core/src/reports.ts",
+      "sha256": "f7175ea63df0769b123dbb22a7822bdafa31215a5225e4751e4eb5de9e260ba5"
+    },
+    {
+      "path": "packages/core/test/phone-policy.test.ts",
+      "sha256": "a2c5262e31f8239b5ebd0d74247bdf56050d049f2b0bbe55c97187dcdac21710"
+    },
+    {
+      "path": "packages/core/test/reports-infra.test.ts",
+      "sha256": "c260741e9ae10e25e2a4455555849b873b427405cbc5048b97b9ae7629b92c6f"
+    },
+    {
+      "path": "packages/daemon/src/infra/health.ts",
+      "sha256": "cde2666e76401f57b16abaa4e72d20b418fae631afb03fc44446bcfc096e40b6"
+    },
+    {
+      "path": "packages/daemon/src/infra/migrations.ts",
+      "sha256": "661a3f71a3f1a37ddde81b511656b06cc2b70043e6a35d8bea0de35e3cdca0eb"
+    },
+    {
+      "path": "packages/daemon/src/phone/notifications.ts",
+      "sha256": "561df32e6a8d307acf25f6a14f33eeff5c34a5a2637c9ea4a8270f2d7ee65f9c"
+    },
+    {
+      "path": "packages/daemon/test/infra-health.test.ts",
+      "sha256": "34bb97bb277ef08e036008ec78e8679bf6136841f27b0f73c3c84b57c7d13592"
+    },
+    {
+      "path": "packages/daemon/test/phone-notifications.test.ts",
+      "sha256": "c4a5eaee1c61a3ceda99d49ceb1405a3439a1760b30e3372c074bc0d9dab1be3"
+    }
+  ],
+  "additionalTests": [
+    "packages/daemon/test/release-connectors.test.ts"
+  ],
+  "checks": {
+    "focused": "78 passed before the final bounded-state and revoked-read regression cases were added",
+    "typecheck": "All workspace passed; final daemon typecheck passed after parent changes",
+    "spdx": "285 source files passed",
+    "license": "166 runtime dependencies compatible; notices current",
+    "finalWorkspaceSuite": "612 passed, 4 skipped; no failures; Node 24.21.0",
+    "rebundle": {
+      "at": "2026-10-08T04:23:57.519380+00:00",
+      "engineSha256": "7f5b1eec7fcbe5e1c06b2fe04d78ac9cc159b29ca36f7a820aa2f6c3722970d5",
+      "profile": "development/debug, unsigned local preview"
+    },
+    "isolatedRegression": "54 passed (notification persistence and OpenCode contract fixtures)",
+    "packaging": "Extracted CLI import passed; cached host executable inode/mtime/size unchanged"
+  },
+  "acceptedAt": "2026-10-08T04:21:16.093619+00:00",
+  "nativeObservation": "docs/verification/notification-preview-observation.json"
+}

@@ -96,6 +96,7 @@ export function generateAssignmentText(i: AssignmentTextInput): string {
     if (c.contractNote) out.push(`- Team contract: ${c.contractNote}${i.relay ? '' : ' (also `read_note`)'}`);
     if (c.briefNote) out.push(`- Live brief (who is doing what, decisions, recent handoffs): ${c.briefNote}${i.relay ? '' : ' (also `get_brief`)'}`);
     if (!i.relay && c.graph) out.push('- Code knowledge graph of the integration branch: `query_graph` ("how does X work"), `graph_path` (A → B), `explain_node` (one symbol). Use it before reading many files.');
+    if (!i.relay) out.push('- Start with `get_project_context`: one bounded, cited packet with revision freshness, your assignment basis and other agents’ current ownership. It does not widen your scope.');
     if (!i.relay && c.vault) out.push("- Project notes: `search_context` / `read_note` (the team's Obsidian notes for this project only).");
   }
   out.push('', '## Handoff (required)');

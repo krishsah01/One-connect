@@ -1,0 +1,80 @@
+{
+  "observedAt": "2026-10-09T14:33:57.699639+00:00",
+  "method": "Real native macOS app interactions through CUA; accessibility trees and rendered screenshots observed. No browser-only substitute.",
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect Studio.app",
+  "identifier": "dev.oneconnect.studio-checkpoint",
+  "engineSha256": "fb1fa06d7b286395925417c97a1f03add1b736e21c6e00643c65fec728aa7aca",
+  "scope": "Separate app data; repository-owned fake agent processes and local tracker; no model or live provider called.",
+  "designer": {
+    "brief": "Release checks native proof",
+    "briefSavedAndRestoredAfterNavigation": true,
+    "contract": {
+      "version": 1,
+      "sha256": "2acadffa83728522462647fdb833b087e1196c04b277323e73b7909baff40628",
+      "validatedAndSavedViaNativeUI": true
+    },
+    "workItemId": "wi_0mv1236w65r465p5o4f",
+    "key": "DEMO-1",
+    "assignmentId": "as_0mv1236wb4q3e621q6r",
+    "runId": "run_0mv1246m333020u571t",
+    "branch": "codex/DEMO-1-design-release-checks-native-proof",
+    "mockId": "mock_0mv124p5j5o4d6e6a4l",
+    "revision": 1,
+    "contentSha256": "ad5c2dbda2a9cdf1c4af2930ef36192aacb102015ee20d3b14cd5044baba2a5d",
+    "gitSha": "28c49317a7abbd8b96459b88d28379e49dba0c8b",
+    "billingPreflight": "Initially blocked; fixture-only binary 9.9.0 confirmation recorded via UI, then passed. This is not owner attestation of any actual vendor account.",
+    "runtime": "Actual child started, streamed an on-demand responsive-mocks skill event, asked a question, accepted the in-app answer, emitted edits/commands, finished and was captured.",
+    "question": "Should Overview list failures before passing items?",
+    "answer": "yes",
+    "checks": {
+      "command": "node --test",
+      "passed": 2,
+      "failed": 0,
+      "exitCode": 0,
+      "boundary": "HOST FIXTURE (unsandboxed; disposable tests/demo only)"
+    },
+    "pages": [
+      "index.html",
+      "checks.html",
+      "check-detail.html"
+    ],
+    "preview": {
+      "nativeIsolatedWindowsOpened": [
+        "desktop 1280 x 800",
+        "phone 390 x 844",
+        "tablet 820 x 1180 requested"
+      ],
+      "observed": "Desktop shows a table; phone stacks rows and wraps the long check label; tablet shows a readable table. No clipping seen in the observed viewport. Native window height may be constrained by the Mac display.",
+      "keyboard": "Tab visibly focuses links and controls; Enter activates Failed (two checks shown), then Re-run opens the dialog; Escape dismisses and returns visible focus to the originating Re-run button.",
+      "localNavigation": "Checks and Check detail rendered within mock-preview:// isolation; native dashboard remains separate.",
+      "contentStates": "Success, error, loading and empty actually selected and rendered on Overview in phone preview.",
+      "limits": "Other page states, all controls/keys, full accessibility audit and actual hostile native network/IPC attempts not yet exercised."
+    },
+    "approval": "Approve revision remains disabled with checklist not checked. No human approval or independent reviewer verdict invented; issue remains handoff_received."
+  },
+  "oneAnswer": {
+    "intake": "Partial, semantic off, keyword available; four committed files; Graphify AST 6 nodes/6 edges. Project notes current.",
+    "query": "What test command does this sample project use?",
+    "result": "Source excerpts cite package.json test node --test, the fixture handoff and other scoped sources. Notes are labelled not committed source.",
+    "suppliedCharacters": 3046,
+    "budgetCharacters": 6000,
+    "claimedTokenSavings": false,
+    "citedSourceOpened": {
+      "path": "package.json",
+      "revisionPrefix": "26771a72cbd0",
+      "lines": 10,
+      "kind": "Committed redacted JSON, opened within native dashboard"
+    }
+  },
+  "pending": [
+    "Designer native project-switch/restart and refine/independent-review/export journey",
+    "Actual paired phone and authenticated tunnel",
+    "Live subscription agent generation and full development acceptance",
+    "Authorized GitHub/Linear tracker round trip",
+    "Live CI/release/deployment/real-device acceptance",
+    "Actual Obsidian app live reload and general retrieval quality evaluation"
+  ],
+  "paidFallback": "off",
+  "liveIntegrations": "none enabled",
+  "originalOpenAppsAndDrafts": "preserved"
+}

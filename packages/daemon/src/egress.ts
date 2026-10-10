@@ -16,6 +16,8 @@ export const PROVIDER_HOSTS: Record<string, (base?: string) => string[]> = {
   openrouter: () => ['openrouter.ai'],
   ollama: (base) => [hostOf(base ?? 'http://127.0.0.1:11434')],
   lmstudio: (base) => [hostOf(base ?? 'http://127.0.0.1:1234')],
+  // Ollama's paid cloud models: through the signed-in local daemon, or the cloud API (ollama_route: api).
+  'ollama-cloud': (base) => [hostOf(base ?? 'http://127.0.0.1:11434')],
 };
 
 function hostOf(url: string): string {
@@ -28,17 +30,21 @@ export function allowedHosts(cfg: ControlCenterConfig): string[] {
   if (cfg.tracker.type === 'linear') hosts.add(hostOf(cfg.tracker.api_url));
   for (const a of cfg.agents) {
     const h = PROVIDER_HOSTS[a.provider];
-    if (h) for (const x of h(a.base_url)) hosts.add(x);
+    const base = a.provider === 'ollama-cloud' ? (a.base_url ?? ((a.ollama_route ?? 'daemon') === 'api' ? 'https://ollama.com' : undefined)) : a.base_url;
+    if (h) for (const x of h(base)) hosts.add(x);
   }
   if (cfg.import_sources.some(s => s.type === 'linear' && s.enabled)) hosts.add('api.linear.app');
+  // Code-host and infrastructure hosts come only from matching recorded Connector Decisions.
   return [...hosts];
 }
 
-export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
+export type Fetch = (url: string, init?: RequestInit & { notificationPermit?: string }) => Promise<Response>;
 
 export interface Egress {
   fetch: Fetch;
   allowed: string[];
+  /** Redeems one exact message authorization without granting its entire host. */
+  authorizeNotification?: (token: string, url: string, init?: RequestInit) => boolean;
   /** Every request made, for the audit view and tests. */
   log: { at: string; host: string; method: string; purpose: string; allowed: boolean }[];
 }
@@ -47,14 +53,17 @@ export function createEgress(cfg: ControlCenterConfig, underlying: Fetch = globa
   const allowed = allowedHosts(cfg);
   const log: Egress['log'] = [];
   const isAllowed = (u: URL) => allowed.includes(u.host) || allowed.includes(u.hostname);
-  const guarded = (async (url: string, init?: RequestInit & { purpose?: string }) => {
+  const guarded = (async (url: string, init?: RequestInit & { purpose?: string; notificationPermit?: string }) => {
     const u = new URL(url);
-    const ok = isAllowed(u);
-    log.push({ at: new Date().toISOString(), host: u.host, method: init?.method ?? 'GET', purpose: init?.purpose ?? '', allowed: ok });
+    const token = init?.notificationPermit;
+    const ok = token !== undefined ? Boolean(egress.authorizeNotification?.(token, url, init)) : isAllowed(u);
+    log.push({ at: new Date().toISOString(), host: u.host, method: init?.method ?? 'GET', purpose: token !== undefined ? 'notification delivery' : init?.purpose ?? '', allowed: ok });
     if (log.length > 500) log.splice(0, log.length - 500);
     if (!ok) throw new EgressDenied(`blocked outbound request to ${u.host}: not a configured connection`);
     // A configured host cannot redirect a request (or credentials) to another host.
-    return underlying(url, { ...init, redirect: 'error' });
+    const { notificationPermit: _permit, purpose: _purpose, ...request } = init ?? {};
+    return underlying(url, { ...request, redirect: 'error' });
   }) as Fetch;
-  return { fetch: guarded, allowed, log };
+  const egress: Egress = { fetch: guarded, allowed, log };
+  return egress;
 }

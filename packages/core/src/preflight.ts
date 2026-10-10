@@ -119,6 +119,10 @@ export function runPreflight(i: PreflightInput): PreflightResult {
       if (denied || notAllowed) add({ id: 'model', label: 'Model allowed', status: 'fail', message: `${model} is ${denied ? 'denied by policy' : 'not in the allowed list'}` });
       else add({ id: 'model', label: 'Model allowed', status: 'pass', message: model });
 
+      const info = agent.models.available.find((m) => m.id === model);
+      if (agent.config.adapter === 'opencode-server' && agent.config.provider === 'lmstudio') add({ id: 'tools', label: 'Tool calling', status: 'fail', message: 'LM Studio tool capabilities are unverified for OpenCode; no coding prompt can run.' });
+      if ((agent.config.provider === 'ollama' || agent.config.provider === 'ollama-cloud') && (!info || info.hidden || info.tools !== true)) add({ id: 'tools', label: 'Tool calling', status: 'fail', message: 'Ollama model, route, authentication or tool support is unverified; re-probe.' });
+      if (info?.tools === false) add({ id: 'tools', label: 'Tool calling', status: 'fail', message: `${model} cannot call tools, so it cannot edit files or run commands as a coding agent; choose a model with tool calling`, fix: { kind: 'text', text: 'Pick a model marked as supporting tools (the provider reports this).' } });
       if (agent.models.available.length === 0) {
         add({ id: 'newest', label: 'Newest model', status: 'warn', message: 'no model inventory; re-probe to verify', fix: { kind: 'reprobe' } });
       } else {

@@ -76,6 +76,27 @@ export function AgentConsole({ state }: { state: ControlState }) {
               </div>
             </section>
           )}
+          {run?.adapter === 'opencode-server' && (
+            <section className="card" aria-label="OpenCode session">
+              <div className="card-h"><h2>OpenCode session</h2><span className="spacer" /><span className="faint small mono">{run.sessionId ? run.sessionId.slice(0, 14) : 'starting'}</span></div>
+              <div className="card-b col small" style={{ gap: 6 }}>
+                <span className="muted">Runs on a private loopback server owned by this run. Tool permission requests and questions appear under Pending approvals before the action runs. Pause aborts the current turn and keeps the session so Resume continues it; messages sent while it works are queued into the session.</span>
+                {(run.children ?? []).length > 0 && (
+                  <div className="col" style={{ gap: 4 }}>
+                    <b>Child sessions</b>
+                    {(run.children ?? []).map((c) => (
+                      <div key={c.sessionId} className="row">
+                        <Badge tone={c.state === 'running' ? 'info' : c.state === 'completed' ? 'ok' : 'crit'}>{c.state}</Badge>
+                        <span className="grow ellipsis" title={c.error ?? c.title}>{c.title}</span>
+                        <span className="faint">{ago(c.startedAt, now)}</span>
+                      </div>
+                    ))}
+                    <span className="faint">Child sessions share this run's slot and budget. Their commands are recorded in the transcript; their own prose is not.</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
           {run?.adapter === 'relay' && isActiveRun(run) && asg && <RelayBox runId={run.id} prompt={asg.prompt} />}
           {run?.handoff && <HandoffCard h={run.handoff} run={run} />}
           <section className="card">

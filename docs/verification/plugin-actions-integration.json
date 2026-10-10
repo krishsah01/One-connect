@@ -1,0 +1,144 @@
+{
+  "integratedAt": "2026-10-08T19:23:00.420210+00:00",
+  "workspace": "/private/tmp/one-connect-parallel-20261007/plugin-decisions",
+  "baseline": "4349896e1f932b615d33666f98ef655df0a9b6b7",
+  "primaryGitUntouched": true,
+  "backup": "/private/tmp/one-connect-plugin-integration-pp07g3w1",
+  "bundled": true,
+  "livePluginActivated": false,
+  "workers": "Cursor resource_exhausted after two passes; Codex backend worker usage-limited and closed. Partial source independently reviewed and continued by parent.",
+  "sharedRouteMerge": "Only MCP connector POST and receipt GET routes; current project Skills routes preserved.",
+  "verification": {
+    "isolatedBackendTests": {
+      "passed": 46,
+      "failed": 0,
+      "report": "docs/verification/plugin-backend-review-tests.json"
+    },
+    "isolatedWebTests": {
+      "passed": 53,
+      "failed": 0,
+      "report": "docs/verification/plugin-ui-test-results.json"
+    },
+    "isolatedWorkspaceTypechecks": "passed",
+    "primaryIntegratedChecks": {
+      "workspaceTests": {
+        "passed": 709,
+        "failed": 0,
+        "skipped": 4,
+        "report": "docs/verification/plugin-workspace-integration-results.json"
+      },
+      "typechecks": "passed",
+      "spdx": "301 source files passed",
+      "licenses": "166 compatible runtime dependencies; notices current",
+      "connectedDevelopmentJourney": {
+        "passed": 1,
+        "scope": "authenticated local API + real child-process fixtures; not live vendor/paired phone",
+        "evidence": "docs/verification/development-journey-evidence.json"
+      }
+    }
+  },
+  "source": [
+    {
+      "path": "packages/core/src/connectors.ts",
+      "before": "34c9a07575c003342868dca35f8b6cfc37459f960d5abf956db3cb1f2023e941",
+      "sha256": "52dfee49b8cd3e180a8166fa794d6c049139a4f01d0f6e07504beae60dc5ee48"
+    },
+    {
+      "path": "packages/core/src/entities.ts",
+      "before": "da8551c49f6b0fa1b8a205d5b8fc04f29a4ad6c3ab32f16c270e9371c9eeb524",
+      "sha256": "cb73cb257e23db00cc7ec49528076de9a25da28454daa29d67fddf694351f405"
+    },
+    {
+      "path": "packages/core/src/events.ts",
+      "before": "a25efd79387874bc7ebe252d87f974bf73afeefc8697642b74b541aee39c5348",
+      "sha256": "4eb438f25a37131943171dd70b05e0a50041ba102d45353d3aaf889225cb5209"
+    },
+    {
+      "path": "packages/core/src/libraryReducer.ts",
+      "before": "b796d7864d863bf0e421da89004ebc458881787784f58df48b32ce12ade314b1",
+      "sha256": "9007e548e515fbb107e5677bf0afe9d035e79af79b0fc4243dd6c77094e6727d"
+    },
+    {
+      "path": "packages/core/src/reducer.ts",
+      "before": "9787b849684b98e3113ec6c692a7d8d28140f2f2223df5b543340ec89bb527c8",
+      "sha256": "9ed0b3139ce3fa041c1e83ea95bd7793c3d1e680921bbdaa806fd15954de5c11"
+    },
+    {
+      "path": "packages/daemon/src/connectors.ts",
+      "before": "41b5f6f6dbaef27ea07a7e8c38e2689afb24154edaf48672599f4620ca21c6be",
+      "sha256": "9f405bf55228c0874ab8c225f949f88486087ac3564f5f23e9af11b8efeb606d"
+    },
+    {
+      "path": "packages/daemon/src/daemon.ts",
+      "before": "1b0bf81daf34f12cc70b9ad56924356e698a4e1e833e3bd4587086115561e41f",
+      "sha256": "dd586c5236e11755afc9a2a1d3583104a0f6a9460f16bc6cd703ed8c70fee4b4"
+    },
+    {
+      "path": "packages/daemon/src/decisions.ts",
+      "before": "154d06760ec851504c5f6fc44751aed6dda16097ba0a496421edc779e401c1e1",
+      "sha256": "e4b8c36d6df1ff171e232f794b46cbfce1d274fcf04b4ba5afd2413b01e001eb"
+    },
+    {
+      "path": "packages/daemon/src/mcp/server.ts",
+      "before": "d673717c63e3172cf8de95c6dc173a4de1cdb7d86d7030b8e0b653cd1cb46984",
+      "sha256": "6110d4a4d7cb2bb42f4d1d2bd4c995ae6a309ed71f5ddfbaa020f3bb71e6b132"
+    },
+    {
+      "path": "packages/daemon/src/mcpBridge.ts",
+      "before": "526bd8af349c9be5cdb66357dbf696564032fee16af531732cb09c4353c2ebc7",
+      "sha256": "53d6eecf42454eda6aa9ca4c7fe02ff1c72754cedc2a71419bc6f07b5a26bed6"
+    },
+    {
+      "path": "packages/daemon/src/server/libraryRoutes.ts",
+      "before": "e4462e3e7ec27c0058cfe27fb1d23c1583bc0b3e1e8ba4839d7174e0d8b457d5",
+      "sha256": "4c70413881cc4511b26ecc291bf83c7ac70908dbedfc7e5af6860ad980638ca1"
+    },
+    {
+      "path": "packages/daemon/src/store/eventStore.ts",
+      "before": "44154276155fc61c1f48330fd4d4aaa4c84a53f7c5b57b6e6694c0d7bd570d68",
+      "sha256": "f8f7d7403c6da28fa9bc9d48afadf3ef5c9a4afe7241089150c1601763db3e9b"
+    },
+    {
+      "path": "packages/daemon/test/connectors.test.ts",
+      "before": "a7619c3562d692ea112c16c0d03c1338e2bfcbca89028626aa122b02f1ac2a4a",
+      "sha256": "05387a459876f1d4ee1e80224449cee09bfcfc8ba5a5a679f0850b88df08bac2"
+    },
+    {
+      "path": "packages/daemon/test/fixtures/fake-mcp-tools.mjs",
+      "before": "62153e48720ce972ed2591bc4b8de6154727f45cb835ebe62a69f4e572897be1",
+      "sha256": "b4d5668d902ebc7e675d4173e0f5241deaf8c3b37f37508a403ba7c8a9665a20"
+    },
+    {
+      "path": "packages/web/src/pages/Connectors.tsx",
+      "before": "8cbca707af36355610b6149e96721aed563629a24d84cc006a494cf8a99c7cdc",
+      "sha256": "a21a78b37061609cf219a82471a952ac66ed4e78fc4ad941862d83144cabaaf4"
+    },
+    {
+      "path": "packages/web/src/pages/Decisions.tsx",
+      "before": "ae2d660d6450cadf17637cf61b1246f2adae24751d58adfe2845df6391bfc5ee",
+      "sha256": "abfe16cc902eab7ef32841c1e3b46c75648a4d2098957047b7dd25e3d89846b7"
+    },
+    {
+      "path": "packages/daemon/src/connectorToolActions.ts",
+      "before": null,
+      "sha256": "c2aaef37f9767f2299a4d7c8145ed02f2eb7c5a4f338c149ec496465c930b2d5"
+    },
+    {
+      "path": "packages/daemon/test/connector-tool-actions.test.ts",
+      "before": null,
+      "sha256": "a293fda3540fccff183af796b3bab7792c11a492856460d85790ab46deccb166"
+    },
+    {
+      "path": "packages/web/test/connectors-mcp.test.tsx",
+      "before": null,
+      "sha256": "a9557552d7d3f583126be4cd905110992bab42425e873c6e585756d3dc52c75c"
+    },
+    {
+      "path": "packages/web/test/plugin-decisions.test.tsx",
+      "before": null,
+      "sha256": "0e4379e8e7c04f0d0b65f96009b96f8eab98188c48e5f0a9df1c660e6858854c"
+    }
+  ],
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect Studio.app",
+  "bundleEngineSha256": "fb1fa06d7b286395925417c97a1f03add1b736e21c6e00643c65fec728aa7aca"
+}

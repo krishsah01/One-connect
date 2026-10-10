@@ -18,6 +18,7 @@ import type { AnswerOptions } from '../decisions.ts';
 import { writePrivate } from '../paths.ts';
 import { dockerIgnore, privateBuildPath, readBounded, readScopedBytes, scopedPath, findComposeFile, normalizeComposeProject, parseCompose, type ComposeFile, type ComposeService } from './compose.ts';
 import { DatabaseFiles, DatabaseSpecError, parseDatabaseSpec, postgresImage, volumeName, type DatabaseRecord, type PostgresSpec } from './database.ts';
+import { RuntimeInputs } from './runtime-inputs.ts';
 
 export type DockerExec = (args: string[], o?: Pick<ExecOptions, 'timeoutMs' | 'maxBytes' | 'signal'>) => Promise<ExecResult>;
 export type ComposeAction = 'up' | 'stop' | 'restart' | 'build' | 'pull' | 'down';
@@ -102,6 +103,7 @@ export class ProjectEnvironment {
     this.portProbe = o.portProbe ?? (p => portInUse(p));
     this.clock = o.now ?? Date.now;
     this.files = new DatabaseFiles(d.paths.root);
+    new RuntimeInputs(this.files.dir, value => d.addSecret(value));
     const saved = JSON.parse(d.store.kvGet('environment:jobs') ?? '[]') as EnvironmentJob[];
     // A job cannot survive the daemon that awaited it; report it honestly instead of guessing.
     this.jobs = saved.map(j => j.state === 'running' ? { ...j, state: 'interrupted', output: `${j.output}\n[daemon restarted before this action reported a result; check service status]`, endedAt: j.endedAt ?? d.nowIso() } : j);
@@ -495,14 +497,20 @@ export class ProjectEnvironment {
     try {
       const document = structuredClone(binding.document);
       const locations = new Map<string, string>();
+      const mounted = new Map<string, 'secrets' | 'configs'>();
+      for (const key of ['configs', 'secrets'] as const) {
+        for (const def of Object.values(document[key] ?? {}) as Settings[]) mounted.set(def.file, key);
+      }
+      const runtime = new RuntimeInputs(this.files.dir, value => this.d.addSecret(value));
       const write = (file: string, bytes: Buffer, mode = 0o400) => {
         fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
         fs.writeFileSync(file, bytes, { flag: 'wx', mode });
         fs.chmodSync(file, mode);
       };
       for (const [i, input] of binding.inputs.entries()) {
-        const dest = path.join(dir, 'inputs', String(i));
-        write(dest, input.bytes);
+        const kind = mounted.get(input.path);
+        const dest = kind ? runtime.seal(kind, input.bytes) : path.join(dir, 'inputs', String(i));
+        if (!kind) write(dest, input.bytes);
         locations.set(input.path, dest);
       }
       for (const [i, build] of binding.builds.entries()) {

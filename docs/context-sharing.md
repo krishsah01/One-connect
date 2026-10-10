@@ -42,7 +42,7 @@ graphify:
   semantic: false        # LLM extraction uses a paid API: requires semantic_opt_in: true
 ```
 
-The control center keeps a private, detached worktree of the integration branch in its data directory. It runs `graphify update` there, which is fast, local and uses no model. Your own checkout and agents' worktrees are never touched. The graph is rebuilt whenever the integration branch's HEAD moves (checked every minute), or when you click *Rebuild*.
+Dictionary reads the exact committed integration tree, redacts it and stages a private source snapshot in app data. Installed Graphify runs AST extraction there with LLM keys stripped. The integration revision is checked every 30 seconds even when Graphify is off. A successful, readable graph replaces the prior snapshot; failures preserve the prior graph with its older revision. Your own checkout and assignment worktrees are never used as Graphify input.
 
 Agents query it through MCP:
 
@@ -52,8 +52,8 @@ Agents query it through MCP:
 | `graph_path(from, to)` | `graphify path` |
 | `explain_node(name)` | `graphify explain` |
 
-The assignment prompt tells agents to query the graph before reading many files. That saves their included usage.
+The assignment prompt tells headless agents to start with `get_project_context`, a bounded packet containing cited source, revision freshness, their base and other agents’ ownership. They can query Graphify and read additional scoped source when needed. Context size is measured; included-token savings require provider usage evidence.
 
-**Zero extra spend.** LLM API-key variables are stripped from graphify's environment unless you opt into semantic extraction, which uses a paid API.
+**Zero extra spend.** Dictionary always strips LLM API-key variables and uses AST extraction. A configured semantic opt-in does not silently switch this intake to paid extraction.
 
 **Install graphify:** `uv tool install graphifyy` (or `pipx install graphifyy`). If it isn't installed, Mission Control shows the graph as *unavailable*; nothing else breaks.

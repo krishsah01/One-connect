@@ -2,11 +2,11 @@
 
 A local-first control center that runs a team of AI coding agents from different vendors through the development cycle, on the subscriptions **you already pay for**. Every agent gets a live console. Issues, assignments, runs, branches, handoffs and your decisions are connected in one event log.
 
-> **Status: Phase 1.** Built: the daemon, event store, agent adapters, Mission Control, Agent Console, Work Board, trackers (local, GitHub, Linear) and shared context (Obsidian and graphify). Review & Merge, Decisions, Release Cockpit and infra adapters come next; see [docs/plan.md](docs/plan.md).
+> **Status: development preview.** The daemon, event store, agent consoles, trackers, shared context, review/merge, Decisions and Release Cockpit have implementations and fixture coverage. Full live provider, phone, design and deployment acceptance remains in progress. See [current preview](docs/verification/current-preview.md) for the exact bundle and evidence, and [local engine checks](docs/verification/local-engines.md) for real Graphify, Docker and browser verification.
 
-The **Mac app preview** adds a Tauri shell, an embedded project/login terminal, GitHub/Linear import previews and scoped Docker controls. It opens an offline demo by default and authenticates its local dashboard automatically. See [docs/desktop.md](docs/desktop.md) for build instructions and current streaming limits.
+The **Mac app preview** adds a Tauri shell, an embedded project/login terminal, GitHub/Linear import previews and scoped Docker controls. It restores saved projects or opens an offline demo and authenticates its local dashboard automatically. See [docs/desktop.md](docs/desktop.md) for build instructions and current streaming limits.
 
-The expanded One Connect architecture is in [docs/one-connect.md](docs/one-connect.md). Subscription agents stay native; Docker runs the project being developed. Team workspace adds durable, scoped agent conversations and acknowledgements; Analytics reports recorded sessions, usage and evidence. [One Answer](docs/one-answer.md) indexes redacted committed project sources, local docs and Graphify at an explicit revision. [Designer](docs/designer.md) includes a versioned design-system editor, interactive token mock and seven default skills. Custom agents can be saved as disabled drafts with shared subscription capacity. Full workflow execution, generated design artifact editing and release milestones remain in progress. Existing `acc` commands and the app-data identifier are retained so prior projects and logs remain accessible.
+The expanded One Connect architecture is in [docs/one-connect.md](docs/one-connect.md). Subscription agents stay native; Docker runs the project being developed. Team workspace adds durable, scoped agent conversations and acknowledgements; Analytics reports recorded sessions, usage and evidence. [Dictionary](docs/dictionary.md) indexes redacted committed project sources, local docs and Graphify at an explicit revision. [Designer](docs/designer.md) includes a versioned design-system editor, interactive token mock and seven default skills. Custom agents can be saved as disabled drafts with shared subscription capacity. Full workflow execution, generated design artifact editing and release milestones remain in progress. Existing `acc` commands and the app-data identifier are retained so prior projects and logs remain accessible.
 
 ## Why
 
@@ -38,7 +38,9 @@ Each agent runs through its vendor's **official** CLI or app, signed in with you
 | Antigravity, Gemini app, desktop IDE agents | `relay` | copy the prompt in, paste the reply back |
 | Any other CLI | `generic-cli` | the tool's own login |
 
-The control center **never sees, stores or proxies your credentials**, and ships no vendor binaries. **You are responsible for following your own plan's terms for automated use.** It is designed for one person using their own subscriptions on their own machine, never shared, pooled or resold. Turn paid overage, on-demand billing and auto-recharge off in each vendor account. See [docs/subscriptions.md](docs/subscriptions.md).
+The control center **never extracts or stores vendor subscription sign-in credentials**, and ships no vendor binaries. Official tools own their login. Optional API and connector keys are stored separately in the macOS Keychain after your explicit setup; metered agents require a per-agent cost Decision. **You are responsible for following your own plan's terms for automated use.** It is designed for one person using their own subscriptions on their own machine, never shared, pooled or resold. Turn paid overage, on-demand billing and auto-recharge off in each vendor account. See [docs/subscriptions.md](docs/subscriptions.md).
+
+Project settings, check containers, code-host and infrastructure drafts can be configured in **Settings & policies**, then reviewed in **Decisions**. Remote connections remain disabled until separately approved in **Connectors**. See [settings](docs/settings.md), [phone access](docs/phone-access.md), and [OpenCode harness](docs/harnesses.md).
 
 ## Quick start
 
@@ -82,7 +84,7 @@ More: [docs/architecture.md](docs/architecture.md).
 
 ## Not affiliated
 
-Agent Control Center is an independent open-source project. It is **not affiliated with, endorsed by, or sponsored by** OpenAI, Anthropic, Google, Anysphere (Cursor), GitHub, Linear, Obsidian or any other vendor. Product names are used only to identify compatible tools, and no vendor logos are included.
+One Connect is an independent open-source project. It is **not affiliated with, endorsed by, or sponsored by** OpenAI, Anthropic, Google, Anysphere (Cursor), GitHub, Linear, Obsidian or any other vendor. Product names are used only to identify compatible tools, and no vendor logos are included.
 
 ## License
 

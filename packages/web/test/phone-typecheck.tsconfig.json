@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "files": ["../src/pages/Phone.tsx", "../src/pages/Remote.tsx", "phone.test.tsx"],
+  "include": []
+}

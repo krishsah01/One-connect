@@ -1,17 +1,179 @@
 # Designer
 
-Open Designer to edit a project's visual direction, role-based colors, typography, spacing, radius, motion and component rules. The interactive token mock responds to changes, tab navigation and review controls. It is sample content, not a generated application or verified review result.
+Designer is One Connect's design studio. You describe a product screen, choose a design agent and get an interactive local mock. You refine and check that mock against your project's versioned design system, then hand one approved, exact identity to engineering. Design work uses the same issues, assignments, pre-flight, runs and evidence as engineering work. There is no separate generator.
 
-Save design contract validates text contrast and records a human-authored version with a SHA-256 identity. Export DESIGN.md and tokens.css. New assignments freeze that identity; existing assignments retain their earlier contract. Active UI/code runs prevent replacing the design contract. Assignments load the exact contract using `get_design_system`. Token compliance and complete browser accessibility still need implementation/review checks; contrast validation alone cannot prove them.
+## 1. Project design system
 
-Create a design task makes a tracker issue and draft assignment with a reviewable scope. The human dispatches from Work Board. Generated mock artifact editing/export beyond the current token mock remains in progress.
+**Designer → Design system** edits the project contract. It holds:
 
-## Default skills
+- **Color roles**: canvas, surface, subtle surface, text, secondary text, accent, on accent, divider, focus ring, and success, warning, danger and information. There is a light and a dark palette. *Appearance* chooses light, dark, or both (following the viewer's system setting).
+- **Typography**: system or serif-display pairing and a base size, using a fixed 1.2 scale.
+- **Shape and density**: density (compact or comfortable), corner radius, border width and elevation (soft shadows or flat borders).
+- **Layout, motion and accessibility**: maximum width and navigation style, motion (subtle or reduced), minimum target size and focus-ring width.
+- **Text**: project component notes and rules.
 
-The library includes Taste Skill, Vercel Web Interface Guidelines, licensed Linear/Notion DESIGN.md reference analyses, an original design-contract skill, accessible product UI, responsive mocks, and a scoped Playwright CLI guide. Design-labelled tasks receive the default library; custom agents can select individual skills. Only names and descriptions enter the assignment prompt. `get_design_skill` loads verified, pinned files and paged references as needed.
+Your edits are a **draft**. It is autosaved on this project's daemon, so it survives reloads, project switches and long agent runs. It is never the approved contract. The specimen beside the form renders buttons, fields, status badges, keyboard-operable tabs, a dialog that returns focus, a table and all four content states from the draft. You can view it in light or dark.
 
-Selected text resources were reused from the user-approved [Open Design](https://github.com/nexu-io/open-design) revision `53231d40b778d88eba23f35547bf99485d3ae9fc`. Its Apache-2.0 license is retained, along with upstream MIT licenses for Taste Skill and Vercel guidelines. VoltAgent reference analyses retain their MIT notice. File hashes and sources live in the designer manifest; CI verifies them and includes notices in THIRD_PARTY_NOTICES.md. No hosted Open Design service, vendor media API, binary, telemetry or third-party installation is enabled.
+**Validate draft** parses and measures the draft on the daemon. You get errors, warnings, a SHA-256 and a readable field-by-field diff against the current version. Nothing is saved. **Save as vN** is enabled only for that exact validated draft. It records an immutable, human-authored revision with its hash, parent and an optional note. Blocking contrast failures in any active mode prevent saving. These cover body, secondary and status text, action labels, links, the focus ring and input boundaries. Contrast is necessary but never sufficient: keyboard, screen-reader, zoom and state behavior are judged on actual mocks.
 
-Taste Skill's imported scope targets landing pages and redesigns. Product dashboards follow the project contract and Vercel guidelines. Brand analyses inform an original system; they do not grant rights to vendor logos. The Playwright entry is a guide for the official installed CLI, not a bundled executable. A tool being available never proves a browser check passed.
+Every revision generates, from one token table:
 
-`packages/daemon/test/designer.test.ts` verifies contract validation, human attribution, immutable assignment revisions, restart persistence and pinned skill integrity. Native verification additionally checks save state, visual contrast and interactive controls.
+- `DESIGN.md`: roles, type, spacing, shape, layout, motion, accessibility rules, component recipes, measured contrast and engineering instructions.
+- `tokens.css`: `--design-*` variables, a dark block when both modes are active, and a reduced-motion override.
+- `tokens.json`: Design Tokens Community Group groups carrying the contract identity.
+- A static component and state specimen.
+
+**Versions** lists every revision, with its diff, comparison against any other revision and downloads.
+
+Schema 1 contracts saved before this format remain readable. They render their original `tokens.css` byte-for-byte, so assignments frozen to them stay stable. A schema 1 revision is upgraded only when a human saves a new one.
+
+Saving does not touch existing assignments or active runs. Each assignment keeps the revision frozen when it was created. Mocks built on an older contract show **contract drift**. Any approval made under the old contract becomes **stale** until a human records a drift exception or approves a revision built on the current contract.
+
+## 2. Briefs and design jobs
+
+**Designer → Studio** turns a brief into an ordinary issue and a draft assignment. Nothing runs from the form. The brief covers:
+
+- the mode: a new prototype, or a revision of existing UI that the agent studies read-only;
+- the title, problem and audience;
+- the screens, which map to `index.html` and one page per further screen;
+- the states every data view must show: empty, loading, error and success, plus partial, permission and offline when needed;
+- key interactions, plausible fixture data and the design agent.
+
+The brief is autosaved as a draft.
+
+The agent list shows each agent's eligibility. Relay agents and coordinator-only agents are excluded, because the studio never asks you to work in another app. Per-token logins are shown and blocked unless that agent has an existing, explicit metered configuration, which is never used as a fallback. Pre-flight remains the final check. That includes the included-plan confirmation in **Agents & sign-in**.
+
+The job card shows the exact assignment prompt and the pre-flight results, and has **Dispatch**. The prompt's design section is bounded. It contains:
+
+- the frozen contract version and hash;
+- the deliverable folder `design/<slug>/` and exact page files;
+- the required states and a visible state switcher;
+- accessibility requirements;
+- the isolated preview's runtime limits: no network, no storage (`localStorage`, `sessionStorage`, IndexedDB and cookies throw in the opaque sandbox), no new windows or real form submission, and the file types and sizes allowed;
+- `ask_human` for questions;
+- `register_design_mock` with a structured `handoff`.
+
+Skills appear as one-line descriptions only; agents load them with `get_skill` when they apply.
+
+After dispatch, the card streams the agent's real transcript from the durable run stream. Questions appear as approval cards you answer in place, as in Decisions. You can message the agent, stop the run or open the agent console.
+
+A job is **captured** only when an immutable revision exists. A run that merely exits is not a mock:
+
+- When a studio run completes without registering its folder, One Connect tries to capture `design/<slug>/` from the worktree.
+- Every capture attempt is recorded, including rejections. A failed or interrupted job shows the reason and offers **Capture … now**.
+
+## 3. Mock artifacts and revisions
+
+**Mocks** shows captured artifacts with a static thumbnail, gate state, approved revision, stale approvals and older-contract markers. An *In progress and needing attention* list shows jobs that are drafting, running, waiting, failed or interrupted, or whose capture failed. You can still capture any `design/<slug>/` folder from an assignment worktree.
+
+Each revision is immutable and content-addressed. It records:
+
+- its issue and assignment (a refinement may continue the artifact on a new assignment);
+- the git SHA, run and frozen contract;
+- who captured it, and who authored the content: the agent for worktree captures, you for scoped edits.
+
+Capture keeps every existing protection: contained, no-follow reads that use the native helper on macOS, exact-byte capture, symlink and changed-file refusal, size and type limits, secret refusal, allowed paths and SHA-256 blob storage. Files in `design/<slug>/evidence/` are screenshots and are never captured as mock content.
+
+Static findings run at capture. They report:
+
+- remote resources and network APIs;
+- browser storage APIs;
+- off-palette colors, and tokens that are unused or out of date;
+- a missing viewport meta tag or document language;
+- pages the brief asked for that are missing;
+- a structured handoff that is missing, invalid, or contradicted by the captured files or the frozen contract.
+
+Errors must be fixed. Warnings can be fixed or excepted by a human, with a written rationale.
+
+The detail view keeps the selected **revision, page and viewport** in the URL. Its tabs are:
+
+- **Compare** lists added, removed and changed files, shows a bounded line diff and renders two revisions side by side.
+- **Source** keeps an autosaved draft per file. Saving writes the file through the scoped edit path and captures a new revision. *Restore this file from revision N* copies an older version into a draft. That is the undo: history is never rewritten.
+- **Refine** sends a request for the latest revision. It continues the same assignment session when the harness can resume and the agent is free, keeping the same issue, worktree and frozen contract. Otherwise, or when you choose a new scoped task, it creates a child issue and a draft assignment. That assignment starts from the source branch, may write only the mock folder, freezes the current contract, and its captures continue the same artifact.
+
+## 4. Preview
+
+- **Desktop app.** *Open interactive preview* opens the revision in a separate native window with an engine-level WebRTC denial, a non-persistent website data store, network rules, navigation denial and a restrictive CSP. Every page of the revision is embedded in a trusted shell, so local links (`<a href="page.html">`) and `history.back()` work inside the window. A short status message explains anything that was blocked: external links, simulated form submissions, new windows and pages that are not part of the revision.
+- **Browser dashboard.** Shows a **static layout render**: scripts, event handlers and links are removed, and the iframe is sandboxed with no permissions. It is labelled as a layout check, not the interactive mock. It does not provide the native window's isolation, so mock code never runs there.
+
+## 5. Review, evidence and approval
+
+Evidence is bound to one revision, and records that revision's content hash and contract. Each entry has a kind (command, screenshot or viewport check), what was done, the tool, the viewport, the page, a timestamp and a result.
+
+- Unexecuted checks are recorded as *not run*.
+- An agent's command is marked *observed* only when One Connect saw that command and exit code in the agent's own run transcript.
+- Screenshots come from three places. A human can upload a PNG, JPEG or WebP of up to 5 MB. An agent can provide `design/<slug>/evidence/<name>.png` of up to 512 KiB, read through the same contained path. Or the image can be part of the revision. One Connect cannot tell what an image depicts; reviewers judge that.
+
+The **review checklist** has five items: responsive layout, keyboard and focus, contrast, content states, and visual and token compliance. Each item records its result and its basis:
+
+- *static*: measured from source;
+- *browser*: an executed check, linked to passed evidence on this revision;
+- *human*: you looked at the rendered mock.
+
+Approval requires every item to pass and no open findings. Static checks can only pass contrast. Browser bases must link executed, passed evidence.
+
+**Independence.** The author of a revision's content cannot be its only approver:
+
+- A human approval of an agent-authored revision is independent.
+- A revision produced by your own source edit needs an independent reviewer as well. **Request independent review** creates a read-only review issue and assignment for a different agent. That agent reads the revision with `get_design_mock` and submits `submit_design_review` with its own checklist (static or observed-browser bases). Its verdict is advisory; a human still makes the decision.
+
+Approvals belong to exact revisions and never carry to a later one. A contract change makes them stale.
+
+## 6. Handoff and engineering
+
+The **Handoff bundle** is exported locally; nothing is published, pushed or sent. It contains:
+
+- the exact files of the revision;
+- a manifest with its identity, gate, approval checklist, reviews, exceptions, evidence and the agent's handoff claims;
+- the evidence screenshots;
+- `DESIGN.md`, `tokens.css`, `tokens.json` and the component specimen of its contract;
+- `HANDOFF.md`.
+
+*Require an approved revision* refuses any other revision.
+
+**Prepare engineering task** works only for an approved revision built on the current contract. It creates an issue and a draft assignment that cite the artifact, revision, content hash and contract hash. The acceptance criteria cover tokens, states, keyboard and focus, phone, tablet and desktop evidence, and the project's checks. The assignment is frozen to that contract and gets the implementation skill set. Review and dispatch it like any task. A mock approval is not a passing implementation. Publishing and deploying keep their own per-action Decisions.
+
+## 7. Skills
+
+Pinned upstream skills:
+
+- Taste Skill (MIT), for landing pages and redesigns only;
+- Vercel Web Interface Guidelines (MIT);
+- VoltAgent DESIGN.md reference analyses (MIT);
+- a One Connect guide for an already-installed official Playwright CLI.
+
+Original One Connect skills (Apache-2.0): design-system contract, accessible product UI, responsive mocks, product UI patterns, typography and content, design-system implementation, and visual critique.
+
+Selected resources come from the owner-approved [Open Design](https://github.com/nexu-io/open-design) revision `53231d40b778d88eba23f35547bf99485d3ae9fc`, whose Apache-2.0 license is retained. Every file is pinned by SHA-256 in the designer manifest and verified on each read. Notices are in THIRD_PARTY_NOTICES.md. No hosted service, binary, vendor media API or telemetry is enabled.
+
+How skills are selected:
+
+| Task labels | Built-in skills |
+|---|---|
+| `design`, `ui`, `mock`, `frontend`, `branding` | The whole library |
+| `design-implementation` | Implementation set |
+| `design-review` | Review set |
+
+**Skills and sources** shows the selection and each skill's purpose. Prompts carry descriptions only.
+
+## Agent tools (MCP)
+
+| Tool | Use |
+|---|---|
+| `get_design_system` | The frozen contract: DESIGN.md, tokens.css, checks. |
+| `register_design_mock` | Capture `design/<slug>/` with an optional structured `handoff` (summary, pages, states, interactions, checks, limitations, questions, contract hash). |
+| `record_mock_evidence` | Command, screenshot or viewport evidence with action, tool and page. |
+| `get_design_mock` | Bounded read of a revision the agent produced or was asked to review. |
+| `submit_design_review` | Independent, advisory review with checklist and bases. |
+
+## Verification
+
+The tests for this area are:
+
+- `packages/core/test/design-studio.test.ts`: the contract, gate, compare, preview and job logic;
+- `packages/daemon/test/designer-studio.test.ts`: end to end with the labelled fixture CLIs, covering dispatch, an in-app answer, capture, review, both kinds of refinement, drift, the bundle, the engineering task and restart; also capture failures, independent review over MCP, hostile evidence, project isolation and schema 1 contracts;
+- `packages/daemon/test/designer.test.ts` and `mocks.test.ts`;
+- `packages/daemon/test/designer.strip.test.mjs`: strip-only Node;
+- `packages/web/test/designer.test.tsx` and `live-store.test.tsx`.
+
+The real-engine preview isolation tests run with `ACC_MOCK_TEST_WEBKIT` and `ACC_MOCK_TEST_CHROMIUM`. Native window checks happen in the desktop app.

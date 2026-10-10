@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-08T14:28:18.482046+00:00",
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect-skills.app",
+  "engineSha256": "63620306112257ffd6c393c02c7072184c3b4c492cb4da363e2b2dc127518d2f",
+  "sourceManifest": "rebundle-skills-source-manifest.json",
+  "inputFiles": 210,
+  "target": "macOS arm64",
+  "mode": "unsigned debug development checkpoint",
+  "build": "offline locked Tauri app build, no signing",
+  "node24ExtractedArchiveImport": "passed",
+  "typecheck": "passed",
+  "licenseCompatibility": "166 compatible; current notices",
+  "workspaceTests": {
+    "passed": 658,
+    "skipped": 4,
+    "failed": 0,
+    "report": "skills-workspace-integration-results.json",
+    "note": "Latest published-baseline badge correction subsequently verified with 13 focused web tests."
+  },
+  "nativeTests": {
+    "passed": 23,
+    "failed": 0,
+    "sourceRecord": "terminal-stop-integration.json"
+  },
+  "renderedVerification": {
+    "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/verification/One Connect Skills Verification.app",
+    "engineSha256": "8587f9f44c1f6e180752b906a67b5db2b39c072d220bf050ea9ada108aa3034b",
+    "mode": "isolated identifier dev.oneconnect.skills-verification, offline scripted demo",
+    "observed": [
+      "Seven pinned designer skills and three original skill templates visible",
+      "Template load causes no publication",
+      "Save creates editable saved details and enables Publish v1",
+      "Exact Publish records v1 and two-file SHA-256",
+      "Read immutable SKILL.md and reference content",
+      "Actual Downloads/evidence-review-v1.json created by UI; each file hash and version hash verified"
+    ],
+    "publishedVersionHash": "21d2d94356f40098cb511f12e2b219c4ed90acba62a3c401b595db44f56bf226",
+    "remaining": [
+      "Published badge source fix verified by component tests and in checkpoint bundle, not re-rendered after fix",
+      "Additional import/provider assignment rendered flows pending",
+      "Live subscription/provider/tracker/phone/deployment acceptance remains pending"
+    ],
+    "note": "Verification build preceded the published-baseline badge correction; current checkpoint was built separately afterwards. Original app with unsaved draft and verification app left intact."
+  },
+  "pluginDecisions": "Cursor code NOT integrated; resource_exhausted on third pass; Codex backend worker and parent UI correction in isolated checkout",
+  "antigravity": "Fresh 530-file isolated assignment prepared; owner relay pending; not launched"
+}

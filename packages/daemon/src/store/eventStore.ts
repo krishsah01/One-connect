@@ -262,4 +262,8 @@ export class EventStore {
   kvDelete(key: string): void {
     this.db.prepare('DELETE FROM kv WHERE key = ?').run(key);
   }
+
+  kvKeys(prefix: string): string[] {
+    return this.db.prepare('SELECT key FROM kv WHERE key LIKE ?').all(`${prefix}%`).map((r) => String((r as Row).key));
+  }
 }

@@ -10,7 +10,7 @@ import type { ExecResult } from '../src/exec.ts';
 import * as execution from '../src/exec.ts';
 import { ProjectEnvironment, type DockerExec } from '../src/environment/workbench.ts';
 import { parseDatabaseSpec } from '../src/environment/database.ts';
-import { git, makeConfig, startDaemon, tmpDir, type Harness } from './helpers.ts';
+import { git, makeConfig, startDaemon, tmpDir, waitFor, type Harness } from './helpers.ts';
 
 /** The real two-step approval: confirmation step (single-use nonce) for irreversible/network actions, then resolve. */
 async function approveWith<E extends { resolve(id: string, a: string, dg: string, o?: { nonce?: string | null }): Promise<unknown> }>(env: E, decisionId: string, digest: string): Promise<Awaited<ReturnType<E['resolve']>>> {
@@ -555,7 +555,9 @@ describe('Local database wizard', () => {
   });
 
   it('keeps wizard passwords private and immutable through an approved scoped start', async () => {
-    const { docker, env } = await setup();
+    const { docker, env, repo } = await setup();
+    const dataDir = h!.dataDir;
+    let mountedSecret = '';
     await env.createDatabase({ kind: 'postgres', service: 'devdb' });
     const password = env.files.readSecret('devdb')!;
     const req = await env.request('up', ['devdb']);
@@ -565,6 +567,7 @@ describe('Local database wizard', () => {
       expect(sealed.services.devdb.ports).toEqual(['127.0.0.1:5432:5432']);
       expect(sealed.services.devdb.volumes[0].source).toBe('devdb-data');
       const secret = sealed.secrets.devdb_password.file;
+      mountedSecret = secret;
       fs.writeFileSync(env.files.secretFile('devdb'), 'changed-but-harmless-password');
       expect(secret).not.toBe(env.files.secretFile('devdb'));
       expect(fs.statSync(secret).mode & 0o777).toBe(0o400);
@@ -575,6 +578,13 @@ describe('Local database wizard', () => {
     await env.close();
     expect(result.job!.state).toBe('succeeded');
     expect(fs.readdirSync(path.join(env.files.dir, 'approval-snapshots'))).toEqual([]);
+    // Compose secrets remain live bind mounts after `up -d` returns, and across restarts.
+    expect(fs.readFileSync(mountedSecret, 'utf8')).toBe(password);
+    expect(mountedSecret).toContain('runtime-secrets');
+    await h!.close(); h = undefined;
+    await setup({ repo, dataDir });
+    expect(fs.readFileSync(mountedSecret, 'utf8')).toBe(password);
+    expect(h!.d.redactText(password)).not.toContain(password);
   });
 
   it('removes crash leftovers, persists interrupted jobs and never replays an approved action on restart', async () => {
@@ -596,6 +606,50 @@ describe('Local database wizard', () => {
     expect(JSON.parse(h!.d.store.kvGet('environment:jobs')!)[0].state).toBe('interrupted');
     expect(fs.existsSync(stale)).toBe(false);
     expect(second.docker.calls.some(c => c.includes('build'))).toBe(false);
+  });
+
+  it('keeps approved file configs mounted after the action snapshot is cleaned up', async () => {
+    const repo = composeRepo();
+    const configFile = path.join(repo, 'service.conf');
+    fs.writeFileSync(configFile, 'feature=approved\n');
+    fs.writeFileSync(path.join(repo, 'compose.yaml'), YAML.stringify({
+      services: { db: { image: 'postgres:16-alpine', configs: ['settings'] } },
+      configs: { settings: { file: './service.conf' } },
+    }));
+    const { env, docker } = await setup({ repo });
+    let mount = '';
+    docker.beforeMutation = args => {
+      const sealed = YAML.parse(fs.readFileSync(args[args.indexOf('-f') + 1], 'utf8'));
+      mount = sealed.configs.settings.file;
+      expect(mount).not.toBe(configFile);
+      fs.writeFileSync(configFile, 'feature=changed\n');
+    };
+    const req = await env.request('up', ['db']);
+    await approveWith(env, req.decision!.id, req.digest!);
+    await env.close();
+    expect(fs.readFileSync(mount, 'utf8')).toBe('feature=approved\n');
+    expect(fs.statSync(mount).mode & 0o777).toBe(0o400);
+    expect(fs.readdirSync(path.join(env.files.dir, 'approval-snapshots'))).toEqual([]);
+  });
+
+  it('refuses a modified retained secret before a later container start', async () => {
+    const { env, docker } = await setup();
+    await env.createDatabase({ kind: 'postgres', service: 'devdb' });
+    let mount = '';
+    docker.beforeMutation = args => {
+      mount = YAML.parse(fs.readFileSync(args[args.indexOf('-f') + 1], 'utf8')).secrets.devdb_password.file;
+    };
+    const first = await env.request('up', ['devdb']);
+    const firstResult = await approveWith(env, first.decision!.id, first.digest!);
+    await waitFor(() => firstResult.job!.state !== 'running', 5000, 'first container start');
+    expect(firstResult.job!.state).toBe('succeeded');
+    fs.chmodSync(mount, 0o600);
+    fs.writeFileSync(mount, 'tampered');
+    docker.calls.length = 0;
+    const next = await env.request('up', ['devdb']);
+    await expect(approveWith(env, next.decision!.id, next.digest!)).rejects.toThrow(/retained runtime input changed/);
+    expect(docker.calls.some(args => args.includes('up'))).toBe(false);
+    expect(h!.d.state.decisions[next.decision!.id].answeredAt).toBeNull();
   });
 
   it('creates a private SQLite file without Docker', async () => {

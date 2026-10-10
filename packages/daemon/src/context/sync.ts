@@ -11,7 +11,8 @@ import { GraphContext } from './graph.ts';
 import { briefNote, contractNote, decisionNote, handoffNote, issueNote, noteLinks, type NoteLinks } from './notes.ts';
 import { Vault,projectNamespace } from './vault.ts';
 import { AskDocs } from './docs.ts';
-import { OneAnswer } from './one-answer.ts';
+import { Dictionary } from './dictionary.ts';
+import { PacketBuilder } from './packet.ts';
 import { designMarkdown } from '@acc/core';
 
 export class ContextSync {
@@ -20,7 +21,8 @@ export class ContextSync {
   readonly graph: GraphContext | null;
   readonly links: NoteLinks | null;
   readonly docs: AskDocs | null;
-  readonly answer:OneAnswer;
+  readonly answer:Dictionary;
+  readonly packets:PacketBuilder;
   readonly privateVault:boolean;
   readonly knowledgeConfig;
   private timer: NodeJS.Timeout | null = null;
@@ -44,8 +46,9 @@ export class ContextSync {
     this.links = this.vault ? noteLinks(this.vault.folder, (rel, label) => this.vault!.link(rel, label)) : null;
     this.docs = this.vault ? new AskDocs(this.vault, path.join(d.paths.root, 'context', 'docs.sqlite'), d.egress.fetch, text => d.redactText(text)) : null;
     const g = d.config.graphify??GraphifyConfigSchema.parse({});
-    this.graph = g.enabled ? new GraphContext(g, { repo: d.config.project.repo, branch: d.config.project.integration_branch, dir: path.join(d.paths.root, 'context', owner, 'one-answer-source'),redact:s=>d.redactText(s) }) : null;
-    this.answer=new OneAnswer(d,this.vault!,this.docs!,this.graph);
+    this.graph = g.enabled ? new GraphContext(g, { repo: d.config.project.repo, branch: d.config.project.integration_branch, dir: path.join(d.paths.root, 'context', owner, 'dictionary-source'),redact:s=>d.redactText(s) }) : null;
+    this.answer=new Dictionary(d,this.vault!,this.docs!,this.graph);
+    this.packets=new PacketBuilder(d,this);
   }
 
   get enabled(): boolean {
@@ -73,13 +76,11 @@ export class ContextSync {
     for (const r of Object.values(this.d.state.runs)) if (r.handoff) this.dirtyRuns.add(r.id);
     for (const a of Object.values(this.d.state.approvals)) if (a.resolvedAt && a.decision !== 'expired') this.dirtyDecisions.add(a.id);
     this.schedule(50);
-    if (this.graph) {
-      this.d.commit([{ type: 'context.graph', data: { status: this.graph.status } }]);
-      if (this.graph.cfg.auto_update) {
-        this.poll = setInterval(() => void this.answer.refresh(false), 60_000);
-      }
-    }
-    void this.answer.refresh(false);
+    if (this.graph) this.d.commit([{ type: 'context.graph', data: { status: this.graph.status } }]);
+    // Detect integration commits with a cheap rev-parse, with or without Graphify. Intake runs
+    // only when the revision moved (or a failed intake is due for a retry).
+    this.poll = setInterval(() => void this.answer.poll().catch(() => undefined), 30_000);
+    void this.answer.refresh(false, 'startup');
   }
 
   stop(): void {
@@ -165,7 +166,7 @@ export class ContextSync {
 
   /** Human or agent context search across notes and the code graph. */
   async search(query: string, o: { limit?: number; graph?: boolean } = {}): Promise<{ notes: { backend: string; hits: { path: string; snippet: string }[] } | null; graph: string | null }> {
-    await this.answer.refresh(false);
+    await this.answer.ensureFresh();
     const retrieval = this.docs ? this.answer.cite(await this.docs.search(query, { limit: o.limit })) : null;
     const notes = retrieval ? { backend: retrieval.backend, hits: retrieval.citations.map(c => ({ path:c.path, snippet:c.excerpt, line:c.line, endLine:c.endLine, source:c.id,projectSource:c.projectSource })), warning:retrieval.warning } : null;
     let graph: string | null = null;

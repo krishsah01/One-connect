@@ -10,7 +10,7 @@ export const ROLES = ['lead', 'engineer', 'reviewer', 'qa', 'researcher'] as con
 export const RoleSchema = z.enum(ROLES);
 export type Role = z.infer<typeof RoleSchema>;
 
-export const ADAPTER_TYPES = ['claude-headless', 'codex-cli', 'cursor-agent-cli', 'generic-cli', 'relay'] as const;
+export const ADAPTER_TYPES = ['claude-headless', 'codex-cli', 'cursor-agent-cli', 'generic-cli', 'relay', 'opencode-server'] as const;
 export const AdapterTypeSchema = z.enum(ADAPTER_TYPES);
 export type AdapterType = z.infer<typeof AdapterTypeSchema>;
 
@@ -18,20 +18,31 @@ export type AdapterType = z.infer<typeof AdapterTypeSchema>;
  * How an agent's harness reaches a model. `subscription` = the vendor CLI's own login (default).
  * API-key providers bill per token and need metered_opt_in; local providers run on this machine.
  */
-export const PROVIDERS = ['subscription', 'anthropic-api', 'openai-api', 'openrouter', 'ollama', 'lmstudio'] as const;
+export const PROVIDERS = ['subscription', 'anthropic-api', 'openai-api', 'openrouter', 'ollama', 'ollama-cloud', 'lmstudio'] as const;
 export const ProviderSchema = z.enum(PROVIDERS);
 export type Provider = z.infer<typeof ProviderSchema>;
 export const PAID_PROVIDERS: readonly Provider[] = ['anthropic-api', 'openai-api', 'openrouter'];
 export const LOCAL_PROVIDERS: readonly Provider[] = ['ollama', 'lmstudio'];
-/** Which harness each provider runs through. */
+/**
+ * Which harness each provider can run through. The FIRST entry is the default: OpenCode (MIT,
+ * headless server) is the default harness for API-key and local-model providers; the official
+ * Claude/Codex CLIs remain available as alternatives (e.g. `codex --oss`).
+ * `ollama-cloud` = Ollama's paid subscription cloud models (signed-in local daemon or API key).
+ */
 export const PROVIDER_HARNESS: Record<Provider, readonly string[]> = {
   subscription: ['claude-headless', 'codex-cli', 'cursor-agent-cli', 'generic-cli', 'relay'],
-  'anthropic-api': ['claude-headless'],
-  'openai-api': ['codex-cli'],
-  openrouter: ['codex-cli'],
-  ollama: ['codex-cli'],
-  lmstudio: ['codex-cli'],
+  'anthropic-api': ['opencode-server', 'claude-headless'],
+  'openai-api': ['opencode-server', 'codex-cli'],
+  openrouter: ['opencode-server', 'codex-cli'],
+  ollama: ['opencode-server', 'codex-cli'],
+  'ollama-cloud': ['opencode-server'],
+  lmstudio: ['opencode-server', 'codex-cli'],
 };
+export const defaultHarnessFor = (provider: Provider): AdapterType => PROVIDER_HARNESS[provider][0] as AdapterType;
+/** Models Ollama serves from its own cloud (paid plan) rather than from this machine. */
+export const isOllamaCloudModel = (name: string): boolean => /[-:]cloud$/.test(name);
+/** Providers billed through a plan the user pays for elsewhere (usage may be unknown). */
+export const SUBSCRIPTION_PROVIDERS: readonly Provider[] = ['ollama-cloud'];
 
 export const AgentConfigSchema = z
   .object({
@@ -52,12 +63,14 @@ export const AgentConfigSchema = z
     provider: ProviderSchema.default('subscription'),
     /** What the user says they pay for. Derived from `provider` when omitted. */
     billing: z.enum(['subscription', 'metered', 'local']).optional(),
-    /** Hard daily spending cap for metered providers: dispatch blocks and runs stop when reached. */
+    /** Daily stop threshold on recorded usage; in-flight charges can exceed it. Use provider limits for a hard cap. */
     budget_usd_per_day: z.number().positive().optional(),
     /** Price per million tokens, for estimating spend when the provider doesn't report cost. */
     pricing: z.object({ input_per_mtok: z.number().nonnegative(), output_per_mtok: z.number().nonnegative() }).optional(),
     /** Provider endpoint override (OpenRouter, Ollama, LM Studio). */
     base_url: z.string().optional(),
+    /** ollama-cloud only: `daemon` = signed-in local Ollama (…:cloud models); `api` = Ollama's cloud API with a Keychain key. */
+    ollama_route: z.enum(['daemon', 'api']).optional(),
     /** Codex provider wire protocol for OpenRouter (verify with a live run). */
     wire_api: z.enum(['responses', 'chat']).default('responses'),
     /** Explicit, per-agent opt-in to metered/API-key billing. Shows a cost banner everywhere. */
@@ -95,6 +108,29 @@ export const AgentConfigSchema = z
     }
     if (a.billing === 'metered' && !a.metered_opt_in) {
       ctx.addIssue({ code: 'custom', message: `${a.id}: billing: metered requires metered_opt_in: true`, path: ['billing'] });
+    }
+    if (a.provider === 'ollama' && [a.model, ...(a.allowed_models ?? [])].some((m) => isOllamaCloudModel(m))) {
+      ctx.addIssue({ code: 'custom', message: `${a.id}: models ending in -cloud / :cloud run on Ollama's servers under your Ollama plan: use provider ollama-cloud, not ollama`, path: ['model'] });
+    }
+    if (a.provider === 'ollama-cloud' && a.billing === 'local') {
+      ctx.addIssue({ code: 'custom', message: `${a.id}: Ollama cloud models are billed through your Ollama plan, not local`, path: ['billing'] });
+    }
+    // Local servers are explicit loopback endpoints; the only remote Ollama endpoint is the cloud API route.
+    if (a.base_url && ['ollama', 'lmstudio'].includes(a.provider) || a.base_url && a.provider === 'ollama-cloud' && (a.ollama_route ?? 'daemon') !== 'api') {
+      let ok = false;
+      try {
+        const u = new URL(a.base_url!);
+        ok = u.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname) && !u.username && !u.password;
+      } catch { /* invalid */ }
+      if (!ok) ctx.addIssue({ code: 'custom', message: `${a.id}: local model servers must be an http loopback endpoint (127.0.0.1, localhost or [::1]) with no credentials`, path: ['base_url'] });
+    }
+    if (a.provider === 'ollama-cloud' && a.ollama_route === 'api' && a.base_url) {
+      let ok = false;
+      try { const u = new URL(a.base_url); ok = u.protocol === 'https:' && u.hostname === 'ollama.com' && !u.username; } catch { /* invalid */ }
+      if (!ok) ctx.addIssue({ code: 'custom', message: `${a.id}: the Ollama cloud API route only accepts https://ollama.com`, path: ['base_url'] });
+    }
+    if (a.ollama_route && a.provider !== 'ollama-cloud') {
+      ctx.addIssue({ code: 'custom', message: `${a.id}: ollama_route only applies to provider ollama-cloud`, path: ['ollama_route'] });
     }
     if (a.adapter === 'generic-cli' && !a.command) {
       ctx.addIssue({ code: 'custom', message: `${a.id}: generic-cli needs a command`, path: ['command'] });
@@ -170,7 +206,7 @@ export const TrackerConfigSchema = z.discriminatedUnion('type', [
 ]);
 export type TrackerConfig = z.infer<typeof TrackerConfigSchema>;
 
-export const RULE_NAMES = ['auto_refill', 'stall_detection', 'failure_retry', 'usage_limit', 'handoff_enforcement'] as const;
+export const RULE_NAMES = ['auto_refill', 'stall_detection', 'failure_retry', 'usage_limit', 'handoff_enforcement', 'infra_watch'] as const;
 export type RuleName = (typeof RULE_NAMES)[number];
 
 export const PolicySchema = z.object({
@@ -280,6 +316,80 @@ export const GraphifyConfigSchema = z
   });
 export type GraphifyConfig = z.infer<typeof GraphifyConfigSchema>;
 
+const LoopbackFixture = z.string().refine((s) => {
+  try {
+    const u = new URL(s);
+    return u.protocol === 'http:' && (u.hostname === '127.0.0.1' || u.hostname === 'localhost' || u.hostname === '::1') && !u.username && !u.password && !u.hash;
+  } catch {
+    return false;
+  }
+}, 'use an HTTP loopback fixture with no credentials');
+
+const RelativeDir = z.string().min(1).max(200).refine((s) => !pathLikeAbsolute(s) && !s.split('/').some((p) => p === '..' || p === '.' || !p), 'use a relative directory without traversal');
+function pathLikeAbsolute(s: string): boolean {
+  return s.startsWith('/') || s.startsWith('\\');
+}
+
+const HostName = z.string().regex(/^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(?::[0-9]{1,5})?$/, 'hostname, optional port').max(253);
+const ScopeList = z.array(z.string().regex(/^[a-zA-Z0-9_.:-]{1,80}$/)).max(16).default([]);
+
+/** Owner opt-in. Host and scopes are required when activated. No outbound call until then. */
+const ActivationFields = {
+  activated: z.boolean().default(false),
+  host: HostName.optional(),
+  scopes: ScopeList,
+};
+
+function refineActivation(c: { activated?: boolean; host?: string; scopes?: string[] }, ctx: z.RefinementCtx): void {
+  if (c.activated && (!c.host || !c.scopes?.length)) ctx.addIssue({ code: 'custom', message: 'An activated connection needs a host and at least one scope.', path: ['activated'] });
+}
+
+const WebhookConfigSchema = z.object({
+  secret_account: z.enum(['github-webhook', 'gitlab-webhook']),
+  max_skew_seconds: z.number().int().min(1).max(300).default(300),
+  replay_window_seconds: z.number().int().min(30).max(3600).default(600),
+}).strict();
+
+/** Read-only code host. Live calls happen only after activation (host + scopes) and an egress allowlist entry. */
+export const CodeHostConfigSchema = z.discriminatedUnion('provider', [
+  z.object({
+    provider: z.literal('github'),
+    repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/),
+    fixture_base: LoopbackFixture.optional(),
+    ...ActivationFields,
+    webhook: WebhookConfigSchema.optional(),
+    poll_seconds: z.number().int().min(15).max(300).optional(),
+    finding_issues: z.enum(['manual', 'rule']).default('manual'),
+  }).strict().superRefine(refineActivation),
+  z.object({
+    provider: z.literal('gitlab'),
+    project: z.string().min(1).max(200).refine((s) => !s.includes('..') && !s.includes('://'), 'project id or path'),
+    fixture_base: LoopbackFixture.optional(),
+    ...ActivationFields,
+    webhook: WebhookConfigSchema.optional(),
+    poll_seconds: z.number().int().min(15).max(300).optional(),
+    finding_issues: z.enum(['manual', 'rule']).default('manual'),
+  }).strict().superRefine(refineActivation),
+]);
+export type CodeHostConfig = z.infer<typeof CodeHostConfigSchema>;
+
+/** Read-only hosting and database probes. Live Vercel and Supabase stay off until activated. */
+export const InfraConfigSchema = z.object({
+  finding_issues: z.enum(['manual', 'rule']).default('manual'),
+  vercel: z.object({
+    project: z.string().min(1).max(100),
+    fixture_base: LoopbackFixture.optional(),
+    ...ActivationFields,
+  }).strict().superRefine(refineActivation).optional(),
+  supabase: z.object({
+    project_ref: z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/),
+    fixture_base: LoopbackFixture.optional(),
+    migrations_dir: RelativeDir.default('supabase/migrations'),
+    ...ActivationFields,
+  }).strict().superRefine(refineActivation).optional(),
+}).strict();
+export type InfraConfig = z.infer<typeof InfraConfigSchema>;
+
 export const ControlCenterConfigSchema = z
   .object({
     project: ProjectConfigSchema,
@@ -298,6 +408,8 @@ export const ControlCenterConfigSchema = z
     workflow: WorkflowSchema.default(WorkflowSchema.parse({})),
     knowledge: KnowledgeConfigSchema.optional(),
     graphify: GraphifyConfigSchema.optional(),
+    code_host: CodeHostConfigSchema.optional(),
+    infra: InfraConfigSchema.optional(),
     server: z.object({ port: z.number().int().default(7317) }).default({ port: 7317 }),
   })
   .superRefine((c, ctx) => {

@@ -6,6 +6,7 @@ import { emptyState } from './entities.ts';
 import type { EventEnvelope } from './events.ts';
 import { meaningfulSummary } from './events.ts';
 import { applyLibraryEvent } from './libraryReducer.ts';
+import { applyDesignStudioEvent } from './designStudio.ts';
 
 const ACTIVE_RUN: ReadonlySet<RunState> = new Set(['queued', 'starting', 'running', 'waiting-for-approval', 'waiting-for-input', 'stalled']);
 export const isActiveRun = (r: Pick<Run, 'state'>): boolean => ACTIVE_RUN.has(r.state);
@@ -86,7 +87,7 @@ function refreshAgent(s: ControlState, agentId: string | null | undefined, ts: s
 }
 
 export function applyEvent(state: ControlState, e: EventEnvelope): ControlState {
-  let s: ControlState = { ...state, teamMessages: state.teamMessages ?? {}, workflows: state.workflows ?? {}, reviews: state.reviews ?? {}, merges: state.merges ?? {}, seq: Math.max(state.seq, e.seq) };
+  let s: ControlState = { ...state, teamMessages: state.teamMessages ?? {}, workflows: state.workflows ?? {}, reviews: state.reviews ?? {}, merges: state.merges ?? {}, releases: state.releases ?? {}, codeHost: state.codeHost ?? null, infra: state.infra ?? null, seq: Math.max(state.seq, e.seq) };
   const ts = e.ts;
 
   switch (e.type) {
@@ -119,9 +120,13 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
     case 'design.system_saved':
       s.design=e.data.revision;
       break;
+    case 'design.studio':
+      s.designStudio = applyDesignStudioEvent(s.designStudio, e.data);
+      break;
     case 'skill.draft_saved': case 'skill.version_published': case 'skill.disabled': case 'skill.exported':
     case 'connector.saved': case 'connector.disabled': case 'connector.activation_requested': case 'connector.activated':
     case 'connector.activation_denied': case 'connector.checked': case 'connector.used':
+    case 'connector.tool_requested': case 'connector.tool_denied': case 'connector.tool_execution_started': case 'connector.tool_executed':
     case 'design.mock_captured': case 'design.mock_exception': case 'design.mock_reviewed': case 'design.mock_evidence':
       s = applyLibraryEvent(s, e);
       break;
@@ -242,6 +247,15 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
       s.runs = patchIn(s.runs, e.runId, (r) => ({ ...r, sessionId: e.data.sessionId ?? r.sessionId, resolvedModel: e.data.model ?? r.resolvedModel }));
       if (e.data.model) s.agents = patchIn(s.agents, e.agentId, (a) => ({ ...a, models: { ...a.models, current: e.data.model } }));
       break;
+    case 'run.child':
+      s.runs = patchIn(s.runs, e.runId, (r) => {
+        const kids = r.children ?? [];
+        const i = kids.findIndex((k) => k.sessionId === e.data.sessionId);
+        const done = e.data.state !== 'running';
+        const next = { sessionId: e.data.sessionId, parentSessionId: e.data.parentSessionId, title: e.data.title || kids[i]?.title || 'child session', state: e.data.state, startedAt: kids[i]?.startedAt ?? ts, endedAt: done ? ts : null, error: e.data.error ?? null };
+        return { ...r, children: i < 0 ? [...kids, next].slice(-50) : kids.map((k, j) => (j === i ? next : k)) };
+      });
+      break;
     case 'run.state':
       s.runs = patchIn(s.runs, e.runId, (r) => ({ ...r, state: e.data.state }));
       s = refreshAgent(s, e.agentId, ts);
@@ -320,6 +334,12 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
     case 'decision.recommended':
       s.decisions = patchIn(s.decisions, e.data.decisionId, d => ({ ...d, recommendation: e.data.recommendation, rationale: e.data.rationale, recommendedBy: e.actor }));
       break;
+    case 'decision.advisory':
+      s.decisions = patchIn(s.decisions, e.data.decisionId, d => ({ ...d, advisory: e.data.advisory }));
+      break;
+    case 'decision.advisory_invalidated':
+      s.decisions = patchIn(s.decisions, e.data.decisionId, d => (d.advisory ? { ...d, advisory: { ...d.advisory, stale: true, staleReason: e.data.reason, staleAt: ts } } : d));
+      break;
     case 'decision.confirmation_requested':
       s.decisions = patchIn(s.decisions, e.data.decisionId, d => ({ ...d, expiresAt: e.data.expiresAt }));
       break;
@@ -363,6 +383,15 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
       break;
     case 'merge.refused':
       if (e.data.decisionId) s.decisions = patchIn(s.decisions, e.data.decisionId, (d) => ({ ...d, outcome: `refused: ${e.data.reason}` }));
+      break;
+    case 'release.saved':
+      s.releases = put(s.releases ?? {}, e.data.plan.id, e.data.plan);
+      break;
+    case 'code_host.checked':
+      s.codeHost = e.data.snapshot;
+      break;
+    case 'infra.checked':
+      s.infra = e.data.health;
       break;
     case 'docker.action':
       break;

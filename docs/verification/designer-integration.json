@@ -1,0 +1,327 @@
+{
+  "at": "2026-10-09T14:11:26.627433+00:00",
+  "state": "parent-reviewed-integrated-bundled-native-fixture-checked",
+  "workerHead": "a647b7202210fe8a4ae847fd4af2c346b3ab9f0f",
+  "stage": "/private/tmp/one-connect-designer-review-1dauqz0j",
+  "backup": "/private/tmp/one-connect-designer-backup-fcgpe84l",
+  "files": [
+    {
+      "path": "docs/designer.md",
+      "before": "e12366f32f3dec231b8414f6e86da90613ca8c20de4ec8d721f815c7a51fa812",
+      "after": "f2439b06557cef1adf4767402ec68d06e5f02291985f22ed4d0b16fab20ae5c9"
+    },
+    {
+      "path": "packages/daemon/test/designer-recovery.test.ts",
+      "before": null,
+      "after": "a69b0cd22cf1a1afa41e9a4859ac9408528c52f02b3768a986a095908bac30ec"
+    },
+    {
+      "path": "packages/daemon/test/designer.strip.test.mjs",
+      "before": null,
+      "after": "0fe72d1b3930a99b9d27b7e8028503fa326d3e16f8df5ee507e1373488e2cab1"
+    },
+    {
+      "path": "packages/daemon/test/designer-studio.test.ts",
+      "before": null,
+      "after": "3863a1cfd2d524fae261e12a065a892763517ce7978994ad52df292842bafcaf"
+    },
+    {
+      "path": "packages/daemon/test/event-ordering.test.ts",
+      "before": null,
+      "after": "3137f2b96f3eabe98d27e5275a3d299be355001582cb53f75e16cac7640819fb"
+    },
+    {
+      "path": "packages/daemon/test/adapters.contract.test.ts",
+      "before": "da74d6b498358506faaef3bd121d6caa5b3966a56539d1c0b97b50f77662a8b8",
+      "after": "5baa0b6500d4db355c7f9c16639a5e9b9d631f7c82d9c28b2fee5ea660089dc6"
+    },
+    {
+      "path": "packages/daemon/test/mocks.test.ts",
+      "before": "2bc74edad30ba9d25d2d64de6bd8e03aeaea209694fef02f713b1e5dcf9e59a3",
+      "after": "26738f408042b7787c3421ed20620c35f6239ef828d29af7b785b63bc7fa11ab"
+    },
+    {
+      "path": "packages/daemon/src/mocks.ts",
+      "before": "e711eda068be24ba55e693a9f7c57cc9c2df19d151b17824e4006d88257cbdcc",
+      "after": "be75d5c6d23e6089d7e7a9196ab24a181f8bb97d24e6edb2431eb7919648a03c"
+    },
+    {
+      "path": "packages/daemon/src/daemon.ts",
+      "before": "c9434c673b94977d23dcd270bbc628751c1a7ccbb93f3015c898997806032646",
+      "after": "95ba3bf066af3e1523ab6582f1221b408cdd77f531b8a21bc46417e1f26d967d"
+    },
+    {
+      "path": "packages/daemon/src/mcpBridge.ts",
+      "before": "caaec6988928fcd15b9ee22899b9e457daa5930688a96c05ea47ca12b6990e88",
+      "after": "759d9dbd82b0d39701a146ef4cc7b2b8585677ba3001ea761319882c1148993f"
+    },
+    {
+      "path": "packages/daemon/src/designStudio.ts",
+      "before": null,
+      "after": "6843f4827597e8f004f01b64a62e35e4220bf023387beec2105449114174f53b"
+    },
+    {
+      "path": "packages/daemon/src/designer.ts",
+      "before": "1287f87d49b1eae41029f9c846328443d78fe155bc42b97392b248d270573b20",
+      "after": "9f1b5acd83de4f42ae653b257a20ff0d8c0e589158a9294f461a52868787d49b"
+    },
+    {
+      "path": "packages/daemon/src/skills.ts",
+      "before": "523f1a8f85e5261e838a67379f86491fb64e338637e42030b4167492fd7e1950",
+      "after": "91a71cdf7e94485292199d408cd24e49229861ae388e4d65ae89e2ba03236653"
+    },
+    {
+      "path": "packages/daemon/src/server/designerRoutes.ts",
+      "before": null,
+      "after": "c29cef8f6d6fbef2e9d0cf77d4f26648ecbb91d09b2c77c43df3413890e955e7"
+    },
+    {
+      "path": "packages/daemon/src/server/http.ts",
+      "before": "01849e91b75d6ae0384839950a3097d7d7cde453aa0937ecaddfa4be4c08ed9f",
+      "after": "6715b956fa6a184c08757670c7c6d86aab8af0824ceb34498f94c382616644b7"
+    },
+    {
+      "path": "packages/daemon/src/mcp/server.ts",
+      "before": "ccede03e938b3228b65bdf7c991234cf94d2745437a0a6ae341bc361ee7f389c",
+      "after": "911e66de0f190ed394a248a40034c1f7e809e70c397705c7ba3bfc323181bf16"
+    },
+    {
+      "path": "packages/daemon/src/adapters/agents/claude.ts",
+      "before": "e5244c7dfb2c55b88f21116d9089b3211f9603fe2d45b43060a96a3232a45985",
+      "after": "f9c70ce50f0c9c757a16c9672b8a5dddbdec172ce63720911cd75c0f1b4ecfb7"
+    },
+    {
+      "path": "packages/daemon/resources/designer/manifest.json",
+      "before": "ef7da81f6d2fe9f457b80ef80f92b05b1adc1a4abf11aa6ce6f03bfe5f20b193",
+      "after": "deec0227a6deb2c87e9b6ed76b5512ee1d03b6a0a39a0c9e86d96424adbd60ce"
+    },
+    {
+      "path": "packages/daemon/resources/designer/skills/visual-critique/SKILL.md",
+      "before": null,
+      "after": "c2a27b67e14c6765377d301229b828d53699e2401f5bc6ccbdb1f6603d569161"
+    },
+    {
+      "path": "packages/daemon/resources/designer/skills/product-ui-patterns/SKILL.md",
+      "before": null,
+      "after": "f34e6ade1e4d5b645bb9828d96eee0e0e41a86ee836fc3c999e868082600aa91"
+    },
+    {
+      "path": "packages/daemon/resources/designer/skills/design-system-implementation/SKILL.md",
+      "before": null,
+      "after": "3a5602c2a8c86cf42ddbc7b3203bd1e13d5656c0ec30a9b5c54cabcd3a6e868a"
+    },
+    {
+      "path": "packages/daemon/resources/designer/skills/typography-content/SKILL.md",
+      "before": null,
+      "after": "5da7bf70e879d2b271b5365d22f2f27f2de24c0882f89ab9cf4cdafaa8939953"
+    },
+    {
+      "path": "packages/web/test/designer.test.tsx",
+      "before": null,
+      "after": "3fe611bcc1f6c3dc4853220f4de74699afd77dc662ccb4cd7fefd8bf162a211a"
+    },
+    {
+      "path": "packages/web/test/live-store.test.tsx",
+      "before": null,
+      "after": "b1bb9a102670d6eeee3dc94250329baae585f8292c2866b022c21cbb6cfa1b16"
+    },
+    {
+      "path": "packages/web/test/designer-drafts.test.tsx",
+      "before": null,
+      "after": "909520086f618cd19a311c3b8ad0e28b9e0de6397e9b0ef6fd6c1ec95fa80744"
+    },
+    {
+      "path": "packages/web/src/lib/desktop.ts",
+      "before": "f110ed9b92ae49dee986c20a06a1ccc8170e5bee7490f7f2b322494564de1beb",
+      "after": "d9fa59583cac25b79afda06a841358502c164bc208d3c7d9c6c00cd5117b2c67"
+    },
+    {
+      "path": "packages/web/src/lib/api.ts",
+      "before": "d88cf64ee4664f714b35223561827571233a8599bbd7c195f29a28b742d51340",
+      "after": "f4344cd7cf8eb664448f6606a001063d71b8fe314bd249fc00c8faf9abaf63a7"
+    },
+    {
+      "path": "packages/web/src/lib/store.ts",
+      "before": "6cef678921baffa44dd3f71a5546e6eeb72cb0c2b57430c975f1174bc1638b24",
+      "after": "ba4a35142d81cb53d1e66fa1dd1eef2acf74ae2bc1cead9219c33ed6bed6ae86"
+    },
+    {
+      "path": "packages/web/src/pages/Mocks.tsx",
+      "before": "13d8512c449a35dbcc14729060e15a2fb9072372812b39a990c37e53897e2cb5",
+      "after": "b5379342d80d0b3ce9e4785201a8129d48ac1c9119c99dae586ffeec5064d195"
+    },
+    {
+      "path": "packages/web/src/pages/Designer.tsx",
+      "before": "6b9cb133caf807589b31fab5d0e2773880c1c87e55e991cc1b2fd8206c4e9674",
+      "after": "9d15f503ae0c7c147a33adaba77ca1ac3996a4f5297c9e4d4805530451a77e0e"
+    },
+    {
+      "path": "packages/web/src/components/designer/JobCard.tsx",
+      "before": null,
+      "after": "375c7010a179f08014462d20950ee7cfe48123506f82d3588aa231208e12b6bd"
+    },
+    {
+      "path": "packages/web/src/components/designer/shared.tsx",
+      "before": null,
+      "after": "b3d9701befb290d66cedac3b92e7017b557fd2050fca5723e5659d2a525f3c57"
+    },
+    {
+      "path": "packages/web/src/components/designer/ContractEditor.tsx",
+      "before": null,
+      "after": "260c02bf2a899ed404485598d6e2c9488571d01d8c0d26ae5672e4d43ec6a3df"
+    },
+    {
+      "path": "packages/web/src/components/designer/designer.css",
+      "before": null,
+      "after": "3a376d47c50a7da01362e67169d516cdc29204969f9baaa868f560f8bbdd2c43"
+    },
+    {
+      "path": "packages/web/src/components/designer/BriefForm.tsx",
+      "before": null,
+      "after": "f88bb6ae79f8e09fe0bfbd2df6e11e6fa42a075c694c7e514af2e9ed1800d580"
+    },
+    {
+      "path": "packages/web/src/components/designer/MockPanels.tsx",
+      "before": null,
+      "after": "798d7fcd612c1b8879d4a52d3e05c5591aa9689c614c8efc481cb2823db79a75"
+    },
+    {
+      "path": "packages/web/src/components/designer/Specimen.tsx",
+      "before": null,
+      "after": "9faab2d00d0d869963f8c346550d9b8101546b5fc5fd203107af3ee404420fe7"
+    },
+    {
+      "path": "packages/web/src/components/designer/MockStage.tsx",
+      "before": null,
+      "after": "d99120c0bbd482a8d5c43c1938bff9be2b77c795106637544f62f2c4962e9ea0"
+    },
+    {
+      "path": "packages/core/test/design-studio.test.ts",
+      "before": null,
+      "after": "1216d38acd4a8346576fd277fd1ba0a2370946196d168059585e81bcdc696da9"
+    },
+    {
+      "path": "packages/core/src/mocks.ts",
+      "before": "bf504802810ff771ec6055d73409108a7a64e8391a3019b4b1a59dcc6c75d789",
+      "after": "f5daaf7a10644f1d43dea827141ecb6eaa71a2199c2a5e024aba388554f4a38f"
+    },
+    {
+      "path": "packages/core/src/entities.ts",
+      "before": "e5e50b1fdbbbc492fe27724041185ea731bee665a4f3c3f601680aa715f52670",
+      "after": "21df90132a4bbcd70b940e8177883a1d6100bc0915a4bf034ea8274aaa4dc6c7"
+    },
+    {
+      "path": "packages/core/src/designStudio.ts",
+      "before": null,
+      "after": "ed52602cb9d43502307e2db9a9eb6109ae7e9522fbdab6147b506611a7f8dbe0"
+    },
+    {
+      "path": "packages/core/src/reducer.ts",
+      "before": "9ed0b3139ce3fa041c1e83ea95bd7793c3d1e680921bbdaa806fd15954de5c11",
+      "after": "ed1d0aca65e1fce14c402ff7601c84e0a43e61f95d0b5c7a5a9772db8f83de01"
+    },
+    {
+      "path": "packages/core/src/design.ts",
+      "before": "2d94c0fd137f34b4f6da263b921d7e08b2f0f65c741b1eb21e67e15c846f0935",
+      "after": "ceeed249be549a062b5ca4ff47962eebaa66fe91da7909c3b1d0cb48eccd636f"
+    },
+    {
+      "path": "packages/core/src/events.ts",
+      "before": "4eb438f25a37131943171dd70b05e0a50041ba102d45353d3aaf889225cb5209",
+      "after": "d7139a1673d17b4edf74f7769774f2b17ec4d63240dc176a575929173197084a"
+    },
+    {
+      "path": "packages/core/src/index.ts",
+      "before": "94c9f4cbb6f8753e1fcbaf9394d270cad01e2d3982d8e395ca7e3e820d394880",
+      "after": "c492985dec99684e03962ec11cc95f3a5aa24214c10d32a3d22d3c4f15c811e7"
+    },
+    {
+      "path": "examples/fake-agent/fake-agent.mjs",
+      "before": "f34f8922c194af7cfed74c42210a557d890013afa7cb577d125dbedfd3f90e9b",
+      "after": "42add7ae76ca457d62323775af985014e26b2d27123dcbad9108899e324b7718"
+    },
+    {
+      "path": "packages/desktop/src-tauri/src/main.rs",
+      "before": "cf66a28e9a415c4a96005813beeec6de33adb7897dbc70eff0452d9a2c03c341",
+      "after": "e910a1cc510eb7cf35d50fbd5183004f6feb15448ba5c6212be9df3668502948"
+    },
+    {
+      "path": "packages/desktop/src-tauri/src/terminal.rs",
+      "before": "0d939fc3810ed3ce81bf41d20f534f437153e86fadf161f45827715f9dcefb7e",
+      "after": "90b8333ff009d669edf559a1b2e5624759d804f6b2cc2ad08d9aac3e0ad13c2f"
+    }
+  ],
+  "sharedChanges": "Explicit designer contracts plus parent event delivery, scoped drafts, recovery and adapter allowlists; no worker blanket apply or primary Git mutation.",
+  "verification": {
+    "workspace": {
+      "passed": 787,
+      "skipped": 4,
+      "failed": 0,
+      "files": 89
+    },
+    "focused": {
+      "passed": 55,
+      "failed": 0
+    },
+    "web": {
+      "passed": 57,
+      "failed": 0
+    },
+    "installedBrowserIsolation": {
+      "passed": 2,
+      "failed": 0,
+      "engines": [
+        "Chromium",
+        "WebKit"
+      ]
+    },
+    "directNode24Contract": {
+      "passed": 1,
+      "durationMs": 2316.148417
+    },
+    "typechecks": "passed",
+    "build": "passed",
+    "spdx": 333,
+    "license": "166 compatible runtime dependencies; four original skill rows generated from dependency/resource manifest",
+    "primaryFinalWorkspace": {
+      "passed": 787,
+      "skipped": 4,
+      "failed": 0,
+      "files": 89,
+      "report": "designer-primary-workspace-results.json"
+    },
+    "nativeInitial": {
+      "passed": 23,
+      "failed": 1,
+      "test": "close_completes_when_pty_output_ends_before_child",
+      "reproducedSequentially": true,
+      "newPutBridgeTest": "passed",
+      "review": "Fixture retained a macOS controlling-terminal kernel reference despite redirecting stdio. Testing a fixture-only non-controlling PTY so actual reader EOF precedes child exit."
+    },
+    "nativeFinal": {
+      "passed": 24,
+      "failed": 0,
+      "mode": "default parallel cargo test --locked offline",
+      "initialFailure": "Corrected the fixture-only controlling terminal reference; preserved the actual early-EOF, child-live and bounded stop assertions."
+    }
+  },
+  "parentFixes": [
+    "Project-bound draft writes; flush before native switch, serialized autosave/discard, failed loads never overwrite, stale receipts never clear later edits",
+    "Nested event commits persist immediately and fan out in order; unseen old controls resync from authoritative state; transcript sequences cannot skip control replay",
+    "Automatic capture listener drains on shutdown and recovers missing completion receipts on restart",
+    "Concurrent captures of the same artifact serialize; unchanged content is idempotent",
+    "Only exact recorded command/exit result verifies agent evidence; substring claims rejected",
+    "Review-and-handoff step requires an engineering draft bound to a currently approved independent gate",
+    "Native preview cache binds to project and auth generation; Claude MCP allowlist remains explicit",
+    "Native HTTP bridge accepts PUT, verified with an actual authenticated loopback draft write; arbitrary methods and internal MCP paths remain denied"
+  ],
+  "limitations": [
+    "Fixture child processes and local tracker are real protocol evidence, not live paid provider or cloud tracker proof",
+    "Four optional checks skipped in workspace suite; browser isolation checked separately with already installed engines",
+    "Native fixture save/generate/capture/preview checked; project switch/restart/refine/review/export and live-provider quality remain pending."
+  ],
+  "bundled": true,
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect Studio.app",
+  "bundleEngineSha256": "fb1fa06d7b286395925417c97a1f03add1b736e21c6e00643c65fec728aa7aca",
+  "nativeObservation": "studio-native-observation.json"
+}

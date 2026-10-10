@@ -5,19 +5,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import {
-  containsSecret, HUMAN, isActiveRun, SYSTEM, SkillDraftSchema, skillAdvice, skillMarkdown, SKILL_ID_RE,
-  type AdapterType, type Assignment, type ProjectSkill, type SkillDraft, type SkillRef, type SkillVersion,
+  containsSecret, HUMAN, isActiveRun, SKILL_TEMPLATES, SYSTEM,
+  SkillDraftSchema, skillAdvice, skillMarkdown, SKILL_ID_RE, stripGeneratedReferencesFooter,
+  type AdapterType, type Assignment, type ProjectSkill, type SkillBundle, type SkillDraft, type SkillImportPreview, type SkillRef, type SkillVersion,
 } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';
 import { builtinSkill, builtinSkillFile } from './designer.ts';
 import { ensureExcluded } from './adapters/vcs/git.ts';
+import { draftHash, filesHash } from '@acc/core/skillHash';
+import { buildSkillBundle, previewSkillImport, type ImportFilesInput } from './skillImport.ts';
 
 const exec = promisify(execFile);
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
-const DESIGN_LABEL = /^(design|ui|mock|frontend|branding)$/i;
 
 /** Where each harness discovers repository skills. Relay runs have no worktree. */
 export const SKILL_EXPORT_DIRS: Record<AdapterType, string | null> = {
@@ -26,6 +29,8 @@ export const SKILL_EXPORT_DIRS: Record<AdapterType, string | null> = {
   'cursor-agent-cli': '.cursor/skills',
   'generic-cli': '.agents/skills',
   relay: null,
+  // OpenCode reads skills through the acc MCP get_skill tool; its repository skill directory is unverified.
+  'opencode-server': null,
 };
 
 interface StoredVersion { version: SkillVersion; files: { path: string; content: string }[] }
@@ -34,7 +39,6 @@ interface ExportRecord { worktree: string; root: string | null; at: string; writ
 function filesOf(d: SkillDraft) {
   return [{ path: 'SKILL.md', content: skillMarkdown(d) }, ...d.references.map(r => ({ path: r.path, content: r.content }))];
 }
-const filesHash = (files: { path: string; sha256: string }[]) => sha(files.map(f => `${f.path}\0${f.sha256}`).sort().join('\n'));
 
 function frontmatterName(text: string): string | null {
   const m = /^---\n([\s\S]*?)\n---/.exec(text);
@@ -64,7 +68,14 @@ export class SkillLibrary {
       builtin: this.d.designer.skills().map(s => ({ ...s, kind: 'builtin' as const, references: builtinSkill(s.id)!.files.map(f => f.path).filter(p => p !== 'SKILL.md') })),
       project: Object.values(this.skillsState()).sort((a, b) => a.id.localeCompare(b.id)),
       exportDirs: SKILL_EXPORT_DIRS,
+      templates: SKILL_TEMPLATES.map(t => ({ id: t.id, title: t.title, description: t.description, license: t.license })),
     };
+  }
+
+  template(id: string) {
+    const t = SKILL_TEMPLATES.find(x => x.id === id);
+    if (!t) throw new CommandError('Unknown skill template', 404);
+    return { template: t, advice: skillAdvice(t.draft), note: 'Templates are drafts only. Nothing runs until you save, publish and assign the skill.' };
   }
 
   draft(id: string): SkillDraft | null {
@@ -80,15 +91,26 @@ export class SkillLibrary {
   detail(id: string) {
     const skill = this.skillsState()[id];
     if (!skill) throw new CommandError('Unknown project skill', 404);
-    const draft = this.draft(id);
+    const raw = this.draft(id);
     const latest = skill.latest ? this.stored(id, skill.latest) : null;
-    const editable: SkillDraft | null = draft ?? (latest ? this.toDraft(latest) : null);
+    const editable: SkillDraft | null = raw ?? (latest ? this.toDraft(latest) : null);
+    const draft = raw && skill.draft ? { ...raw, hash: skill.draft.hash } : null;
     return { skill, draft, editable, advice: editable ? skillAdvice(editable) : [], usedBy: Object.values(this.d.state.agents).filter(a => a.config.skills?.includes(id)).map(a => a.id) };
   }
 
   private toDraft(v: StoredVersion): SkillDraft {
-    const body = v.files.find(f => f.path === 'SKILL.md')!.content.replace(/^---\n[\s\S]*?\n---\n\n/, '').replace(/\n\n## References \(load on demand\)\n\n[\s\S]*$/, '').trim();
-    return { id: v.version.id, name: v.version.name, description: v.version.description, instructions: body, references: v.files.filter(f => f.path !== 'SKILL.md').map(f => ({ path: f.path, content: f.content })) };
+    const refPaths = v.files.filter(f => f.path !== 'SKILL.md').map(f => f.path);
+    const skillMd = v.files.find(f => f.path === 'SKILL.md')!.content;
+    const body = stripGeneratedReferencesFooter(skillMd.replace(/^---\n[\s\S]*?\n---\n\n/, ''), refPaths);
+    return {
+      id: v.version.id,
+      name: v.version.name,
+      description: v.version.description,
+      instructions: body,
+      references: v.files.filter(f => f.path !== 'SKILL.md').map(f => ({ path: f.path, content: f.content })),
+      source: v.version.source ?? null,
+      license: v.version.license ?? null,
+    };
   }
 
   /** Validates and stores a draft. Expected is the previous draft hash (null for a new skill). */
@@ -101,25 +123,45 @@ export class SkillLibrary {
     const cur = this.skillsState()[draft.id];
     const currentHash = cur?.draft?.hash ?? null;
     if (expected !== currentHash) throw new CommandError('This skill changed. Reload before saving.', 409);
-    const hash = sha(JSON.stringify(draft));
+    const hash = draftHash(draft);
     if (hash !== currentHash) {
       this.d.commit([{ type: 'skill.draft_saved', actor: HUMAN, data: { id: draft.id, name: draft.name, description: draft.description, hash } }], [], () => this.d.store.kvSet(`skill:draft:${draft.id}`, JSON.stringify(draft)));
     }
     return { skill: this.skillsState()[draft.id], advice: skillAdvice(draft) };
   }
 
+  importPreview(input: { files?: ImportFilesInput; bundle?: unknown }): SkillImportPreview {
+    if (containsSecret(JSON.stringify(input), { denylist: this.d.denylist() }).length) throw new CommandError('Remove credentials from this skill before importing.');
+    let preview: SkillImportPreview;
+    try { preview = previewSkillImport(input); }
+    catch (e) {
+      const msg = (e as Error).message;
+      if (containsSecret(msg, { denylist: this.d.denylist() }).length) throw new CommandError('Import content contains credentials.');
+      throw e;
+    }
+    if (this.reservedNames().has(preview.draft.id)) throw new CommandError(`"${preview.draft.id}" is owned by a pinned built-in skill. Choose another id.`, 409);
+    if (containsSecret(JSON.stringify(preview.draft), { denylist: this.d.denylist() }).length) throw new CommandError('Remove credentials from this skill before importing.');
+    return preview;
+  }
+
   /** Freezes the current draft as the next immutable version. */
-  publish(id: string, expectedLatest: number | null): SkillVersion {
+  publish(id: string, expectedLatest: number | null, expectedDraftHash: string | null): SkillVersion {
+    if (!expectedDraftHash) throw new CommandError('Publish requires the draft hash you reviewed.', 409);
     const cur = this.skillsState()[id];
     if (!cur) throw new CommandError('Unknown project skill', 404);
     if ((cur.latest ?? null) !== expectedLatest) throw new CommandError('A newer version was published. Reload before publishing.', 409);
     const draft = this.draft(id);
     if (!draft || !cur.draft) throw new CommandError('Save a draft before publishing a new version.', 409);
+    if (cur.draft.hash !== expectedDraftHash) throw new CommandError('The draft changed since you last saved. Reload and review before publishing.', 409);
     const parsed = SkillDraftSchema.parse(draft);
+    if (draftHash(parsed) !== expectedDraftHash) throw new CommandError('The draft changed since you last saved. Reload and review before publishing.', 409);
     if (containsSecret(JSON.stringify(parsed), { denylist: this.d.denylist() }).length) throw new CommandError('Remove credentials from this skill.');
     const files = filesOf(parsed);
     const meta = files.map(f => ({ path: f.path, sha256: sha(f.content), bytes: Buffer.byteLength(f.content) }));
-    const version: SkillVersion = { id, version: (cur.latest ?? 0) + 1, hash: filesHash(meta), name: parsed.name, description: parsed.description, files: meta, createdAt: this.d.nowIso(), by: HUMAN };
+    const version: SkillVersion = {
+      id, version: (cur.latest ?? 0) + 1, hash: filesHash(meta), name: parsed.name, description: parsed.description,
+      files: meta, createdAt: this.d.nowIso(), by: HUMAN, source: parsed.source ?? null, license: parsed.license ?? null,
+    };
     const key = `skill:version:${id}@${version.version}`;
     if (this.d.store.kvGet(key)) throw new CommandError('Version already exists', 409);
     this.d.commit([{ type: 'skill.version_published', actor: HUMAN, data: { version } }], [], () => {
@@ -127,6 +169,29 @@ export class SkillLibrary {
       this.d.store.kvDelete(`skill:draft:${id}`);
     });
     return version;
+  }
+
+  exportVersion(id: string, version: number): SkillBundle {
+    if (this.d.designer.hasSkill(id)) throw new CommandError('Built-in skills are pinned by hash with their license notices in the catalog. Export project skills instead.', 409);
+    const stored = this.stored(id, version);
+    if (!stored) throw new CommandError('Unknown skill version', 404);
+    const published = this.skillsState()[id]?.versions.find(v => v.version === version);
+    if (!published || !isDeepStrictEqual(stored.version, published)) throw new CommandError('Stored skill metadata no longer matches its published event', 409);
+    const ref: SkillRef = { id, source: 'project', version: String(version), hash: published.hash, name: published.name, description: published.description };
+    const files = this.filesFor(ref);
+    const meta = stored.version.files.map(f => f.path).sort();
+    const actual = files.map(f => f.path).sort();
+    if (meta.length !== actual.length || meta.some((p, i) => p !== actual[i])) throw new CommandError('Stored skill version is missing files or has extras', 409);
+    for (const f of stored.version.files) if (sha(files.find(x => x.path === f.path)!.content) !== f.sha256) throw new CommandError('Skill integrity check failed', 409);
+    if (filesHash(stored.version.files) !== stored.version.hash) throw new CommandError('Skill integrity check failed', 409);
+    const payload = JSON.stringify({ version: stored.version, files });
+    if (containsSecret(payload, { denylist: this.d.denylist() }).length) throw new CommandError('This version contains credentials and cannot be exported.');
+    const source = stored.version.source?.trim() || null;
+    const license = stored.version.license?.trim() || null;
+    if (source && (source.startsWith('/') || /^[A-Za-z]:\\/.test(source) || source.includes('://') && /:\/\/[^/]*@/.test(source))) {
+      throw new CommandError('Export metadata cannot include credential-bearing source URLs or local filesystem paths.');
+    }
+    return buildSkillBundle({ ...stored.version, source, license }, files);
   }
 
   setDisabled(id: string, disabled: boolean): ProjectSkill {
@@ -154,7 +219,7 @@ export class SkillLibrary {
   freeze(agentId: string, workItemId: string): SkillRef[] {
     const cfg = this.d.state.agents[agentId]?.config, item = this.d.state.workItems[workItemId];
     const ids = new Set(cfg?.skills ?? []);
-    if (item?.labels.some(l => DESIGN_LABEL.test(l))) for (const s of this.d.designer.skills()) ids.add(s.id);
+    for (const id of this.d.designer.defaultSkillIds(item)) ids.add(id);
     const refs: SkillRef[] = [];
     for (const id of ids) {
       if (this.d.designer.hasSkill(id)) { refs.push(this.builtinRef(id)); continue; }
@@ -219,6 +284,78 @@ export class SkillLibrary {
     return raw ? (JSON.parse(raw) as ExportRecord) : null;
   }
 
+  private readOwnedFile(abs: string, rel: string, expected: string, expectedBytes: number, owned: Map<string, string>, rec: ExportRecord): string | null {
+    if (!owned.has(rel)) return null;
+    let fd: number | null = null;
+    try {
+      fd = fs.openSync(abs, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+      const st = fs.fstatSync(fd);
+      if (!st.isFile()) { rec.skipped.push({ path: rel, reason: 'not a regular file' }); return null; }
+      if (st.nlink > 1) { rec.skipped.push({ path: rel, reason: 'hardlinked file; not overwritten' }); return null; }
+      if (st.size !== expectedBytes) { rec.skipped.push({ path: rel, reason: 'file was edited in the worktree; not overwritten' }); return null; }
+      const cur = fs.readFileSync(fd, 'utf8');
+      if (sha(cur) !== owned.get(rel)) { rec.skipped.push({ path: rel, reason: 'file was edited in the worktree; not overwritten' }); return null; }
+      if (sha(cur) === expected) return cur;
+      rec.skipped.push({ path: rel, reason: 'file content changed; not overwritten' });
+      return null;
+    } catch {
+      return null;
+    } finally {
+      if (fd !== null) fs.closeSync(fd);
+    }
+  }
+
+  private safeWriteFile(abs: string, rel: string, content: string, owned: Map<string, string>, rec: ExportRecord): boolean {
+    const expected = sha(content);
+    if (owned.has(rel)) {
+      const cur = this.readOwnedFile(abs, rel, expected, Buffer.byteLength(content), owned, rec);
+      if (cur !== null) {
+        rec.written.push({ path: rel, sha256: expected });
+        return true;
+      }
+      if (rec.skipped.some(s => s.path === rel)) return false;
+    }
+    const exists = fs.existsSync(abs);
+    if (exists) {
+      let fd: number | null = null;
+      try {
+        fd = fs.openSync(abs, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+        const st = fs.fstatSync(fd);
+        if (!st.isFile()) { rec.skipped.push({ path: rel, reason: 'not a regular file' }); return false; }
+        if (st.nlink > 1) { rec.skipped.push({ path: rel, reason: 'hardlinked file; not overwritten' }); return false; }
+        if (!owned.has(rel) || st.size !== Buffer.byteLength(content)) { rec.skipped.push({ path: rel, reason: 'exists and is not managed or no longer matches its snapshot' }); return false; }
+        const cur = fs.readFileSync(fd, 'utf8');
+        if (sha(cur) === expected) { rec.written.push({ path: rel, sha256: expected }); return true; }
+        if (!owned.has(rel)) { rec.skipped.push({ path: rel, reason: 'exists and is not managed by One Connect' }); return false; }
+        rec.skipped.push({ path: rel, reason: 'file content changed; not overwritten' }); return false;
+      } catch {
+        rec.skipped.push({ path: rel, reason: 'could not open existing file safely' });
+        return false;
+      } finally {
+        if (fd !== null) fs.closeSync(fd);
+      }
+    }
+    let fd: number | null = null;
+    try {
+      fd = fs.openSync(abs, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o644);
+      const st = fs.fstatSync(fd);
+      if (!st.isFile()) { rec.skipped.push({ path: rel, reason: 'not a regular file' }); return false; }
+      if (st.nlink > 1) { rec.skipped.push({ path: rel, reason: 'hardlinked file; not overwritten' }); return false; }
+      fs.writeFileSync(fd, content, 'utf8');
+      rec.written.push({ path: rel, sha256: expected });
+      return true;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
+        rec.skipped.push({ path: rel, reason: 'exists and is not managed by One Connect' });
+      } else {
+        rec.skipped.push({ path: rel, reason: 'could not create file safely' });
+      }
+      return false;
+    } finally {
+      if (fd !== null) fs.closeSync(fd);
+    }
+  }
+
   /**
    * Writes the frozen skills into the assignment worktree for its harness. Paths the repository
    * tracks, symlinks and directories not written by One Connect are skipped, never overwritten.
@@ -253,7 +390,22 @@ export class SkillLibrary {
       const why = blocked(dir) ?? ((await tracked(dir)) ? 'the repository already tracks this path' : null);
       if (why) { rec.skipped.push({ path: dir, reason: why }); continue; }
       const foreign = files.map(f => `${dir}/${f.path}`).find(p => fs.existsSync(path.join(wt, p)) && !owned.has(p));
-      const changed = files.map(f => `${dir}/${f.path}`).find(p => owned.has(p) && fs.existsSync(path.join(wt, p)) && sha(fs.readFileSync(path.join(wt, p), 'utf8')) !== owned.get(p));
+      const changed = files.map(f => `${dir}/${f.path}`).find(p => {
+        if (!owned.has(p) || !fs.existsSync(path.join(wt, p))) return false;
+        const abs = path.join(wt, p);
+        let st: fs.Stats;
+        try { st = fs.lstatSync(abs); } catch { return true; }
+        if (!st.isFile() || st.nlink > 1) return false;
+        const content = files.find(f => `${dir}/${f.path}` === p)!.content;
+        if (st.size !== Buffer.byteLength(content)) return true;
+        const fd = fs.openSync(abs, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+        try {
+          const current = fs.fstatSync(fd);
+          if (!current.isFile() || current.nlink > 1) return false;
+          if (current.size !== Buffer.byteLength(content)) return true;
+          return sha(fs.readFileSync(fd, 'utf8')) !== owned.get(p);
+        } finally { fs.closeSync(fd); }
+      });
       if (foreign || changed) { rec.skipped.push({ path: dir, reason: foreign ? `${foreign} exists and is not managed by One Connect` : `${changed} was edited in the worktree; not overwritten` }); continue; }
       for (const f of files) {
         const rel = `${dir}/${f.path}`;
@@ -262,9 +414,7 @@ export class SkillLibrary {
         const abs = path.join(wt, rel);
         fs.mkdirSync(path.dirname(abs), { recursive: true });
         if (!fs.realpathSync(path.dirname(abs)).startsWith(wt + path.sep)) { rec.skipped.push({ path: rel, reason: 'resolves outside the worktree' }); continue; }
-        const fd = fs.openSync(abs, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | fs.constants.O_NOFOLLOW, 0o644);
-        try { fs.writeSync(fd, f.content); } finally { fs.closeSync(fd); }
-        rec.written.push({ path: rel, sha256: sha(f.content) });
+        this.safeWriteFile(abs, rel, f.content, owned, rec);
       }
       await ensureExcluded(wt, `/${dir}/`);
     }

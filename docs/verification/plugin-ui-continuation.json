@@ -1,0 +1,66 @@
+{
+  "recordedAt": "2026-10-08T14:35:57.936019+00:00",
+  "workspace": "/private/tmp/one-connect-parallel-20261007/plugin-decisions",
+  "integrated": true,
+  "owner": "Coordinator independently reviewed and finished backend/UI after worker quota limits; backend worker closed.",
+  "verification": {
+    "focusedWebTests": {
+      "passed": 12,
+      "failed": 0,
+      "files": 3,
+      "command": "pnpm exec vitest run packages/web/test/connectors-mcp.test.tsx packages/web/test/library.test.tsx packages/web/test/release-connectors.test.tsx",
+      "toolSession": 19157
+    },
+    "webTypecheck": "passed",
+    "runtime": "pinned Node 24.21.0",
+    "latestFocusedWebTests": {
+      "passed": 53,
+      "failed": 0,
+      "report": "docs/verification/plugin-ui-test-results.json",
+      "scope": "Final reviewed plugin source; historical earlier 54-count run replaced by accepted evidence."
+    },
+    "currentIntegratedWorkspace": {
+      "passed": 787,
+      "skipped": 4,
+      "failed": 0,
+      "report": "docs/verification/designer-primary-workspace-results.json"
+    }
+  },
+  "changes": [
+    "Every argument/tool edit synchronously invalidates pending responses",
+    "Configuration eligibility changes remount the card and clear the old receipt",
+    "Collection response generation and unmount guards",
+    "One outstanding poll for the current request and generation",
+    "Returned request, connector, tool and config identities must match before output is accepted",
+    "Deferred request and poll regressions cover old edits/configuration/request IDs",
+    "Final plugin confirmation repeats exact command, arguments and program boundary",
+    "Plugin Decision response distinguishes success, failure, denial and uncertainty; rejects foreign action identity"
+  ],
+  "source": [
+    {
+      "path": "packages/web/src/pages/Connectors.tsx",
+      "sha256": "a21a78b37061609cf219a82471a952ac66ed4e78fc4ad941862d83144cabaaf4"
+    },
+    {
+      "path": "packages/web/src/pages/Decisions.tsx",
+      "sha256": "abfe16cc902eab7ef32841c1e3b46c75648a4d2098957047b7dd25e3d89846b7"
+    },
+    {
+      "path": "packages/web/test/connectors-mcp.test.tsx",
+      "sha256": "a9557552d7d3f583126be4cd905110992bab42425e873c6e585756d3dc52c75c"
+    },
+    {
+      "path": "packages/web/test/plugin-decisions.test.tsx",
+      "sha256": "0e4379e8e7c04f0d0b65f96009b96f8eab98188c48e5f0a9df1c660e6858854c"
+    }
+  ],
+  "limitations": [
+    "No live MCP plugin or vendor tool invocation was activated",
+    "Native plugin action approval journey remains pending"
+  ],
+  "updatedAt": "2026-10-09T14:33:57.699639+00:00",
+  "integration": "plugin-actions-integration.json",
+  "bundled": true,
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect Studio.app",
+  "bundleEngineSha256": "fb1fa06d7b286395925417c97a1f03add1b736e21c6e00643c65fec728aa7aca"
+}

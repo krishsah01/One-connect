@@ -114,6 +114,9 @@ describe('launch specs', () => {
     const s = claudeAdapter.buildLaunch(ctx(cfg.agents[0]));
     expect(s.args).toEqual(expect.arrayContaining(['-p', '--output-format', 'stream-json', '--input-format', 'stream-json', '--strict-mcp-config', '--permission-prompt-tool', 'mcp__acc__permission_prompt', '--add-dir', '/repo/.git', '--model', 'm1', '--effort', 'high']));
     expect(s.stdin).toMatchObject({ mode: 'stream', closeOnMatch: '"type":"result"' });
+    const tools=s.args[s.args.indexOf('--allowedTools')+1].split(',');
+    expect(tools).toEqual(expect.arrayContaining(['get_project_context','get_design_mock','submit_design_review','call_connector_tool','get_connector_tool_result'].map(t=>`mcp__acc__${t}`)));
+    expect(tools).not.toContain('mcp__acc__*');
     expect(JSON.parse(s.stdin.initial!).message.content[0].text).toBe('do it');
     expect(claudeAdapter.buildLaunch(ctx(cfg.agents[0], { resume: { sessionId: 's1', message: 'go on' } })).args).toEqual(expect.arrayContaining(['--resume', 's1']));
   });

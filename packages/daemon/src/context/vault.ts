@@ -20,7 +20,7 @@ export interface SearchHit {
   snippet: string;
 }
 
-const MAX_FILES = 3000;
+const MAX_FILES = 6000;
 const MAX_BYTES = 1024 * 1024;
 const PROJECT_MARKER='.one-connect-project',GENERATED_MARKER='.one-connect-generated';
 const digest=(text:string|Buffer)=>createHash('sha256').update(text).digest('hex');
@@ -215,12 +215,50 @@ export class Vault {
     this.lastWriteAt=new Date().toISOString();
   }
 
+  /**
+   * Incremental update of a marked, app-generated collection: write changed notes and delete
+   * removed ones, each with an atomic rename, then commit the registry last. Unregistered user
+   * notes are never overwritten, read or deleted. Readers validate note hashes against the
+   * registry, so a note seen mid-update cannot claim attribution it does not have.
+   */
+  patchGenerated(rel:string,write:Record<string,string>,remove:string[]):void {
+    this.claim();
+    const abs=this.resolveInside(rel,[this.folder]);
+    if(!abs||abs===path.resolve(this.root,this.folder))throw new Error('Invalid generated note directory');
+    if(!fs.existsSync(abs)||fs.lstatSync(abs).isSymbolicLink()||!fs.statSync(abs).isDirectory())throw new Error('Generated notes are missing; a full rebuild is required');
+    const prior=this.generated(abs);if(!prior)throw new Error('Generated notes would overwrite an unowned folder');
+    for(const name of [...Object.keys(write),...remove])if(!/^(?:[a-f0-9]{64}|Overview)\.md$/.test(name))throw new Error('Invalid generated note name');
+    const present=new Set(fs.readdirSync(abs));
+    if(Object.keys(write).some(name=>present.has(name)&&!Object.hasOwn(prior.notes,name)))throw new Error('Generated notes would overwrite an unowned note');
+    const notes={...prior.notes};
+    for(const [name,content] of Object.entries(write)) {
+      const tmp=path.join(abs,`.${name}.one-connect-tmp`);
+      fs.writeFileSync(tmp,content,{mode:0o600});fs.renameSync(tmp,path.join(abs,name));notes[name]=digest(content);
+    }
+    for(const name of remove) {
+      if(!Object.hasOwn(prior.notes,name))continue;
+      const file=path.join(abs,name);
+      try{if(!fs.lstatSync(file).isSymbolicLink())fs.rmSync(file,{force:true});else fs.unlinkSync(file);}catch{/* already gone */}
+      delete notes[name];
+    }
+    const manifest:Generated={version:2,owner:this.owner,notes};
+    const tmp=path.join(abs,`${GENERATED_MARKER}.tmp`);
+    fs.writeFileSync(tmp,JSON.stringify(manifest)+'\n',{mode:0o600});fs.renameSync(tmp,path.join(abs,GENERATED_MARKER));
+    this.lastWriteAt=new Date().toISOString();
+  }
+
+  /** Registered note names and hashes of a generated collection (null when not owned/intact). */
+  generatedNotes(rel:string):Record<string,string>|null {
+    const abs=this.resolveInside(rel,[this.folder]);if(!abs)return null;
+    return this.generated(abs)?.notes??null;
+  }
+
   read(rel: string): string {
     const withExt = rel.endsWith('.md') ? rel : `${rel}.md`;
     const abs = this.resolveInside(withExt, this.readableFolders());
     if (!abs) throw new Error(`"${rel}" is outside the folders agents may read (${this.readableFolders().join(', ')})`);
     if (!fs.existsSync(abs)) throw new Error(`no such note: ${withExt}`);
-    const collection=path.resolve(this.root,this.notePath('One Answer'));
+    const collection=path.resolve(this.root,this.notePath('Dictionary'));
     if(this.owner&&abs.startsWith(collection+path.sep)) {
       const manifest=this.generated(collection);
       if(!manifest||!Object.hasOwn(manifest.notes,path.relative(collection,abs)))throw new Error('Note is outside the generated source registry');

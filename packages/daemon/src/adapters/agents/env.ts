@@ -16,6 +16,7 @@ export const METERED_ENV_VARS: Record<string, string[]> = {
   'cursor-agent-cli': ['CURSOR_API_KEY'],
   'generic-cli': ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENAI_USE_VERTEXAI', 'XAI_API_KEY', 'GROK_API_KEY', 'OPENROUTER_API_KEY'],
   relay: [],
+  'opencode-server': [],
 };
 
 const ALL_METERED = [...new Set(Object.values(METERED_ENV_VARS).flat())];

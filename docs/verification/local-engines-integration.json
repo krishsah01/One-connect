@@ -1,0 +1,45 @@
+{
+  "updatedAt": "2026-10-08T04:48:51.679840+00:00",
+  "sourceChanges": [
+    "packages/daemon/src/environment/runtime-inputs.ts",
+    "packages/daemon/src/environment/workbench.ts",
+    "packages/daemon/test/environment.test.ts",
+    "packages/daemon/test/docker-smoke.test.ts",
+    "packages/daemon/test/mock-preview-browser.test.ts"
+  ],
+  "bundled": true,
+  "preservedOpenDraft": true,
+  "verification": {
+    "contextRealGraphify": {
+      "passed": 9,
+      "report": "integration-local-engines-results.json",
+      "otherInitialFailuresRetained": true
+    },
+    "dockerPostgres": {
+      "passed": 1,
+      "report": "integration-local-engines-recheck-results.json",
+      "chromiumFailureRetained": true
+    },
+    "webkit": {
+      "passed": 1,
+      "report": "integration-webkit-results.json"
+    },
+    "chromium": {
+      "passed": 1,
+      "report": "integration-chromium-results.json"
+    },
+    "environmentFixtures": {
+      "passed": 66,
+      "report": "integration-runtime-inputs-results.json"
+    },
+    "daemonTypecheck": "passed",
+    "node24CliImport": "passed",
+    "spdxSourceCount": 286
+  },
+  "limits": [
+    "No live model/tracker/phone/tunnel/deployment acceptance",
+    "Retained mounted inputs kept with project data for container lifetime"
+  ],
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect-next.app",
+  "fullWorkspaceResults": "integration-workspace-with-local-engines-results.json"
+}

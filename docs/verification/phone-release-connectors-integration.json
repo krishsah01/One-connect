@@ -1,0 +1,283 @@
+{
+  "at": "2026-10-08T03:19:27.808Z",
+  "baseline": "cfbeaab6431911bf65374314bba9852a8043b58f",
+  "files": [
+    {
+      "name": "packages/core/src/phone.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "e7120a8e5598994f6d7a9c7d919607eece4830a135f666c61e1f9e48b9cdc0d8",
+      "sourceHash": "1561fcfed8a5528455af11c3b7550f08c8f4947008606b8bf04d750f57f8d30e",
+      "changed": true
+    },
+    {
+      "name": "packages/core/test/phone-policy.test.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "61314ec5f184600ce6a1b233ed14581ef1244bb866c16f08ec3ac8848c51a533",
+      "sourceHash": "a177283d84c50f110826e521f0c1016b497b5f29f0620ce57d5e956bbcf7acfc",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/phone/gate.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "a023bbd06aed775abd2ee15d7d7f554ed0dd7a00220abd8d4fdc76ae4f567354",
+      "sourceHash": "47a219a98df0c1080242605e25b5d37f13a4a19fb3007c025f1089ec6dd08cae",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/phone/logs.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": null,
+      "sourceHash": "ab4f00f3c033092ae5c5d7b2f470d977e301ce787ff7589352750b9d859c74fe",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/phone/notifications.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "3713a0c91a404a46c59666afc8dc539c220944791dd908f720b8a6bca8c03200",
+      "sourceHash": "7afcbef89df129a84887df3aad9d4facf6f890d741e05518d58b855ad7ce0c14",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/phone/projection.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "23fbb1daa65de9d001ed26aca7fc0644f232c8f037a0093cb15dbefe87b70e7f",
+      "sourceHash": "aed16c1e7894f98c1b229cbf824ceb303ac11392bda92b8d3a62f3fdde1aef5d",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/phone/remote.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "adee22bcdeeda04719927cb156fae8dcbdb398b973760478994ea44a5fcc5e65",
+      "sourceHash": "bbb60579b260e09113ef358b4480415bfebbfe17ab4f5aea396fccf4634bb2ba",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/phone/routes.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "2baf9b26bc58fcebc7291361d922fc9bceffad3a7631766b9db2e61419d36233",
+      "sourceHash": "4b572a561057cd3126c026a73465206e6bba8ebf15460f16feafaebbe1c248b5",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/phone/tunnel.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "2187eae2d4da61335ea7c35ba4bbfb6b7f6d1ba429a2642cc9fad356b2fa76e8",
+      "sourceHash": "15935380750e408d17b4a347934545e7bae8a1db2009185a15b4bf955a91c54a",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/phone-gate.test.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "81573b4563d33652a832ddafc09f15e5b4f633b44506c179a65ba01b852261b6",
+      "sourceHash": "ffc65f03e1ad4ca1cd3b9ba477b03135ebb36dc801da351c2fca1dfd5c0f20fc",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/phone-notifications.test.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "b04b7e661831a62184472a151456295d5a07986315b75a0de14cd0346276bf8e",
+      "sourceHash": "b9dbb20d5e8c0fddc9dab5adf3152b8013fe9deeeea2e60d2df940b61480f667",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/phone-resumed.strip.test.mjs",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": null,
+      "sourceHash": "d2062896b454e3929c37d087173250e33c31d314ea0b4998346e6bfd5b50633d",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/phone-typecheck.tsconfig.json",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "deeeb6bd21fc018f3c612b61c4029da4505fd924b2f771ccef7239f1f5cee605",
+      "sourceHash": "90ee7887972b6589627bc00ff54ba10306a50c3b81143c480d824b6669e8405f",
+      "changed": true
+    },
+    {
+      "name": "packages/web/src/pages/Phone.tsx",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "762a50c200b8fbf87322a3289f7c32b2f2ca955256e245052c8cd27d77bf4e55",
+      "sourceHash": "1b4ebe4086426fb27433f842aace20bac9eb713820f3b8003bd93675d88d5d46",
+      "changed": true
+    },
+    {
+      "name": "packages/web/src/pages/Remote.tsx",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "9433141b3b09b1af4b926b7e3edd2fda458a571dcb2ca54484017e1bade61e56",
+      "sourceHash": "567b2a155a5fbf95a50d979ea112d12ad2f762fb53b41b622ee15f49274611b1",
+      "changed": true
+    },
+    {
+      "name": "packages/web/test/phone.test.tsx",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "phone",
+      "oldHash": "7abbf3594829fe108b9769591c16fd98326a245a64b917234033224e5958812b",
+      "sourceHash": "d7d29a3d639c75b64755818c42e0c14322eab4a83a32231b71ea2a71b3433d08",
+      "changed": true
+    },
+    {
+      "name": "packages/core/src/release.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": "aa7b5c9ec4afaedb68280b042cea01ba1ea811bed9dc2513b46cd40754014e00",
+      "sourceHash": "6c5addd756e807071b93f6333c021c17c8ea44378929411514809b275deb3323",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/release/plans.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": "df1a910fccd3e008fe62448c2c8dfe335d5324f23f027ff43d8145a4bc73aa33",
+      "sourceHash": "71600a907b4348870d318231b2df1d41303923ef433961157eb0e4c50146c2d9",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/release/runner.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": "9d3d2defca5e535b64705e6bd1a1276b0990f6eef392b474c03a1223f1cdd6f9",
+      "sourceHash": "6f5d5a7eee198afd833fb6bb4cbe370eea014e8cf14058843d0b1bd2f3f97182",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/release/findings.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": "cb7970980745a1c271fab1644e5c60dc11300b8b336147ffd096e4b812391765",
+      "sourceHash": "e72ecd3ba2962687c9ab504ed622b0fe2c137f641a6aa13181a141f43667e70d",
+      "changed": true
+    },
+    {
+      "name": "packages/web/src/pages/ReleaseCockpit.tsx",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": "2f5a785cc4f495ee17b6456f4b2293fb869884b87c57de03fd879fe47ea341cc",
+      "sourceHash": "19cfc82ccbb2ec2c25894ea86b4b1d1980db7c3b312d359c9c390fdbf67ba987",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/release-safety.test.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": "ed8e78172f72350c874288f7f5f5b02034c37fd51f637ee17e774ef0ba64ad29",
+      "sourceHash": "021c0c642f4afda16dc618af24f0022b07e17e62b34cb58352ef4f3d06da7215",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/release-second-pass.test.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": "5532732dc9f30d13d7f33f99cf451fadbc1aa77243400a2103c18aa7975a54d9",
+      "sourceHash": "7065852611e07573e9e09b9dd3de2336bba8750a08c48e8450c10e61db743007",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/release-typecheck.tsconfig.json",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": "c372be2cc22d750d23ce7825136f15fdf37dd2465dad67f4a9a74fd2c53291ba",
+      "sourceHash": "86335e70b2344e27be1c1d91f3586a64bfbb2da1b8a76d33a45230aa3a5ad36d",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/release-ordered.test.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": null,
+      "sourceHash": "ec40c71f4141301a0af6a7be839208d666c60baf9be05fb5848fa3289c0a708a",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/release-findings.test.ts",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": null,
+      "sourceHash": "77048386d9ab59cdb8935b902e4f59a2f8b355647c4f1f624ff8efef6cd0bb72",
+      "changed": true
+    },
+    {
+      "name": "packages/web/test/release-resumed.test.tsx",
+      "from": "/private/tmp/one-connect-cursor-Bu9W8J/claude-final",
+      "owner": "release",
+      "oldHash": null,
+      "sourceHash": "2afeba23fa6bcd523f51342746f6f8ad7c04aa25c48f4dbe1e54eb47471cc897",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/connectors.ts",
+      "from": "/private/tmp/one-connect-parallel-20261007/connectors",
+      "owner": "Cursor connectors",
+      "oldHash": "915f7c72a35ff703c4e0032981cbfb5d0ef9c3e9cd918d68c080c564efe9fe52",
+      "sourceHash": "d532c7cd77bbe2b6c720c7ee790eae9060e83e465d9c77cc8823b9f0fbfcb666",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/daemon.ts",
+      "from": "/private/tmp/one-connect-parallel-20261007/connectors",
+      "owner": "Cursor connectors",
+      "oldHash": "07aa01b1fa1b0626ef5b2f9c6be807679c4a3e2ad770f1e4801d04b30f8482e8",
+      "sourceHash": "84b7e70b291c36e72951ba52dbbda52d367d7b63ac493e299f7467abce468558",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/src/server/libraryRoutes.ts",
+      "from": "/private/tmp/one-connect-parallel-20261007/connectors",
+      "owner": "Cursor connectors",
+      "oldHash": "04b400a389de9675c06d8762db2872350ac80578571d2a8dc01cced8da2a7f03",
+      "sourceHash": "7f6cbb069de9f6fc649e1795673c640f8d28a27419aaff10548fc095c44e75f4",
+      "changed": true
+    },
+    {
+      "name": "packages/daemon/test/connectors.test.ts",
+      "from": "/private/tmp/one-connect-parallel-20261007/connectors",
+      "owner": "Cursor connectors",
+      "oldHash": "4c90d7ec93d04edafc0b0d5f46e66ee22e5e8adbd1d721b51250f8cfe535610f",
+      "sourceHash": "b11a77d93430b5d94c751954380ee727196fb046f214a136e57e9b381ef9354d",
+      "changed": true
+    },
+    {
+      "name": "packages/web/src/pages/Connectors.tsx",
+      "from": "/private/tmp/one-connect-parallel-20261007/connectors",
+      "owner": "Cursor connectors",
+      "oldHash": "b6dbdc835fa380bcba12f2db87e8a8f849596bf4c763e6f8c648ca39276812d5",
+      "sourceHash": "4bab2fc2ac2616aadea7c0b8c7399e57118b77d0317f7f3f4ee2b4d6c38cdd49",
+      "changed": true
+    }
+  ],
+  "nativeBundle": "Current app predates this integration",
+  "verification": "Worker results retained in individual handoffs; parent integration verification pending",
+  "parentVerification": {
+    "at": "2026-10-08T03:31:44.390Z",
+    "focused": {
+      "tests": 170,
+      "failed": 0,
+      "success": true,
+      "resultFile": "/Users/krishkumarsah/Docs/Projects/Interface/docs/verification/integration-focused-results.json"
+    },
+    "directNode24": {
+      "pass": 16,
+      "fail": 0,
+      "files": [
+        "packages/daemon/test/phone-resumed.strip.test.mjs",
+        "packages/daemon/test/runtime-adapters.strip.test.mjs"
+      ]
+    },
+    "typecheck": "All package typechecks passed",
+    "scope": "Fixture integration and strip-only runtime checks; live vendors, production, connected phone and fresh native bundle remain unverified"
+  }
+}

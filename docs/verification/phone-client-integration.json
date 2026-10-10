@@ -1,0 +1,95 @@
+{
+  "at": "2026-10-08T03:40:11.325Z",
+  "baseline": "ab8c9c395150b794bb30f6c89019181718095508",
+  "files": [
+    {
+      "name": "packages/web/src/lib/remote.ts",
+      "oldHash": "0e4093470474152c1f3264e1471843778f65a51007f922dddc0c542fb8043394",
+      "sourceHash": "beb453cc276c8b4dc10509f5a17b7e482003f104a2251313bde44df2fdbbafcb"
+    },
+    {
+      "name": "packages/web/src/lib/api.ts",
+      "oldHash": "81a7ee5e2bb1a60a5d9d7d84ff75cc0da20205950674469c7cd288341521c7a1",
+      "sourceHash": "9964667055bed04bf80ddbf9a476c66fa2531a666ad13b64e0bf1f2ad94abf90"
+    },
+    {
+      "name": "packages/web/src/lib/store.ts",
+      "oldHash": "893eef6d5c7436be52b009a05c0384b3bab7ba54608a6ab46622e197c3cecf19",
+      "sourceHash": "0fdd49e028439e0316318637a962a4bc26972ae347684f2a2c65f0b37a12d7e1"
+    },
+    {
+      "name": "packages/web/src/components/NotificationInbox.tsx",
+      "oldHash": "5ea31c850ba7486e0ee261cea589ead614d0ad67f35f1341b82532bfefb09766",
+      "sourceHash": "a423eb01c3f448eb7018c333b973a0ebd751e1ef1dae791298bd6abfd62eb270"
+    },
+    {
+      "name": "packages/web/src/pages/Decisions.tsx",
+      "oldHash": "b80152a1f78057acb55fcacfb42f1a425b1cb74725e37b4d41fba303450d5a17",
+      "sourceHash": "4f6ff3e2ded65dc48d0a45e9e3485c31e3a33dd7c320c6b0f542b1a59ad18096"
+    },
+    {
+      "name": "packages/web/src/pages/Phone.tsx",
+      "oldHash": "1b4ebe4086426fb27433f842aace20bac9eb713820f3b8003bd93675d88d5d46",
+      "sourceHash": "ea8c38e5f41af4b627fab72bd33a14a12f2526d505f098cf9f67bda9d19cdebe"
+    },
+    {
+      "name": "packages/web/src/pages/Remote.tsx",
+      "oldHash": "567b2a155a5fbf95a50d979ea112d12ad2f762fb53b41b622ee15f49274611b1",
+      "sourceHash": "dc7efe7855c28a56409f1929800c5c2e706f81b382112f4e4130ebaa5f3420ab"
+    },
+    {
+      "name": "packages/web/test/phone-identity.test.tsx",
+      "oldHash": null,
+      "sourceHash": "85b4893aae478cf9d209d86f9f6f815eb83e6e835fc8ae726988632cff9b3d9b"
+    },
+    {
+      "name": "packages/web/test/phone.test.tsx",
+      "oldHash": "d7d29a3d639c75b64755818c42e0c14322eab4a83a32231b71ea2a71b3433d08",
+      "sourceHash": "da0dafb5bfadc4bf6036a6e41cf8c0c08f6cdf8d67b4c5cae73c23cc5ff0832d"
+    }
+  ],
+  "verification": "Parent startup/reconnect, identity validation, project invalidation and approval race corrections integrated; web/native fixture checks and rendered native startup passed. Real paired phone/tunnel validation remains pending.",
+  "nativeBundle": "Included in October 8 UTC rebuild",
+  "parentVerification": {
+    "webTests": 98,
+    "nativeTests": 16,
+    "typecheck": "All packages passed",
+    "phoneLifecycleResults": "docs/verification/integration-phone-lifecycle-results.json",
+    "webResults": "docs/verification/integration-web-results.json",
+    "bundle": "docs/verification/rebundle-build.json"
+  },
+  "parentRepairs": [
+    {
+      "path": "packages/web/src/lib/remote.ts",
+      "sha256": "aa0544cdf6cc902c7424551d9120c47ab9d37bbaf5990b435081ca5a72079534"
+    },
+    {
+      "path": "packages/web/src/lib/api.ts",
+      "sha256": "d88cf64ee4664f714b35223561827571233a8599bbd7c195f29a28b742d51340"
+    },
+    {
+      "path": "packages/web/src/lib/store.ts",
+      "sha256": "6cef678921baffa44dd3f71a5546e6eeb72cb0c2b57430c975f1174bc1638b24"
+    },
+    {
+      "path": "packages/web/src/App.tsx",
+      "sha256": "599b7d4ef41bbb963b45805d73f8a982f0dbb245eb3bc27039acf3e340e1f590"
+    },
+    {
+      "path": "packages/web/src/components/PhoneShell.tsx",
+      "sha256": "fbe0bb1fd655050eeb220e363b6d3596ecbcbf586b1cff61dd5da6e4895ef966"
+    },
+    {
+      "path": "packages/web/src/pages/Decisions.tsx",
+      "sha256": "ae2d660d6450cadf17637cf61b1246f2adae24751d58adfe2845df6391bfc5ee"
+    },
+    {
+      "path": "packages/web/src/pages/Connectors.tsx",
+      "sha256": "8cbca707af36355610b6149e96721aed563629a24d84cc006a494cf8a99c7cdc"
+    },
+    {
+      "path": "packages/web/test/live-lifecycle.test.tsx",
+      "sha256": "38e43b4139d2b4b8606832d70faf1a79dcb55b456491bfbf455d415bfc9f9d7e"
+    }
+  ]
+}

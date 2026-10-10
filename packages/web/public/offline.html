@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#087e8b">
+<title>One Connect is offline</title>
+<style>
+  /* SPDX-License-Identifier: Apache-2.0 */
+  :root { color-scheme: light dark; --bg:#f3f6f7; --ink:#18343b; --teal:#087e8b; --mist:#dceef0; --amber:#a15c00; --surface:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1116; --ink:#e6e9ee; --teal:#4cc5cf; --mist:#15373b; --amber:#e0a43a; --surface:#151a21; } }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif; display:grid; min-height:100vh; place-items:center; padding:16px; }
+  main { max-width:420px; background:var(--surface); border:1px solid var(--mist); border-radius:12px; padding:24px; }
+  h1 { font-size:22px; margin:0 0 8px; }
+  .badge { display:inline-block; background:var(--mist); color:var(--amber); border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600; }
+  p { margin:12px 0; }
+  button { min-height:44px; padding:0 18px; border-radius:8px; border:1px solid var(--teal); background:var(--teal); color:#fff; font:inherit; font-weight:600; }
+  button:focus-visible { outline:3px solid var(--amber); outline-offset:2px; }
+</style>
+</head>
+<body>
+<main role="alert">
+  <span class="badge">Offline</span>
+  <h1>One Connect can't be reached</h1>
+  <p>This device is offline or your Mac is not reachable. Nothing is shown from memory: status, transcripts, questions and approvals are never stored on this device.</p>
+  <p>Nothing you do is queued. When you are back online, reload to see the current state and answer anything that is waiting.</p>
+  <button type="button" onclick="location.reload()">Try again</button>
+</main>
+</body>
+</html>

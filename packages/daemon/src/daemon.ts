@@ -48,12 +48,24 @@ import { IssueImports } from './imports.ts';
 import { Team } from './team.ts';
 import { Designer } from './designer.ts';
 import { Decisions } from './decisions.ts';
+import { AgentCosts, needsCostApproval } from './agentCosts.ts';
+import type { AnswerOptions } from './decisions.ts';
+import { Settings, settingsConfig, type SettingsDraft } from './settings.ts';
+import { Jev } from './jev.ts';
+import { CodeHosts } from './adapters/hosts/index.ts';
+import { InfraHealth } from './infra/health.ts';
+import { ReleasePlans } from './release/plans.ts';
+import { ReleaseFindings } from './release/findings.ts';
 import { SubscriptionSafety } from './subscriptionSafety.ts';
 import { ReviewMerge } from './reviewMerge.ts';
 import { WorkflowEngine } from './workflows.ts';
 import { SkillLibrary } from './skills.ts';
 import { Connectors } from './connectors.ts';
 import { DesignMocks } from './mocks.ts';
+import { RemoteAccess } from './phone/remote.ts';
+import { Notifications } from './phone/notifications.ts';
+import { Reports } from './phone/reports.ts';
+import { ContextBenchmarks } from './benchmark/contextBenchmark.ts';
 import { ContextSync } from './context/sync.ts';
 import { allowedHosts, createEgress, type Egress } from './egress.ts';
 import { WorktreeWatcher } from './adapters/vcs/watcher.ts';
@@ -135,12 +147,28 @@ export class Daemon {
   readonly team: Team;
   readonly designer:Designer;
   readonly decisions: Decisions;
+  readonly agentCosts: AgentCosts;
+  readonly settings: Settings;
+  readonly jev: Jev;
   readonly subscriptionSafety: SubscriptionSafety;
   readonly reviewMerge: ReviewMerge;
   readonly workflows: WorkflowEngine;
   readonly skillLib: SkillLibrary;
   readonly connectors: Connectors;
   readonly mocks: DesignMocks;
+  /** Phone access, notification routing, Brief & Reports and the context benchmark (packages/daemon/src/phone, benchmark). */
+  readonly remote: RemoteAccess;
+  readonly notifications: Notifications;
+  readonly reports: Reports;
+  readonly benchmarks: ContextBenchmarks;
+  /** Read-only GitHub/GitLab protection and CI. */
+  readonly hosts: CodeHosts;
+  /** Read-only Docker, Postgres, Vercel and migration drift. */
+  readonly infra: InfraHealth;
+  /** Ordered release plans. Step approval reuses Decisions.answerAtomic. */
+  readonly releasePlans: ReleasePlans;
+  /** Failing CI, unprotected branches and migration drift, linked through the tracker outbox. */
+  readonly findings: ReleaseFindings;
   /** All outbound HTTP from the daemon: only configured connections are reachable. */
   readonly egress: Egress;
   /** Base URL of the HTTP server, used by the per-run MCP bridge. */
@@ -148,6 +176,8 @@ export class Daemon {
   private secretValues = new Set<string>();
   private sinceSnapshot = 0;
   private started = false;
+  private publishingEvents=false;
+  private eventBatches:EventEnvelope[][]=[];
   closed = false;
 
   constructor(opts: DaemonOptions) {
@@ -155,6 +185,12 @@ export class Daemon {
     this.config = opts.config;
     this.paths = resolveDataPaths(opts.dataDir, { allowTemp: opts.allowTempDataDir });
     this.store = new EventStore(this.paths.db);
+    const savedSettings = this.store.kvGet('project:settings');
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings) as SettingsDraft;
+      if (settings.project.repo !== this.config.project.repo) throw new CommandError('Saved settings belong to another repository.');
+      this.config = settingsConfig(this.config, settings);
+    }
     const savedAgents=this.store.kvGet('agents:overrides');
     if(savedAgents) {
       const overrides=Object.values(JSON.parse(savedAgents)).map(a=>AgentConfigSchema.parse(a));
@@ -181,12 +217,31 @@ export class Daemon {
     this.team = new Team(this);
     this.designer=new Designer(this);
     this.decisions = new Decisions(this);
+    this.agentCosts = new AgentCosts(this);
+    this.settings = new Settings(this);
+    this.jev = new Jev(this);
     this.subscriptionSafety = new SubscriptionSafety(this);
     this.reviewMerge = new ReviewMerge(this);
     this.workflows = new WorkflowEngine(this);
     this.skillLib = new SkillLibrary(this);
     this.connectors = new Connectors(this);
+    // MCP transports belong to individual calls, not to the detached agent runner. Stop them
+    // before runner shutdown can wait on a vendor; keep this hook scoped to this project engine.
+    const stopRun = this.runs.stop.bind(this.runs);
+    this.runs.stop = async (...args: Parameters<RunManager['stop']>) => {
+      await this.connectors.toolActions.stopRun(args[0]);
+      await stopRun(...args);
+    };
     this.mocks = new DesignMocks(this);
+    this.remote = new RemoteAccess(this);
+    this.notifications = new Notifications(this);
+    this.egress.authorizeNotification = (token, url, init) => this.notifications.takeEgressPermit(token, url, init);
+    this.reports = new Reports(this);
+    this.benchmarks = new ContextBenchmarks(this);
+    this.hosts = new CodeHosts(this);
+    this.infra = new InfraHealth(this);
+    this.releasePlans = new ReleasePlans(this);
+    this.findings = new ReleaseFindings(this);
     this.refreshEgress();
   }
 
@@ -236,11 +291,16 @@ export class Daemon {
     this.outbox.start(this.opts.outboxTickMs ?? 1500);
     if (this.tracker.live) this.poller.start();
     this.context.start();
+    this.designer.studio.start();
+    this.remote.start();
+    this.notifications.start();
     if (this.opts.probe !== false) void this.probeAll();
   }
 
   async shutdown(): Promise<void> {
+    await this.connectors.toolActions.close();
     this.workflows.stop();
+    await this.designer.studio.close();
     this.reviewMerge.stop();
     this.rules.stop();
     this.outbox.stop();
@@ -249,12 +309,17 @@ export class Daemon {
     this.watcher.closeAll();
     this.context.stop();
     this.team.stop();
+    this.notifications.stop();
+    await this.remote.shutdown();
     await this.environment.close();
     this.context.flush();
     await this.context.answer.close();
     await this.context.docs?.close();
     // Let in-flight finalizers/checks land (bounded), then refuse further writes.
-    await Promise.race([Promise.allSettled([...this.runs.inflight]), new Promise((r) => setTimeout(r, 20_000))]);
+    let finalizerTimeout:NodeJS.Timeout|undefined;
+    try{
+      await Promise.race([Promise.allSettled([...this.runs.inflight]),new Promise(r=>{finalizerTimeout=setTimeout(r,20_000);})]);
+    }finally{if(finalizerTimeout)clearTimeout(finalizerTimeout);}
     this.closed = true;
     // Agent runs keep going: they are detached and reattached on the next start.
     this.store.saveSnapshot(this.state);
@@ -273,6 +338,7 @@ export class Daemon {
     const busy = this.context.docs?.status();
     if (busy?.indexing || busy?.searching || this.context.answer.busy) throw new CommandError('Wait for the current project indexing or document query to finish', 409);
     this.context.stop();
+    await this.context.answer.close();
     await this.context.docs?.close();
     this.config = { ...this.config, knowledge: cfg };
     this.store.kvSet('knowledge:config', JSON.stringify(cfg));
@@ -281,6 +347,20 @@ export class Daemon {
       {type:'context.connected',actor:HUMAN,data:{vault:cfg.vault,folders:this.context.vault!.readableFolders(),semantic:cfg.search.semantic}},
       {type:'context.docs',actor:HUMAN,data:{status:this.context.docs!.status()}},
       {type:'context.vault',actor:HUMAN,data:{status:this.context.vault!.status()}},
+    ]);
+    this.context.start();
+  }
+
+  /** Recreate revision-bound retrieval after an approved integration-branch or graph change. */
+  async reloadContext(): Promise<void> {
+    const previous = this.context;
+    previous.stop();
+    await previous.answer.close();
+    await previous.docs?.close();
+    this.context = new ContextSync(this);
+    this.commit([
+      { type: 'context.answer', actor: HUMAN, data: { status: this.context.answer.status } },
+      { type: 'context.graph', actor: HUMAN, data: { status: this.context.graph?.status ?? { state: 'unavailable', sha: null, builtAt: null, nodes: 0, edges: 0, durationMs: null, graphPath: null, semantic: false, error: 'Graphify is disabled in this project.' } } },
     ]);
     this.context.start();
   }
@@ -297,8 +377,8 @@ export class Daemon {
     this.commit(events);
   }
 
-  /** Persist builder edits and their human audit event in the same project transaction. */
-  saveAgent(input:unknown,expected:unknown=null) {
+  /** Validate a builder draft without saving, probing a provider or dispatching work. */
+  validateAgentSettings(input:unknown,expected:unknown=null) {
     const parsed=AgentConfigSchema.safeParse(input);
     if(!parsed.success) throw new CommandError(parsed.error.message);
     const cfg=parsed.data,previous=this.state.agents[cfg.id];
@@ -308,14 +388,24 @@ export class Daemon {
       if(!old.success || !isDeepStrictEqual(old.data,previous.config)) throw new CommandError('Agent settings changed. Reopen the builder to use the latest settings.',409);
       if(previous.activeRunIds.length || previous.queue.now || previous.queue.next.length) throw new CommandError('Finish or cancel this agent’s Now and Next assignments before editing it.',409);
     } else if(expected!==null) throw new CommandError('This agent no longer exists. Reopen the builder.',409);
-    if(cfg.metered_opt_in || cfg.on_demand || cfg.billing==='metered') throw new CommandError('Paid agents require the separate cost-approval flow. This builder keeps paid fallback off.');
     if(containsSecret(JSON.stringify(cfg),{denylist:this.denylist()}).length) throw new CommandError('Remove credentials from agent settings. Use vendor login or the dedicated connection store.');
     const next=parseConfig({...this.config,agents:previous?this.config.agents.map(a=>a.id===cfg.id?cfg:a):[...this.config.agents,cfg]});
+    return {cfg,next};
+  }
+
+  /** The exact cost answer, settings and override commit together; no boolean paid-mode bypass. */
+  saveAgent(input:unknown,expected:unknown=null,o:{costDecisionId?:string;answerOptions?:AnswerOptions}={}) {
+    const {cfg,next}=this.validateAgentSettings(input,expected);
+    let approval:{events:NewEvent[];transaction:()=>void}|undefined;
+    if(needsCostApproval(cfg)) {
+      if(!o.costDecisionId) throw new CommandError('Paid agents require a reviewed per-agent cost Decision.');
+      approval=this.agentCosts.authorize(o.costDecisionId,cfg,expected,o.answerOptions??{});
+    }
     const overrides=JSON.parse(this.store.kvGet('agents:overrides')??'{}') as Record<string,unknown>;
     const oldConfig=this.config;
     this.config=next;
     try {
-      this.commit([{type:'agent.registered',actor:HUMAN,agentId:cfg.id,data:{config:cfg}}],[],()=>this.store.kvSet('agents:overrides',JSON.stringify({...overrides,[cfg.id]:cfg})));
+      this.commit([...(approval?.events??[]),{type:'agent.registered',actor:HUMAN,agentId:cfg.id,data:{config:cfg}}],[],()=>{approval?.transaction();this.store.kvSet('agents:overrides',JSON.stringify({...overrides,[cfg.id]:cfg}));});
     } catch(e) {this.config=oldConfig;throw e;}
     this.refreshEgress();
     return this.state.agents[cfg.id];
@@ -323,7 +413,7 @@ export class Daemon {
 
   /** Configured hosts plus hosts of connections a human activated. */
   refreshEgress(): void {
-    this.egress.allowed.splice(0,this.egress.allowed.length,...new Set([...allowedHosts(this.config),...this.connectors.hosts()]));
+    this.egress.allowed.splice(0,this.egress.allowed.length,...new Set([...allowedHosts(this.config),...this.connectors.hosts(),...this.jev.hosts(),...(this.notifications?.hosts() ?? [])]));
   }
 
   async probeAll(): Promise<void> {
@@ -392,8 +482,19 @@ export class Daemon {
       this.store.saveSnapshot(this.state);
       this.sinceSnapshot = 0;
     }
-    if (stored.length) this.bus.emit('events', stored);
-    for (const e of stored) this.rules.onEvent(e);
+    // A listener may commit synchronously. Persist/apply it immediately, but finish delivering
+    // the earlier batch to every listener before publishing the nested batch.
+    if(stored.length)this.eventBatches.push(stored);
+    if(!this.publishingEvents){
+      this.publishingEvents=true;
+      try{
+        let batch:EventEnvelope[]|undefined;
+        while((batch=this.eventBatches.shift())){
+          this.bus.emit('events',batch);
+          for(const e of batch)this.rules.onEvent(e);
+        }
+      }finally{this.publishingEvents=false;}
+    }
     return stored;
   }
 
@@ -434,7 +535,8 @@ export class Daemon {
       from = step;
     }
     const outbox: OutboxOp[] = [];
-    if (DEFAULT_TRACKER_CATEGORY[item.state] !== DEFAULT_TRACKER_CATEGORY[to]) {
+    const trackerWritable = !(item.origin?.localMirror === true && !item.trackerId);
+    if (trackerWritable && DEFAULT_TRACKER_CATEGORY[item.state] !== DEFAULT_TRACKER_CATEGORY[to]) {
       outbox.push({ workItemId: itemId, op: 'set_status', payload: { category: DEFAULT_TRACKER_CATEGORY[to], lifecycle: to } });
     }
     return { events, outbox };
@@ -466,15 +568,15 @@ export class Daemon {
   }
 
   /** Events + outbox for a new issue, so callers can create it atomically with other changes. */
-  buildIssue(input: IssueInput, actor: Actor = HUMAN): { item: WorkItem; events: NewEvent[]; outbox: OutboxOp[] } {
+  buildIssue(input: IssueInput, actor: Actor = HUMAN, o?: { mirror?: boolean; bind?: { trackerId: string; key: string; url: string | null; trackerStatus: WorkItem['trackerStatus'] } }): { item: WorkItem; events: NewEvent[]; outbox: OutboxOp[] } {
     const title = input.title?.trim();
     if (!title) throw new CommandError('title is required');
     const now = this.nowIso();
     const item: WorkItem = {
       id: newId('wi'),
-      key: null,
-      trackerId: null,
-      url: null,
+      key: o?.bind?.key ?? null,
+      trackerId: o?.bind?.trackerId ?? null,
+      url: o?.bind?.url ?? null,
       title,
       description: input.description?.trim() ?? '',
       acceptance: (input.acceptance ?? []).map((a) => a.trim()).filter(Boolean),
@@ -491,15 +593,19 @@ export class Daemon {
       branches: [],
       evidence: [],
       requiresProductionVerification: input.requiresProductionVerification ?? false,
-      trackerStatus: null,
-      sync: { status: 'pending', lastError: null, at: null },
+      trackerStatus: o?.bind?.trackerStatus ?? null,
+      sync: o?.bind
+        ? { status: 'synced', lastError: null, at: now }
+        : o?.mirror
+          ? { status: 'dry_run', lastError: 'Local mirror only; the authoritative tracker was not written.', at: now }
+          : { status: 'pending', lastError: null, at: null },
       createdAt: now,
       updatedAt: now,
     };
     return {
       item,
       events: [{ type: 'work_item.created', actor, workItemId: item.id, data: { item } }],
-      outbox: [{ workItemId: item.id, op: 'create_issue', payload: { title: item.title, description: item.description, acceptance: item.acceptance, labels: item.labels, priority: item.priority, ...(item.parentKey ? { parentKey: item.parentKey } : {}) } }],
+      outbox: o?.bind || o?.mirror ? [] : [{ workItemId: item.id, op: 'create_issue', payload: { title: item.title, description: item.description, acceptance: item.acceptance, labels: item.labels, priority: item.priority, ...(item.parentKey ? { parentKey: item.parentKey } : {}) } }],
     };
   }
 
@@ -749,6 +855,7 @@ export class Daemon {
       for (const id of Object.keys(this.state.agents)) void this.rules.refill(id);
       return 0;
     }
+    await this.connectors.toolActions.stopAll();
     const active = Object.values(this.state.runs).filter((r) => ['queued', 'starting', 'running', 'waiting-for-approval', 'waiting-for-input', 'stalled'].includes(r.state));
     await Promise.all(active.map((r) => this.runs.stop(r.id, 'kill switch', actor, 'killed')));
     return active.length;

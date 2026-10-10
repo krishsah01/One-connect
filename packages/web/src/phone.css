@@ -1,0 +1,56 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Phone, PWA and reports surfaces. Palette tokens come from styles.css (pearl, ink, teal, mist, amber). */
+.offline-banner { border-radius: 0; border-left: 0; border-right: 0; position: sticky; top: 0; z-index: 30; }
+:root[data-offline] main .btn.primary, :root[data-offline] main .btn.danger, :root[data-offline] main .decision-answers .btn, :root[data-offline] main .approval .btn { opacity: .5; pointer-events: none; }
+
+.phone-tabbar, .phone-menu { display: none; }
+.phone-page .btn, .reports-page .btn, .remote-page .btn, .run-view .btn { min-height: 40px; }
+.phone-page .card, .remote-page .card { overflow-wrap: anywhere; }
+.phone-run { display: block; color: inherit; text-decoration: none; }
+.phone-run:hover { text-decoration: none; border-color: var(--accent); }
+.kill-card.engaged { border-color: var(--crit); background: var(--crit-weak); }
+.notif.acked { opacity: .65; }
+.run-view .transcript { height: calc(100dvh - 230px); min-height: 280px; font-size: 14px; line-height: 1.55; }
+.run-view .transcript .ev .body { overflow-wrap: anywhere; }
+
+.report-filters { display: flex; flex-wrap: wrap; gap: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px 12px; margin: 0; }
+.report-filters label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-2); min-width: 140px; }
+.tab-chip { height: 36px; padding: 0 14px; }
+.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.timeline .tl { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--idle); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.timeline .tl.tone-ok { border-left-color: var(--ok); } .timeline .tl.tone-warn { border-left-color: var(--warn); } .timeline .tl.tone-crit { border-left-color: var(--crit); } .timeline .tl.tone-info { border-left-color: var(--accent); }
+.claims { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.claims li { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.claims li:last-child { border-bottom: 0; }
+.evidence-refs { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ev-chip { background: var(--accent-weak); color: var(--text); border-radius: 4px; padding: 0 6px; }
+.standup-md { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px; max-height: 70vh; overflow: auto; }
+.handoff-card { border-left: 3px solid var(--accent); }
+
+.remote-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
+.remote-page label.small { display: flex; flex-direction: column; gap: 4px; }
+.scope-row input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
+.plan-review, .pairing-box, .endpoint-box { background: var(--accent-weak); border-radius: var(--radius-sm); padding: 12px; }
+.plan-review code.block { display: block; margin: 2px 0; overflow-wrap: anywhere; }
+.session-row { padding: 6px 0; border-top: 1px solid var(--border); }
+.bench-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.bench-table th { text-align: left; color: var(--text-3); font-weight: 500; padding: 6px 8px; }
+.bench-table td { padding: 8px; border-top: 1px solid var(--border); vertical-align: top; }
+
+@media (max-width: 700px) {
+  .remote-grid { grid-template-columns: 1fr; }
+  .phone-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+  .phone-tabbar a, .phone-tabbar button { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 52px; font: inherit; font-size: 12px; color: var(--text-2); background: none; border: 0; text-decoration: none; }
+  .phone-tabbar a.active { color: var(--accent); font-weight: 650; box-shadow: inset 0 3px 0 var(--accent); }
+  .tab-count { background: var(--warn); color: #fff; border-radius: 999px; font-size: 10px; padding: 0 5px; }
+  .workbench-main { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .workspace-navigation { display: none; }
+  .phone-menu { display: flex; flex-direction: column; gap: 12px; position: fixed; inset: 0 0 calc(52px + env(safe-area-inset-bottom)) 0; z-index: 50; background: var(--bg); padding: 16px; overflow-y: auto; }
+  .phone-menu-head { display: flex; flex-direction: column; gap: 2px; }
+  .phone-menu nav { display: flex; flex-direction: column; }
+  .phone-menu nav a { min-height: 48px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); color: var(--text); }
+  .run-view .transcript { height: calc(100dvh - 260px); }
+  .report-filters label { min-width: 0; flex: 1 1 140px; }
+}
+.phone-tabbar a:focus-visible, .phone-tabbar button:focus-visible, .phone-menu a:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+@media (display-mode: standalone) { .workbench .topbar { padding-top: max(10px, env(safe-area-inset-top)); } }

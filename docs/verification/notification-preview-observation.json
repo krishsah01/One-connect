@@ -1,0 +1,82 @@
+{
+  "beforeUpdate": {
+    "at": "2026-10-08T04:20:22.863417+00:00",
+    "projects": [
+      {
+        "projectId": "298a62c789fa01fc28d47c633e25108e1aea802dd52abafae4890e34a820e3f5",
+        "notifications": 428,
+        "infraStates": {
+          "docker": "unknown",
+          "postgres": "unknown",
+          "vercel": "unchecked",
+          "migrations": "error"
+        }
+      },
+      {
+        "projectId": "e138d8a0f29aa031a4ed508be458f0348a543743f3686b8b90151224e49f38bf",
+        "notifications": 390,
+        "infraStates": {
+          "docker": "unknown",
+          "postgres": "unknown",
+          "vercel": "unchecked",
+          "migrations": "error"
+        }
+      }
+    ]
+  },
+  "afterUpdate": {
+    "at": "2026-10-08T04:26:18.661840+00:00",
+    "projects": [
+      {
+        "projectId": "298a62c789fa01fc28d47c633e25108e1aea802dd52abafae4890e34a820e3f5",
+        "notifications": 431,
+        "lastInfraChecked": "2026-10-08T04:25:25.682Z",
+        "infraStates": {
+          "docker": "unknown",
+          "postgres": "unknown",
+          "vercel": "unchecked",
+          "migrations": "unchecked"
+        }
+      },
+      {
+        "projectId": "e138d8a0f29aa031a4ed508be458f0348a543743f3686b8b90151224e49f38bf",
+        "notifications": 393,
+        "lastInfraChecked": "2026-10-08T04:25:29.939Z",
+        "infraStates": {
+          "docker": "unknown",
+          "postgres": "unknown",
+          "vercel": "unchecked",
+          "migrations": "unchecked"
+        }
+      }
+    ]
+  },
+  "periodicObservation": {
+    "at": "2026-10-08T04:27:12.588222+00:00",
+    "projects": [
+      {
+        "projectId": "298a62c789fa01fc28d47c633e25108e1aea802dd52abafae4890e34a820e3f5",
+        "newNotificationsSinceBuild": 0,
+        "lastInfraChecked": "2026-10-08T04:26:25.699Z",
+        "infraStates": {
+          "docker": "unknown",
+          "postgres": "unknown",
+          "vercel": "unchecked",
+          "migrations": "unchecked"
+        }
+      },
+      {
+        "projectId": "e138d8a0f29aa031a4ed508be458f0348a543743f3686b8b90151224e49f38bf",
+        "newNotificationsSinceBuild": 0,
+        "lastInfraChecked": "2026-10-08T04:26:29.885Z",
+        "infraStates": {
+          "docker": "unknown",
+          "postgres": "unknown",
+          "vercel": "unchecked",
+          "migrations": "unchecked"
+        }
+      }
+    ],
+    "historicalNotifications": "Preserved; old bundle continued periodic checks between the first observation and replacement."
+  }
+}

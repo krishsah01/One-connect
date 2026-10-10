@@ -18,7 +18,12 @@ import { writePrivate } from '../paths.ts';
 import { onboardingReport } from '../onboarding.ts';
 import { registerProjectRoutes } from './project-routes.ts';
 import { registerLibraryRoutes } from './libraryRoutes.ts';
-import { deleteSecret, hasSecret, PROVIDER_SECRET, SECRET_NAMES, setSecret, type SecretName } from '../secrets.ts';
+import { registerDesignerRoutes } from './designerRoutes.ts';
+import { registerHarnessRoutes } from './harnessRoutes.ts';
+import { registerDictionaryRoutes } from './dictionaryRoutes.ts';
+import { remoteGate, remotePrincipal } from '../phone/gate.ts';
+import { registerPhoneHooks, registerPhoneRoutes } from '../phone/routes.ts';
+import { deleteSecret, hasSecret, providerSecretFor, SECRET_NAMES, setSecret, type SecretName } from '../secrets.ts';
 
 const WEB_DIST = fileURLToPath(new URL('../../../web/dist/', import.meta.url));
 const SESSION_COOKIE = 'acc_session';
@@ -86,6 +91,8 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
 
   app.addHook('onRequest', async (req, reply) => {
     const h = req.headers.host ?? '';
+    // A Host that names a live private tunnel is authenticated ONLY by a paired phone session (phone/gate.ts).
+    if (d.remote.isRemoteHost(h)) return remoteGate(d, req, reply);
     if (!allowedHosts().has(h)) return reply.code(421).send({ error: `host ${h} not allowed` });
     const ticket = req.url.startsWith('/ws?') ? new URL(req.url, 'http://localhost').searchParams.get('ticket') : null;
     const desktopWs = ticket !== null && (tickets.get(ticket) ?? 0) > Date.now();
@@ -108,6 +115,8 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
     }
   });
 
+  registerPhoneHooks(app, d);
+
   app.setErrorHandler((err: Error & { status?: number; statusCode?: number }, _req, reply) => {
     const status = err instanceof CommandError ? err.status : (err.statusCode ?? 500);
     reply.code(status).send({ error: err.message, ...(err instanceof CommandError && err.issues ? { issues: err.issues } : {}) });
@@ -127,6 +136,9 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
   });
 
   app.post('/api/auth/code', async () => ({ code: issueCode() }));
+  // Reached only after the local Host/Origin/install-token or session checks above.
+  // Paired phones do not have this route; their identity comes from /api/remote/session.
+  app.get('/api/auth/identity', async () => ({ mode: 'local' as const, project: d.config.project.name }));
   app.post('/api/auth/ws-ticket', async () => {
     for (const [key, expiry] of tickets) if (expiry < Date.now()) tickets.delete(key);
     const ticket = randomBytes(32).toString('hex');
@@ -189,8 +201,15 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
   app.get('/api/designer',async()=>({skills:d.designer.skills(),design:d.designer.exports()}));
   app.post('/api/designer/system',async(req:FastifyRequest<{Body:{system:unknown;expected?:string|null}}>)=>({revision:d.designer.save(req.body?.system,req.body?.expected??null)}));
   app.post('/api/agents/configure', async (req:FastifyRequest<{Body:{config:unknown;expected?:unknown}}>) => ({agent:d.saveAgent(req.body?.config,req.body?.expected??null)}));
+  app.post('/api/agents/cost-approval', async (req:FastifyRequest<{Body:{config:unknown;expected?:unknown}}>) => d.agentCosts.request(req.body?.config,req.body?.expected??null));
+  app.get('/api/settings', async () => d.settings.read());
+  app.post('/api/settings/request', async (req:FastifyRequest<{Body:{settings:import('../settings.ts').SettingsDraft;expected:string}}>) => ({decision:d.settings.request(req.body?.settings,req.body?.expected)}));
 
   registerLibraryRoutes(app, d);
+  registerDesignerRoutes(app, d);
+  registerHarnessRoutes(app, d);
+  registerDictionaryRoutes(app, d);
+  registerPhoneRoutes(app, d);
 
   app.get('/api/team', async () => d.team.snapshot());
   app.get('/api/team/messages', async (req: FastifyRequest<{ Querystring: { agentId?: string; after?: string; limit?: string } }>) => d.team.list(req.query.agentId ?? null, { after: Number(req.query.after ?? 0), limit: Number(req.query.limit ?? 20) }));
@@ -199,7 +218,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
   app.get('/api/docker', async () => d.docker.list());
   app.get('/api/docker/:id/logs', async (req: FastifyRequest<{ Params: { id: string } }>) => d.docker.logs(req.params.id));
   app.post('/api/docker/:id/request', async (req: FastifyRequest<{ Params: { id: string }; Body: { action: string } }>) => d.docker.request(req.params.id, req.body.action));
-  app.post('/api/docker/decisions/:id/resolve', async (req: FastifyRequest<{ Params: { id: string }; Body: { answer: string } }>) => d.docker.resolve(req.params.id, req.body.answer));
+  app.post('/api/docker/decisions/:id/resolve', async (req: FastifyRequest<{ Params: { id: string }; Body: { answer: string; nonce?: string } }>) => d.docker.resolve(req.params.id, req.body.answer, { nonce: req.body.nonce }));
 
   await registerProjectRoutes(app, d);
 
@@ -309,6 +328,22 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
   app.get('/api/decisions/:id/history', async (req: B<unknown>) => ({ decision: d.state.decisions[req.params.id] ?? null, events: d.decisions.history(req.params.id) }));
   app.post('/api/decisions/:id/prepare', async (req: B<{ answer: string }>) => d.decisions.prepare(req.params.id, String(req.body?.answer ?? '')));
   app.post('/api/decisions/:id/answer', async (req: B<{ answer: string; nonce?: string; channel?: string }>) => d.decisions.respond(req.params.id, String(req.body?.answer ?? ''), { nonce: req.body?.nonce ?? null, channel: req.body?.channel ?? 'web' }));
+  app.get('/api/release/plans', async () => ({ plans: d.releasePlans.list(), codeHost: d.state.codeHost, infra: d.state.infra }));
+  app.post('/api/release/plans', async (req: B<{ name?: string; workItemId?: string | null }>) => ({ plan: d.releasePlans.create(req.body ?? {}) }));
+  app.post('/api/release/plans/:id', async (req: B<{ name?: string; workItemId?: string | null; steps?: { id?: string; kind: import('@acc/core').ReleaseStepKind; title: string; owner: string; command: string; check: string; rollback: string; rollbackCheck?: string; target?: string; environment?: string }[] }>) => ({ plan: d.releasePlans.update(req.params.id, req.body ?? {}) }));
+  app.post('/api/release/plans/:id/cancel', async (req: B<unknown>) => ({ plan: d.releasePlans.cancel(req.params.id) }));
+  app.post('/api/release/plans/:id/steps/:stepId/decision', async (req: FastifyRequest<{ Params: { id: string; stepId: string } }>) => d.releasePlans.requestStep(req.params.id, req.params.stepId));
+  app.post('/api/release/plans/:id/steps/:stepId/rollback', async (req: FastifyRequest<{ Params: { id: string; stepId: string } }>) => d.releasePlans.requestRollback(req.params.id, req.params.stepId));
+  app.post('/api/release/plans/:id/steps/:stepId/inspect', async (req: FastifyRequest<{ Params: { id: string; stepId: string } }>) => d.releasePlans.requestInspection(req.params.id, req.params.stepId));
+  app.post('/api/release/refresh', async () => {
+    const codeHost = await d.hosts.refresh();
+    const infra = await d.infra.refresh();
+    d.findings.maybeAuto();
+    return { codeHost, infra };
+  });
+  app.post('/api/release/findings', async (req: B<{ kind?: string }>) => d.findings.link((req.body?.kind ?? '') as 'ci' | 'unprotected_branch' | 'migration_drift'));
+  app.post('/api/release/deliveries', async (req: B<{ headers?: Record<string, string>; body?: string }>) => d.hosts.acceptDelivery(req.body ?? {}));
+  app.get('/api/infra/health', async () => ({ health: d.state.infra, codeHost: d.state.codeHost }));
   app.post('/api/merges/:decisionId/execute', async (req: FastifyRequest<{ Params: { decisionId: string } }>) => d.reviewMerge.executeMerge(req.params.decisionId));
 
   app.post('/api/kill-switch', async (req: FastifyRequest<{ Body: { engaged: boolean } }>) => ({ stopped: await d.setKillSwitch(Boolean(req.body?.engaged)) }));
@@ -318,7 +353,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
   app.get('/api/connections', async () => {
     const out: Record<string, { stored: boolean; usedBy: string[] }> = {};
     for (const name of SECRET_NAMES) {
-      out[name] = { stored: await hasSecret(name, d.baseEnv()), usedBy: d.config.agents.filter((a) => PROVIDER_SECRET[a.provider]?.secret === name || (name === 'linear' && d.config.tracker.type === 'linear')).map((a) => a.id) };
+      out[name] = { stored: await hasSecret(name, d.baseEnv()), usedBy: d.config.agents.filter((a) => providerSecretFor(a)?.secret === name || (name === 'linear' && d.config.tracker.type === 'linear')).map((a) => a.id) };
     }
     return { connections: out, egress: { allowed: d.egress.allowed, recent: d.egress.log.slice(-50) } };
   });
@@ -329,7 +364,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
     if (!key) throw new CommandError('key is required');
     await setSecret(name, key);
     d.addSecret(key);
-    for (const a of d.config.agents) if (PROVIDER_SECRET[a.provider]?.secret === name) void d.probe(a.id).catch(() => undefined);
+    for (const a of d.config.agents) if (providerSecretFor(a)?.secret === name && a.enabled !== false) void d.probe(a.id).catch(() => undefined);
     return { stored: true };
   });
   app.delete('/api/connections/:id', async (req: FastifyRequest<{ Params: { id: string } }>) => {
@@ -356,7 +391,6 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
   app.post('/api/context/docs/ask', async (req: FastifyRequest<{ Body: { query: string } }>) => {
     if(!d.context.docs) throw new CommandError('Connect a markdown vault first');
     const context=d.context;
-    if(context.answer.busy)throw new CommandError('One Answer is indexing this project. Wait for the intake status to finish.',409);
     const result=context.answer.cite(await context.docs!.ask(String(req.body?.query??'')));
     if(context===d.context && !d.closed) d.commit([{type:'context.docs',actor:HUMAN,data:{status:context.docs!.status()}}]);
     return result;
@@ -380,15 +414,28 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
 
   // ---- WebSocket ---------------------------------------------------------------------------
   app.register(async (scope) => {
-    scope.get('/ws', { websocket: true }, (socket) => {
+    scope.get('/ws', { websocket: true }, (socket, wsReq) => {
+      // A phone session sees only what its scopes allow: no remote-access audit events, no transcripts without `transcript`.
+      const principal = remotePrincipal(wsReq);
+      const canTranscript = !principal || principal.scopes.includes('transcript');
+      const hidden = (e: EventEnvelope) => Boolean(principal) && e.type.startsWith('remote.');
+      const onRevoked = (id: string) => { if (principal?.session.id === id) socket.close(4001, 'session revoked'); };
+      if (principal) d.bus.on('remote.revoked', onRevoked);
       const runs = new Set<string>();
       let ready = false;
-      const send = (m: unknown) => {
-        if (socket.readyState === 1) socket.send(JSON.stringify(m));
+      const phoneAuthorized = () => {
+        if (!principal || d.remote.socketAuthorized(principal.session.id, principal.scopes)) return true;
+        socket.close(4001, 'session no longer authorized');
+        return false;
+      };
+      const send = (message: unknown) => {
+        if (!phoneAuthorized()) return;
+        const messages = principal ? d.remote.projectMessages(message, principal.scopes) : [message];
+        for (const m of messages) if (socket.readyState === 1) socket.send(JSON.stringify(m));
       };
       const onEvents = (events: EventEnvelope[]) => {
         if (!ready) return;
-        const out = events.filter((e) => e.kind === 'control' || (e.runId && runs.has(e.runId)));
+        const out = events.filter((e) => !hidden(e) && (e.kind === 'control' || (e.runId && runs.has(e.runId))));
         if (out.length) send({ type: 'events', events: out });
         // Runs this client isn't watching: send their updated projections (liveness, last event)
         // instead of the full transcript.
@@ -401,10 +448,11 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
       d.bus.on('events', onEvents);
       // Token streaming: every client gets the in-progress text (Mission Control shows a preview).
       const onLive = (m: { runId: string; agentId: string; role: string; text: string; at: string }) => {
-        if (ready) send({ type: 'live', ...m });
+        if (ready && canTranscript) send({ type: 'live', ...m });
       };
       d.bus.on('live', onLive);
       socket.on('message', (raw: Buffer) => {
+        if (!phoneAuthorized()) return;
         let m: { type?: string; since?: number; runId?: string };
         try {
           m = JSON.parse(raw.toString());
@@ -415,9 +463,10 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
           const since = Number(m.since ?? 0);
           const gap = d.state.seq - since;
           if (since <= 0 || gap > 5000) send({ type: 'snapshot', seq: d.state.seq, state: d.state });
-          else send({ type: 'events', events: d.store.list({ afterSeq: since, kind: 'control', limit: 5000 }) });
+          else send({ type: 'events', events: d.store.list({ afterSeq: since, kind: 'control', limit: 5000 }).filter((e) => !hidden(e)) });
           ready = true;
         } else if (m.type === 'subscribe_run' && m.runId) {
+          if (!canTranscript) return send({ type: 'denied', reason: 'This phone was not granted run transcripts.' });
           runs.add(m.runId);
           const events = d.store.list({ runId: m.runId, afterSeq: Number(m.since ?? 0), limit: 1000 });
           send({ type: 'run_events', runId: m.runId, events, more: events.length === 1000 });
@@ -426,6 +475,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
       socket.on('close', () => {
         d.bus.off('events', onEvents);
         d.bus.off('live', onLive);
+        d.bus.off('remote.revoked', onRevoked);
       });
     });
   });
@@ -439,7 +489,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
       return reply.code(404).send({ error: 'not found' });
     });
   } else {
-    app.get('/', async (_req, reply) => reply.type('text/html').send('<!doctype html><title>Agent Control Center</title><p>UI not built yet. Run <code>pnpm build</code> or use <code>pnpm dev:web</code>.</p>'));
+    app.get('/', async (_req, reply) => reply.type('text/html').send('<!doctype html><title>One Connect</title><p>UI not built yet. Run <code>pnpm build</code> or use <code>pnpm dev:web</code>.</p>'));
   }
 
   const addr = await app.listen({ port, host });

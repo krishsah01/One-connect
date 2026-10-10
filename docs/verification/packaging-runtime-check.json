@@ -1,0 +1,16 @@
+{
+  "path": "/Users/krishkumarsah/Docs/Projects/Interface/.desktop-cache/node-v24.21.0-darwin-arm64/bin/node",
+  "before": {
+    "inode": 178465978,
+    "mtimeNs": 1788824242000000000,
+    "size": 122129232
+  },
+  "check": "Fresh extraction must not mutate the executable used by host workers.",
+  "after": {
+    "inode": 178465978,
+    "mtimeNs": 1788824242000000000,
+    "size": 122129232
+  },
+  "unchanged": true,
+  "isolatedPackagedImport": "Passed: extracted archive CLI help with bundled Node24 and no provider probe"
+}

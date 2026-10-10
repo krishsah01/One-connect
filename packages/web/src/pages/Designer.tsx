@@ -1,52 +1,85 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect,useState,type CSSProperties } from 'react';
-import { Link,useNavigate } from 'react-router';
-import { DEFAULT_DESIGN,DesignSystemSchema,designChecks,type ControlState,type DesignRevision,type DesignSkill,type DesignSystem,type WorkItem } from '@acc/core';
-import { Badge,Copy,ErrorLine,useAction } from '../components/common';
-import { api,post } from '../lib/api';
-interface Exports {revision:DesignRevision;markdown:string;css:string;}
-export function Designer({state}:{state:ControlState}) {
-  const navigate=useNavigate(),{busy,error,run}=useAction();
-  const [system,setSystem]=useState<DesignSystem>(state.design?.system??DEFAULT_DESIGN),[expected,setExpected]=useState<string|null>(state.design?.hash??null);
-  const [skills,setSkills]=useState<DesignSkill[]>([]),[exports,setExports]=useState<Exports|null>(null),[notice,setNotice]=useState('');
-  const [brief,setBrief]=useState(''),[agent,setAgent]=useState(''),[tab,setTab]=useState('overview'),[review,setReview]=useState(false);
-  useEffect(()=>{let active=true;void api<{skills:DesignSkill[];design:Exports|null}>('/api/designer').then(r=>{if(active){setSkills(r.skills);setExports(r.design);}}).catch(()=>{});return()=>{active=false;};},[]);
-  const checks=designChecks(system),patch=(p:Partial<DesignSystem>)=>setSystem(s=>({...s,...p}));
-  const canonical=DesignSystemSchema.safeParse(system);
-  const dirty=!exports||!canonical.success||JSON.stringify(canonical.data)!==JSON.stringify(DesignSystemSchema.parse(exports.revision.system));
-  const candidates=Object.values(state.agents).filter(a=>a.config.enabled!==false&&a.config.mode!=='coordinator-only');
-  const previewStyle={...Object.fromEntries(Object.entries(system.colors).map(([k,v])=>[`--mock-${k}`,v])),'--mock-radius':`${system.radius}px`,'--mock-gap':`${system.spacing==='compact'?12:20}px`} as CSSProperties;
-  return <div className="page connected-page designer-page">
-    <div className="page-heading"><div><div className="eyebrow">One Connect studio</div><h1>Designer</h1><p>A shared visual system. Editable mocks. Skills your whole team can use.</p></div><div className="row wrap"><Link className="btn" to="/mocks">Browse mocks</Link><Link className="btn" to="/skills">Project skills</Link><Badge tone={dirty?'warn':'ok'}>{dirty?'Unsaved draft':`Contract v${exports?.revision.version}`}</Badge></div></div>
-    <ErrorLine error={error}/>{notice&&<p role="status" className="small text-ok">{notice}</p>}
-    <div className="designer-layout"><form className="card" onSubmit={e=>{e.preventDefault();void run(async()=>{
-      const r=await post<{revision:DesignRevision}>('/api/designer/system',{system,expected});setExpected(r.revision.hash);
-      const fresh=await api<{design:Exports}>('/api/designer');setExports(fresh.design);setNotice(`Design contract v${r.revision.version} saved. New assignments use this version.`);
-    });}}><fieldset className="card-b col" disabled={busy} style={{border:0,gap:15}}>
-      <h2>Project design system</h2><label>Name<input required maxLength={100} value={system.name} onChange={e=>patch({name:e.target.value})}/></label>
-      <label>Direction<textarea rows={3} required maxLength={1200} value={system.direction} onChange={e=>patch({direction:e.target.value})}/></label>
-      <div className="token-grid">{Object.entries(system.colors).map(([key,value])=><label key={key}><span>{key.replace(/[A-Z]/g,x=>' '+x.toLowerCase())}</span><div className="row"><input type="color" aria-label={`${key} color`} value={value} onChange={e=>patch({colors:{...system.colors,[key]:e.target.value}})}/><input aria-label={`${key} hex`} pattern="#[0-9a-fA-F]{6}" value={value} maxLength={7} onChange={e=>patch({colors:{...system.colors,[key]:e.target.value}})}/></div></label>)}</div>
-      <div className="builder-fields"><label>Type pairing<select value={system.typography} onChange={e=>patch({typography:e.target.value as DesignSystem['typography']})}><option value="system">System sans</option><option value="editorial">Serif display + system body</option></select></label><label>Spacing<select value={system.spacing} onChange={e=>patch({spacing:e.target.value as DesignSystem['spacing']})}><option value="comfortable">Comfortable · 8 px</option><option value="compact">Compact · 4 px</option></select></label><label>Corner radius<input type="number" min={0} max={24} value={system.radius} onChange={e=>patch({radius:Number(e.target.value)})}/></label><label>Motion<select value={system.motion} onChange={e=>patch({motion:e.target.value as DesignSystem['motion']})}><option value="subtle">Subtle</option><option value="reduced">Reduced</option></select></label></div>
-      <label>Project rules<textarea rows={3} maxLength={2000} value={system.rules} onChange={e=>patch({rules:e.target.value})}/></label>
-      <div className="col small" role="status">{checks.map(c=><div className="row" key={c.name}><span>{c.name}</span><span className="spacer"/><Badge tone={c.passed?'ok':'crit'}>{Number.isFinite(c.ratio)?c.ratio.toFixed(2):'Invalid color'}:1</Badge></div>)}<span className="faint">Measured text contrast. Keyboard and screen-reader behavior need separate verification.</span></div>
-      <button className="btn primary" disabled={busy||!dirty||checks.some(c=>!c.passed)}>Save design contract</button>
-    </fieldset></form>
-    <div className="col" style={{gap:22}}><section className="mock-preview" style={previewStyle}>
-      <div className="mock-bar"><b>Project preview</b><span>Editable token mock · sample content</span></div>
-      <div className="mock-body"><div className="mock-eyebrow">Connected workspace</div><h2 style={{fontFamily:system.typography==='editorial'?'Georgia, serif':undefined}}>A clear view of the work.</h2><p>One place to plan a change, review the evidence and decide what happens next.</p>
-        <div className="mock-tabs" role="tablist" aria-label="Mock preview section">{['overview','tasks'].map(t=><button id={`mock-tab-${t}`} aria-controls="mock-panel" tabIndex={tab===t?0:-1} role="tab" aria-selected={tab===t} key={t} onClick={()=>setTab(t)} onKeyDown={e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const next=e.key==='Home'?'overview':e.key==='End'?'tasks':t==='overview'?'tasks':'overview';setTab(next);document.getElementById(`mock-tab-${next}`)?.focus();}}}>{t==='overview'?'Overview':'Tasks'}</button>)}</div>
-        <div id="mock-panel" role="tabpanel" aria-labelledby={`mock-tab-${tab}`}>
-        {tab==='overview'?<div className="mock-content"><div><span className="mock-eyebrow">Next milestone</span><h3>Review the first prototype</h3><p>Check the main flow on a phone and a desktop before implementation.</p><button className="mock-action" onClick={()=>setReview(!review)}>{review?'Close review':'Open review'}</button>{review&&<div role="status" className="mock-review"><b>Example review state</b><p>Keyboard, content and responsive checks are pending. This mock does not claim passing evidence.</p></div>}</div><aside><b>Ready for feedback</b><p>Layout, typography, spacing and accessible color roles use the draft tokens.</p></aside></div>:<div className="mock-task-list"><div><b>Explore the primary flow</b><span>Design</span></div><div><b>Capture phone and desktop evidence</b><span>Review</span></div><div><b>Implement the approved system</b><span>Next</span></div></div>}
-        </div>
-      </div></section>
-      <section className="card card-b col"><h2>Create a design task</h2><p className="small muted">Make an issue and an editable assignment. Dispatch from the work board when the prompt and scope are ready.</p><form className="col" onSubmit={e=>{e.preventDefault();void run(async()=>{
-        if(dirty)throw new Error('Save the design contract before creating its mock task.');
-        const r=await post<{item:WorkItem}>('/api/issues',{title:'Design: '+brief.trim().split('\n')[0].slice(0,90),description:brief,labels:['design','ui'],acceptance:['An editable local mock exists in design/.','The approved design-system version is recorded in the handoff.','Phone, desktop and keyboard checks have actual evidence or are explicitly pending.']});
-        await post('/api/assignments',{workItemId:r.item.id,agentId:agent,allowedPaths:['design/**','DESIGN.md','tokens.css'],scope:'Create the requested mock using the frozen project design system. Do not publish or deploy.'});navigate('/board');
-      });}}><label>Mock brief<textarea rows={3} required maxLength={4000} value={brief} onChange={e=>setBrief(e.target.value)} placeholder="Describe the screen, audience and main interaction…"/></label><label>Design agent<select required value={agent} onChange={e=>setAgent(e.target.value)}><option value="">Choose an enabled agent</option>{candidates.map(a=><option key={a.id} value={a.id}>{a.config.name}</option>)}</select></label><button className="btn" disabled={busy||dirty||!agent||!brief.trim()}>Create issue & assignment</button></form></section>
-    </div></div>
-    <section className="designer-skills"><div className="row"><h2>Default designer skills</h2><span className="spacer"/><span className="small faint">Pinned sources · loaded on demand · no automatic installs</span></div><div className="skill-grid">{skills.map(s=><article className="skill-tile" key={s.id}><h3>{s.name}</h3><p>{s.description}</p><div className="row small"><Badge>{s.license}</Badge><span className="spacer"/><span>Available to design tasks</span></div></article>)}</div><p className="small muted">Taste Skill applies to landing pages and redesigns. Product UI uses the design contract and web guidelines. Playwright checks require the installed official CLI; availability alone is not verification.</p></section>
-    {exports&&<section className="card card-b col"><div className="row"><h2>Versioned handoff files</h2><span className="spacer"/><Copy text={exports.markdown} label="Copy DESIGN.md"/><Copy text={exports.css} label="Copy tokens.css"/></div><details><summary>Read the design contract</summary><pre className="design-export">{exports.markdown}</pre></details><span className="small mono faint">SHA-256 {exports.revision.hash}</span></section>}
-    <p className="small faint">The designer uses the same issue, assignment and evidence flow as engineering. <Link to="/team">Ask a peer</Link> or <Link to="/docs">query project knowledge</Link> without leaving One Connect.</p>
+// Designer studio: a brief becomes a reviewable issue and assignment, runs in the agent's own CLI on
+// the durable run stream, and its captured mock is reviewed against a versioned project contract.
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
+import { designAgentEligibility, jobStatus, mockGate, type ControlState } from '@acc/core';
+import { Badge, ErrorLine } from '../components/common';
+import { BriefForm } from '../components/designer/BriefForm';
+import { ContractEditor } from '../components/designer/ContractEditor';
+import { JobCard } from '../components/designer/JobCard';
+import { Tabs, tabPanel, type ContractResponse, type StudioOverview } from '../components/designer/shared';
+import '../components/designer/designer.css';
+import { api } from '../lib/api';
+
+type Tab = 'studio' | 'system' | 'skills';
+const TABS: { id: Tab; label: string }[] = [{ id: 'studio', label: 'Studio' }, { id: 'system', label: 'Design system' }, { id: 'skills', label: 'Skills and sources' }];
+
+export function Designer({ state }: { state: ControlState }) {
+  const [params, setParams] = useSearchParams();
+  const tab = (TABS.some(t => t.id === params.get('tab')) ? params.get('tab') : 'studio') as Tab;
+  const setTab = (t: Tab) => setParams(p => { const n = new URLSearchParams(p); n.set('tab', t); return n; }, { replace: true });
+  const contract = state.design ? { hash: state.design.hash, version: state.design.version } : null;
+  const jobs = Object.values(state.designStudio?.jobs ?? {}).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const phases = jobs.map(j => jobStatus(j, state).phase);
+  const steps = [
+    { done: Boolean(contract), label: 'Save a design system', detail: contract ? `contract v${contract.version}` : 'nothing saved yet' },
+    { done: jobs.length > 0, label: 'Brief a reviewable task', detail: jobs.length ? `${jobs.length} job${jobs.length === 1 ? '' : 's'}` : 'issue + draft assignment' },
+    { done: phases.includes('captured'), label: 'Run and capture', detail: 'real transcript, immutable revision' },
+    { done: Object.values(state.designStudio?.jobs ?? {}).some(j => j.kind === 'engineering' && j.artifactId && Object.values(state.mocks ?? {}).find(m => m.id === j.artifactId)?.revisions.some(r => r.rev === j.fromRev && mockGate(r, state.design?.hash ?? null).state === 'approved')), label: 'Review and hand off', detail: 'checklist, evidence, bundle' },
+  ];
+  return <div className="page connected-page studio-page">
+    <div className="page-heading"><div><div className="eyebrow">One Connect studio</div><h1>Designer</h1><p>Brief a design agent, watch it work, review the interactive mock against your project's versioned design system, and hand the approved identity to engineering.</p></div>
+      <div className="row wrap"><Link className="btn" to="/mocks">Mocks and reviews</Link><Link className="btn" to="/skills">Project skills</Link><Badge tone={contract ? 'ok' : 'warn'}>{contract ? `Contract v${contract.version}` : 'No contract saved'}</Badge></div></div>
+    <ol className="studio-steps" aria-label="Studio workflow">{steps.map(s => <li key={s.label} data-done={s.done}><b>{s.label}</b><br /><span className="faint">{s.detail}</span></li>)}</ol>
+    <Tabs idBase="designer" label="Designer sections" tabs={TABS} value={tab} onChange={setTab} />
+    <div {...tabPanel('designer', tab)}>
+      {tab === 'studio' && <Studio state={state} onNeedContract={() => setTab('system')} />}
+      {tab === 'system' && <ContractEditor />}
+      {tab === 'skills' && <SkillsPanel />}
+    </div>
+  </div>;
+}
+
+function Studio({ state, onNeedContract }: { state: ControlState; onNeedContract: () => void }) {
+  const [tooling, setTooling] = useState<StudioOverview['tooling'] | null>(null);
+  const [filter, setFilter] = useState<'active' | 'all'>('active');
+  const [focus, setFocus] = useState<string | null>(null);
+  useEffect(() => { let alive = true; void api<StudioOverview>('/api/designer/studio').then(r => alive && setTooling(r.tooling)).catch(() => undefined); return () => { alive = false; }; }, []);
+  const overview: StudioOverview = useMemo(() => ({
+    contract: state.design ? { hash: state.design.hash, version: state.design.version } : null,
+    agents: Object.values(state.agents).map(a => ({ id: a.id, name: a.config.name, adapter: a.config.adapter, status: a.status, eligibility: designAgentEligibility(a) })),
+    jobs: [], tooling: tooling ?? { playwright: { found: false, path: null, note: '' } },
+  }), [state.design?.hash, state.agents, tooling]);
+  const all = Object.values(state.designStudio?.jobs ?? {}).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const shown = filter === 'all' ? all : all.filter(j => !['canceled'].includes(jobStatus(j, state).phase) && (j.id === focus || !['captured', 'prepared'].includes(jobStatus(j, state).phase) || Date.parse(j.createdAt) > Date.now() - 24 * 3600_000));
+  return <div className="studio-grid">
+    <div className="studio-stack">
+      {!state.design && <div className="banner tone-warn small" role="note">Design jobs freeze the saved project contract. <button type="button" className="btn sm" onClick={onNeedContract}>Open the design system</button></div>}
+      <BriefForm overview={overview} onCreated={v => { setFocus(v.job.id); setFilter('active'); }} />
+      {tooling && <p className="small faint">Browser checks: {tooling.playwright.found ? <>Playwright found at <code>{tooling.playwright.path}</code>.</> : 'Playwright CLI not found on PATH; browser checks stay pending.'} {tooling.playwright.note}</p>}
+    </div>
+    <section className="studio-stack" aria-label="Design jobs">
+      <div className="row wrap"><h2 className="section">Jobs</h2><span className="spacer" />
+        <div className="segmented" role="radiogroup" aria-label="Show jobs"><label><input type="radio" name="jobs-filter" checked={filter === 'active'} onChange={() => setFilter('active')} />Current</label><label><input type="radio" name="jobs-filter" checked={filter === 'all'} onChange={() => setFilter('all')} />All ({all.length})</label></div>
+      </div>
+      {shown.length === 0 ? <div className="card card-b col empty"><b>No design jobs {filter === 'active' && all.length ? 'in progress' : 'yet'}</b><span className="small muted">Write a brief to create an issue and a draft assignment. You review the exact prompt and pre-flight, then dispatch. The agent's real output streams here, and its questions wait for your answer.</span></div>
+        : shown.map(j => <JobCard key={j.id} job={j} state={state} open={j.id === focus} />)}
+    </section>
+  </div>;
+}
+
+function SkillsPanel() {
+  const [data, setData] = useState<ContractResponse | null>(null), [err, setErr] = useState('');
+  useEffect(() => { void api<ContractResponse>('/api/designer/contract').then(setData).catch(e => setErr((e as Error).message)); }, []);
+  if (err) return <ErrorLine error={`Could not load skills: ${err}`} />;
+  if (!data) return <div className="empty" role="status">Loading skills…</div>;
+  const sets: [string, readonly string[]][] = [['Mock generation (design, ui, mock labels)', data.skillSets.design], ['Engineering implementation', data.skillSets.implementation], ['Independent review', data.skillSets.review]];
+  return <div className="col" style={{ gap: 18 }}>
+    <div className="banner tone-info small" role="note">Assignments carry only each skill’s one-line description. Agents load a skill with <code>get_skill</code> when it applies and open references only when the skill points to them. Skills guide execution; the project contract controls the visual identity.</div>
+    <table className="checks-table"><thead><tr><th>Skill</th><th>What it is for</th><th>Source</th><th>License</th><th>Version</th>{sets.map(([n]) => <th key={n}>{n.split(' (')[0]}</th>)}</tr></thead>
+      <tbody>{data.skills.map(s => <tr key={s.id}><td><b>{s.name}</b><br /><code className="faint">{s.id}</code></td><td>{s.purpose}</td><td>{s.source.startsWith('https://') ? <a href={s.source} target="_blank" rel="noreferrer noopener">{s.source.replace('https://github.com/', '')}</a> : s.source}</td><td><Badge>{s.license}</Badge></td><td className="mono">{s.version.slice(0, 12)}</td>{sets.map(([n, ids]) => <td key={n}>{ids.includes(s.id) ? <Badge tone="ok">selected</Badge> : <span className="faint">—</span>}</td>)}</tr>)}</tbody></table>
+    <p className="small muted">Taste Skill, Vercel Web Interface Guidelines and the VoltAgent DESIGN.md analyses are pinned upstream text with their MIT notices; selected resources came from the owner-approved Open Design revision 53231d4 under Apache-2.0. The Playwright entry is a guide for an already-installed official CLI, not a bundled executable. Skills marked One Connect are original. Hashes are verified on every read; notices are in THIRD_PARTY_NOTICES.md.</p>
+    <p className="small muted">Custom agents can add project skills in <Link to="/skills">Skills</Link>. The review checklist every approval uses: {data.checklist.map(c => c.label).join(', ')}.</p>
   </div>;
 }

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { beforeAll, afterEach, describe, expect, it } from 'vitest';
-import { agentActor, DEFAULT_DESIGN, designCss, HUMAN, mockGate, MOCK_PREVIEW_CSP, SYSTEM } from '@acc/core';
+import { agentActor, DEFAULT_DESIGN, designCss, HUMAN, mockGate, MOCK_PREVIEW_CSP, REVIEW_CHECKLIST, SYSTEM } from '@acc/core';
 import { git, makeConfig, makeRepo, startDaemon, tmpDir, waitFor, type Harness } from './helpers.ts';
 
 import { ensureNativeMockHelper } from './mock-file-helper.ts';
@@ -25,7 +25,7 @@ describe('design mock artifacts', () => {
     const d = h.d;
     const v1 = d.designer.save(DEFAULT_DESIGN, null);
     d.skillLib.saveDraft(skill, null);
-    const published = d.skillLib.publish('mock-review', null);
+    const published = d.skillLib.publish('mock-review', null, d.state.skills!['mock-review'].draft!.hash);
     const codex = d.state.agents.codex.config;
     d.saveAgent({ ...codex, skills: ['mock-review'] }, codex);
     const item = d.createIssue({ title: 'Settings mock', description: '[fake:design-mock]', acceptance: ['phone and desktop layouts'], labels: ['design'] });
@@ -187,7 +187,8 @@ describe('design mock artifacts', () => {
     expect(p.html.indexOf('Content-Security-Policy')).toBeLessThan(p.html.indexOf('<h3>'));
     expect(p.html).toContain('src="data:image/svg+xml;base64,');
     expect(p.html).toContain('<style data-src="tokens.css">');
-    expect(p.html).toContain('window.open=()=>null');
+    // window.open still returns null; the guard now also tells the preview shell why nothing opened.
+    expect(p.html).toContain("window.open=(...a)=>{block('popup',a[0]);return null}");
     expect(p.html).not.toMatch(/loc\.assign=loc\.replace|Object\.defineProperty\(loc/);
     expect(p.shell).toContain("frame-src 'none'");
     expect(p.execution).toBe('native-isolated');
@@ -223,7 +224,18 @@ describe('design mock artifacts', () => {
     // Finding ids survive event-log redaction unchanged.
     expect(d.state.mocks![id].revisions.map(r => r.findings)).toEqual([rev1.findings, r2.revision.findings]);
     expect(d.mocks.addException(id, 2, [off2], 'Heading accent approved by design lead').revisions[1].gate.state).toBe('excepted');
-    expect(d.mocks.review(id, 2, 'approved', 'Looks right at phone and desktop').revisions[1].gate.state).toBe('approved');
+    // Approval needs a passing checklist with a rendered basis, and the author cannot be the only approver.
+    const passAll = REVIEW_CHECKLIST.map(c => ({ id: c.id, result: 'pass' as const, basis: c.id === 'contrast' ? 'static' as const : 'human' as const }));
+    expect(() => d.mocks.review(id, 2, 'approved', 'ok')).toThrow(/checklist item must pass/);
+    expect(() => d.mocks.review(id, 2, 'approved', 'ok', HUMAN, { checklist: passAll.map(c => ({ ...c, basis: 'static' })) })).toThrow(/Static checks cannot pass/);
+    expect(() => d.mocks.review(id, 2, 'approved', 'ok', HUMAN, { checklist: passAll.map(c => c.id === 'keyboard' ? { ...c, basis: 'browser' } : c) })).toThrow(/browser basis needs passed, executed evidence/);
+    expect(r2.revision.authoredBy).toEqual(HUMAN);
+    const selfApproved = d.mocks.review(id, 2, 'approved', 'Looks right at phone and desktop', HUMAN, { checklist: passAll }).revisions[1];
+    expect(selfApproved.gate.state).toBe('needs_independent_review');
+    expect(selfApproved.reviews.at(-1)).toMatchObject({ independent: false, hash: r2.revision.hash, designHash: v1.hash });
+    // An independent agent review (recorded by submit_design_review in a review run) completes it.
+    d.commit([{ type: 'design.mock_reviewed', actor: agentActor('claude'), agentId: 'claude', data: { artifactId: id, rev: 2, review: { decision: 'approved', note: 'Independent static review', by: agentActor('claude'), at: new Date().toISOString(), hash: r2.revision.hash, designHash: v1.hash, independent: true, checklist: passAll.map(c => ({ ...c, basis: 'static', evidenceIds: [] })) } } }]);
+    expect(d.mocks.view(d.mocks.get(id)).revisions[1].gate.state).toBe('approved');
 
     // A newer contract is drift: a visible review gate until a human records an exception.
     const v2 = d.designer.save({ ...DEFAULT_DESIGN, radius: 12 }, v1.hash);

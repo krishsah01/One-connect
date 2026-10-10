@@ -65,6 +65,12 @@ export class OutboxWorker {
       d.store.markDelivered(row.id);
       return true;
     }
+    if (item.origin?.localMirror === true && !item.trackerId) {
+      // Retire even an accidentally queued create intent. Read approval cannot publish a mirror.
+      // The audit states that no tracker request happened; it never fabricates synced evidence.
+      d.commit([{ type: 'tracker.operation_skipped', workItemId: item.id, data: { operation: row.op, reason: 'Local mirror has no approved authoritative tracker binding.' } }], [], () => d.store.markDelivered(row.id));
+      return true;
+    }
     try {
       if (row.op === 'create_issue') {
         const p = row.payload as { title: string; description: string; acceptance: string[]; labels: string[]; priority?: number };

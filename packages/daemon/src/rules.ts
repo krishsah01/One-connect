@@ -6,6 +6,7 @@ import { lookup } from 'node:dns/promises';
 import type { EventEnvelope, Run } from '@acc/core';
 import { isActiveRun, subscriptionPeers, SYSTEM } from '@acc/core';
 import { adapterFor } from './adapters/agents/index.ts';
+import { clampPollSeconds } from './adapters/hosts/webhook.ts';
 import type { Daemon } from './daemon.ts';
 
 const minutes = (n: number) => n * 60_000;
@@ -226,6 +227,29 @@ export class Rules {
         d.resolveAlerts((x) => x.kind === 'idle_with_work' && x.agentId === a.id, 'working again');
       }
       if (!a.queue.now && a.queue.next.length) void this.refill(a.id);
+    }
+    void this.watchInfra();
+  }
+
+  private watching = false;
+
+  /** Paused databases, failing CI and an unprotected production branch. Read-only. */
+  async watchInfra(): Promise<void> {
+    if (this.watching || !this.d.ruleOn('infra_watch')) return;
+    const last = this.d.store.kvGet('infra:watch-at');
+    const waitMs = clampPollSeconds(this.d.config.code_host?.poll_seconds) * 1000;
+    if (last && this.d.now().getTime() - Date.parse(last) < waitMs) return;
+    this.watching = true;
+    this.d.store.kvSet('infra:watch-at', this.d.nowIso());
+    try {
+      await this.d.infra.refresh();
+      await this.d.hosts.refresh();
+      this.d.findings.maybeAuto();
+      this.d.resolveAlerts((a) => a.dedupeKey === 'infra-watch-error', 'infra watch finished');
+    } catch (e) {
+      this.d.alert({ kind: 'infra', severity: 'warn', message: `Infra watch could not finish: ${(e as Error).message}`, dedupeKey: 'infra-watch-error' });
+    } finally {
+      this.watching = false;
     }
   }
 }

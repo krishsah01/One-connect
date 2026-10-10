@@ -20,8 +20,18 @@ export class GraphContext {
   readonly dir: string;
   private building: Promise<GraphStatus> | null = null;
   private abort=new AbortController();
+  private stopped=false;
   private redact:(s:string)=>string;
-  stop(){this.abort.abort();}
+  /** Shutdown: permanent. */
+  stop(){this.stopped=true;this.abort.abort();}
+  /** Cancel the current build only; later builds get a fresh signal. */
+  cancel(){this.abort.abort();if(!this.stopped)this.abort=new AbortController();}
+  /** Obsolete privacy/scope caches must not survive a policy change, even if rebuilding fails. */
+  invalidateSourcePolicy():void {
+    if(this.building)throw new Error('Cannot change the graph source policy during a build');
+    for(const dir of [this.dir,`${this.dir}.previous`,`${this.dir}.next`])fs.rmSync(dir,{recursive:true,force:true});
+    this.status=this.readStatus();
+  }
   status: GraphStatus;
 
   constructor(cfg: GraphifyConfig, o: { repo: string; branch: string; dir: string; redact?:(s:string)=>string }) {
@@ -30,6 +40,7 @@ export class GraphContext {
     this.branch = o.branch;
     this.dir = o.dir;
     this.redact=o.redact??(s=>s);
+    this.recoverPublished();
     this.status = this.readStatus();
   }
 
@@ -52,31 +63,68 @@ export class GraphContext {
     return env;
   }
 
-  private readStatus(extra: Partial<GraphStatus> = {}): GraphStatus {
-    const g = this.graphPath();
-    let nodes = 0;
-    let edges = 0;
-    let builtAt: string | null = null;
-    if (fs.existsSync(g)) {
+  /** Validate before promotion, including shape, size and owned regular-file boundaries. */
+  private readableGraph(root:string):{nodes:number;edges:number;builtAt:string}|null {
+    try {
+      if(fs.lstatSync(root).isSymbolicLink())return null;
+      const output=path.join(root,'graphify-out');
+      if(!fs.lstatSync(output).isDirectory()||fs.lstatSync(output).isSymbolicLink())return null;
+      const file=path.join(output,'graph.json'),stat=fs.lstatSync(file);
+      if(!stat.isFile()||stat.nlink!==1||stat.size>32*1024*1024)return null;
+      const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);
       try {
-        const j = JSON.parse(fs.readFileSync(g, 'utf8')) as { nodes?: unknown[]; links?: unknown[]; edges?: unknown[] };
-        nodes = j.nodes?.length ?? 0;
-        edges = (j.links ?? j.edges ?? []).length;
-        builtAt = fs.statSync(g).mtime.toISOString();
-      } catch {
-        /* corrupt: treated as missing */
-      }
-    }
+        const current=fs.fstatSync(fd);
+        if(current.size>32*1024*1024||current.ino!==stat.ino)return null;
+        const j=JSON.parse(fs.readFileSync(fd,'utf8')) as {nodes?:unknown;links?:unknown;edges?:unknown};
+        const edges=j.links??j.edges;
+        if(!Array.isArray(j.nodes)||!Array.isArray(edges)||[...j.nodes,...edges].some(x=>!x||typeof x!=='object'||Array.isArray(x)))return null;
+        return {nodes:j.nodes.length,edges:edges.length,builtAt:current.mtime.toISOString()};
+      }finally{fs.closeSync(fd);}
+    }catch{return null;}
+  }
+
+  private recordedSha(root:string):string|null {
+    try {
+      const file=path.join(root,'graphify-out','.acc-sha'),stat=fs.lstatSync(file);
+      if(!stat.isFile()||stat.nlink!==1||stat.size>128)return null;
+      const sha=fs.readFileSync(file,'utf8').trim();
+      return /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(sha)?sha:null;
+    }catch{return null;}
+  }
+
+  private recordedGeneration():string|null {
+    try {
+      const file=path.join(this.dir,'graphify-out','.acc-generation'),stat=fs.lstatSync(file);
+      if(!stat.isFile()||stat.nlink!==1||stat.size!==64)return null;
+      const value=fs.readFileSync(file,'utf8');
+      return /^[a-f0-9]{64}$/.test(value)?value:null;
+    }catch{return null;}
+  }
+
+  /** A crash between the two directory renames must retain the last verified graph. */
+  private recoverPublished():void {
+    const previous=`${this.dir}.previous`;
+    if(this.readableGraph(this.dir)&&this.recordedSha(this.dir))return;
+    if(!this.readableGraph(previous)||!this.recordedSha(previous))return;
+    try {
+      fs.rmSync(this.dir,{recursive:true,force:true});
+      fs.renameSync(previous,this.dir);
+    }catch{/* keep the backup intact; a later build can retry recovery */}
+  }
+
+  private readStatus(extra: Partial<GraphStatus> = {}): GraphStatus {
+    const g = this.graphPath(),graph=this.readableGraph(this.dir);
+    const nodes=graph?.nodes??0,edges=graph?.edges??0,builtAt=graph?.builtAt??null;
     let sha: string | null = null;
     try {
-      const recorded=fs.readFileSync(path.join(this.dir, 'graphify-out', '.acc-sha'), 'utf8').trim();
-      sha=/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(recorded)?recorded:null;
+      sha=this.recordedSha(this.dir);
     } catch {
       /* never built */
     }
     return {
       state: !this.binary() ? 'unavailable' : builtAt&&sha ? 'ready' : 'missing',
       sha,
+      generation:this.recordedGeneration(),
       builtAt,
       nodes,
       edges,
@@ -99,29 +147,74 @@ export class GraphContext {
   }
 
   /** In-memory readiness is insufficient if the graph or its revision marker was removed. */
-  current(sha:string):boolean {
-    const disk=this.readStatus();return disk.state==='ready'&&disk.sha===sha;
+  current(sha:string,generation?:string):boolean {
+    const disk=this.readStatus();return disk.state==='ready'&&disk.sha===sha&&(!generation||disk.generation===generation);
   }
 
-  /** One Answer gives Graphify an already redacted immutable snapshot, never the live repo. */
-  rebuildSource(sha:string,onStart?:(s:GraphStatus)=>void):Promise<GraphStatus> {
+  /**
+   * Dictionary gives Graphify an already redacted immutable snapshot, never the live repo. The
+   * snapshot is built in a private staging directory; the current graph is replaced only after a
+   * successful AST build, so a failure leaves the previous graph in place, labelled with its own
+   * revision (and therefore visibly stale), instead of an empty or half-written one.
+   */
+  buildSnapshot(sha:string,files:Iterable<{path:string;content:string}>,onStart?:(s:GraphStatus)=>void,generation?:string):Promise<GraphStatus> {
     if(this.building)return this.building;
     this.building=(async()=>{
       const bin=this.binary();
       if(!bin)return this.status=this.readStatus();
-      this.status={...this.status,state:'building',error:null};onStart?.(this.status);
+      if(this.stopped)return this.status;
+      const signal=this.abort.signal,stage=`${this.dir}.next`,previous=`${this.dir}.previous`;
+      let movedOld=false,promoted=false;
+      this.status={...this.readStatus(),state:'building',error:null};onStart?.(this.status);
       const start=Date.now();
       try {
+        fs.rmSync(stage,{recursive:true,force:true});fs.mkdirSync(stage,{recursive:true,mode:0o700});
+        for(const file of files){
+          const dest=path.resolve(stage,file.path);
+          if(!dest.startsWith(stage+path.sep))continue; // snapshot paths are validated upstream; never escape the stage
+          fs.mkdirSync(path.dirname(dest),{recursive:true,mode:0o700});fs.writeFileSync(dest,file.content,{mode:0o600});
+        }
         // AST extraction only. Paid semantic extraction is a separately approved integration.
         const env=this.env();for(const k of LLM_KEYS)delete env[k];
-        const r=await run(bin,['update','.','--force'],{cwd:this.dir,env,signal:this.abort.signal,timeoutMs:10*60_000});
+        const r=await run(bin,['update','.','--force'],{cwd:stage,env,signal,timeoutMs:10*60_000});
+        if(signal.aborted)throw new Error('Graphify build was cancelled');
         if(r.code!==0)throw new Error(`Graphify AST extraction failed (${r.code ?? 'no exit code'})`);
-        fs.writeFileSync(path.join(this.dir,'graphify-out','.acc-sha'),sha);
+        if(!this.readableGraph(stage))throw new Error('Graphify wrote no readable graph');
+        if(!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(sha))throw new Error('Graphify source revision is invalid');
+        fs.writeFileSync(path.join(stage,'graphify-out','.acc-sha'),sha,{flag:'wx',mode:0o600});
+        if(generation){
+          if(!/^[a-f0-9]{64}$/.test(generation))throw new Error('Graphify source generation is invalid');
+          fs.writeFileSync(path.join(stage,'graphify-out','.acc-generation'),generation,{flag:'wx',mode:0o600});
+        }
+        this.recoverPublished();
+        if(fs.existsSync(previous)&&!this.readableGraph(this.dir))throw new Error('Previous graph recovery is required before replacing it');
+        fs.rmSync(previous,{recursive:true,force:true});
+        if(fs.existsSync(this.dir)){fs.renameSync(this.dir,previous);movedOld=true;}
+        fs.renameSync(stage,this.dir);promoted=true;
         this.status=this.readStatus({durationMs:Date.now()-start,semantic:false});
         if(this.status.state!=='ready')throw new Error('Graphify wrote no readable graph');
-      }catch(e){this.status=this.readStatus({state:'error',error:this.redact((e as Error).message),durationMs:Date.now()-start,semantic:false});}
+        // The new graph is verified. Cleanup failure need not invalidate that publication.
+        try{fs.rmSync(previous,{recursive:true,force:true});}catch{/* recoverable cache cleanup */}
+      }catch(e){
+        if(movedOld) {
+          try {
+            if(promoted)fs.rmSync(this.dir,{recursive:true,force:true});
+            fs.renameSync(previous,this.dir);
+          }catch{/* preserve .previous for recovery on restart */}
+        }
+        try{fs.rmSync(stage,{recursive:true,force:true});}catch{/* private staging cleanup */}
+        this.status=this.readStatus({state:'error',error:this.redact((e as Error).message),durationMs:Date.now()-start,semantic:false});
+      }
       return this.status;
     })().finally(()=>{this.building=null;});return this.building;
+  }
+
+  /** Back-compatible entry: build from files already written to `dir`. */
+  rebuildSource(sha:string,onStart?:(s:GraphStatus)=>void):Promise<GraphStatus> {
+    const files:{path:string;content:string}[]=[];
+    const walk=(d:string,rel:string)=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){if(e.name==='graphify-out')continue;const p=path.join(d,e.name),r=rel?`${rel}/${e.name}`:e.name;if(e.isDirectory())walk(p,r);else if(e.isFile())files.push({path:r,content:fs.readFileSync(p,'utf8')});}};
+    try{walk(this.dir,'');}catch{/* empty snapshot */}
+    return this.buildSnapshot(sha,files,onStart);
   }
 
   /** Build or refresh the graph at the current integration HEAD. Concurrent calls share one build. */

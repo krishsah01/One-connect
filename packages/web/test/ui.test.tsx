@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyEvent, emptyState, parseConfig, type ControlState, type EventEnvelope } from '@acc/core';
 import { Transcript } from '../src/components/Transcript';
 import { MissionControl } from '../src/pages/MissionControl';
 import { Decisions } from '../src/pages/Decisions';
+
+import { setRemoteSession } from '../src/lib/remote';
+
+// These isolated management fixtures explicitly model a verified local owner.
+beforeEach(() => setRemoteSession(null, 'local'));
+afterEach(() => setRemoteSession(null, 'checking'));
 
 afterEach(() => {
   cleanup();

@@ -70,6 +70,8 @@ export type Parsed =
   /** The in-progress message so far (token streaming). Shown live, never persisted. '' clears it. */
   | { kind: 'live'; role: 'assistant' | 'reasoning'; text: string }
   | { kind: 'final'; text: string }
+  /** A child session of the harness (OpenCode subagent), surfaced as a child run in the console. */
+  | { kind: 'child'; sessionId: string; parentSessionId: string | null; title: string; state: 'running' | 'completed' | 'failed' | 'aborted'; error?: string }
   | { kind: 'failure'; failure: Failure }
   | { kind: 'result'; ok: boolean; text?: string };
 
@@ -113,6 +115,11 @@ export interface VendorAdapter {
   createParser(ctx: { agent: AgentConfig; runId: string; cwd: string }): StreamParser;
   /** How a mid-run message is delivered on stdin (streaming adapters only). */
   encodeMessage?(text: string): string;
+  /**
+   * A line that asks a streaming harness to abort its in-flight turn cleanly (so the vendor records
+   * the abort) before the process group is signalled. Only used for a plain stop or pause.
+   */
+  encodeAbort?(): string;
 }
 
 export const unknownUsage = (source: string): UsageInfo => ({ windows: [], status: 'unknown', checkedAt: new Date().toISOString(), source });

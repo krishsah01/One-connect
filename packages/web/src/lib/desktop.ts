@@ -32,6 +32,9 @@ function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
 let active: Bootstrap | null = null;
 let ready: Promise<Bootstrap> | null = null;
 const listeners = new Set<() => void>();
+const beforeSwitch = new Set<() => Promise<void>>();
+/** Flush project drafts before changing the native routing target. Failure keeps this project open. */
+export function onBeforeProjectSwitch(flush: () => Promise<void>) { beforeSwitch.add(flush); return () => { beforeSwitch.delete(flush); }; }
 const notify = () => { for (const l of listeners) l(); };
 
 export function ensureDesktop(): Promise<Bootstrap | null> {
@@ -42,9 +45,10 @@ export const activeProject = () => active;
 export function useActiveProject(): Bootstrap | null { return useSyncExternalStore(l => { listeners.add(l); return () => listeners.delete(l); }, () => active); }
 
 export class ProjectSwitched extends Error { constructor() { super('Project switched'); } }
-export async function desktopRequest(path: string, init: { method?: string; body?: unknown }) {
+export async function desktopRequest(path: string, init: { method?: string; body?: unknown; project?: string }) {
   const b = await ensureDesktop();
-  const project = b!.project;
+  const project = init.project ?? b!.project;
+  if (active?.project !== project) throw new ProjectSwitched();
   const r = await call('daemon_request', { project, path, method: init.method ?? (init.body !== undefined ? 'POST' : 'GET'), body: init.body ?? null });
   if (active?.project !== project) throw new ProjectSwitched();
   return r;
@@ -56,6 +60,7 @@ export async function websocketUrl(): Promise<string> {
 }
 /** Make `id` the active project. Engines of other projects keep running with their runs. */
 export async function switchProject(id: string): Promise<Bootstrap> {
+  if (active?.project !== id) for (const flush of [...beforeSwitch]) await flush();
   await call('project_activate', { project: id });
   const b = await call<Bootstrap>('desktop_bootstrap', { project: id });
   active = b; ready = Promise.resolve(b); notify();

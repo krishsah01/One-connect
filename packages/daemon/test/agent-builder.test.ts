@@ -29,7 +29,7 @@ describe('project agent builder',()=>{
     const current=d.state.agents.codex.config;
     d.addSecret('private-builder-secret');
     expect(()=>d.saveAgent({...clone(current),instructions:'private-builder-secret'})).toThrow(/credentials/);
-    expect(()=>d.saveAgent({...clone(current),provider:'openai-api',metered_opt_in:true})).toThrow(/cost-approval/);
+    expect(()=>d.saveAgent({...clone(current),provider:'openai-api',metered_opt_in:true})).toThrow(/reviewed per-agent cost Decision/);
     const item=d.createIssue({title:'Queued work'});await waitFor(()=>d.state.workItems[item.id].key);
     const a=d.createAssignment({workItemId:item.id,agentId:'codex',allowedPaths:['notes/**']});
     await d.dispatch(a.id,{position:'next'});

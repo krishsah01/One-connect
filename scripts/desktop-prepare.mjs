@@ -21,11 +21,17 @@ const expected = fs.readFileSync(checksums, 'utf8').split('\n').find(l => l.ends
 const actual = createHash('sha256').update(fs.readFileSync(archive)).digest('hex');
 if (!expected || expected !== actual) throw new Error('Node archive checksum mismatch');
 fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });
-execFileSync('tar', ['xzf', archive, '-C', cache]);
-fs.mkdirSync(path.join(out, 'runtime'));
-fs.copyFileSync(path.join(cache, `node-v${version}-darwin-${process.arch}/bin/node`), path.join(out, 'runtime/node'));
-fs.chmodSync(path.join(out, 'runtime/node'), 0o755);
-fs.copyFileSync(path.join(cache, `node-v${version}-darwin-${process.arch}/LICENSE`), path.join(out, 'runtime/LICENSE'));
+// Never overwrite a cached executable that local tests or provider workers may be using.
+// A fresh extraction also makes the bundled runtime come from the verified archive every time.
+const nodeExtract = fs.mkdtempSync(path.join(cache, 'node-extract-'));
+try {
+  execFileSync('tar', ['xzf', archive, '-C', nodeExtract]);
+  const nodeSource = path.join(nodeExtract, `node-v${version}-darwin-${process.arch}`);
+  fs.mkdirSync(path.join(out, 'runtime'));
+  fs.copyFileSync(path.join(nodeSource, 'bin/node'), path.join(out, 'runtime/node'));
+  fs.chmodSync(path.join(out, 'runtime/node'), 0o755);
+  fs.copyFileSync(path.join(nodeSource, 'LICENSE'), path.join(out, 'runtime/LICENSE'));
+} finally { fs.rmSync(nodeExtract, { recursive: true, force: true }); }
 for (const sub of ['packages/core', 'packages/daemon', 'examples', 'scripts/demo.mjs', 'packages/web/dist']) {
   fs.cpSync(path.join(root, sub), path.join(out, sub), { recursive: true, filter: p => {
     const parts = path.relative(path.join(root, sub), p).split(path.sep);
@@ -50,9 +56,12 @@ function copyPackage(src) {
   const dest = path.join(out, 'node_modules/.vendor', `${pkg.name.replaceAll('/', '+')}@${pkg.version}-${createHash('sha256').update(path.relative(root, src)).digest('hex').slice(0, 6)}`);
   copied.set(src, dest);
   fs.cpSync(src, dest, { recursive: true, filter: p => !path.relative(src, p).split(path.sep).includes('node_modules') });
-  for (const dep of Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies })) {
+  // pnpm installs peer packages beside the dependent package. Preserve that runtime
+  // relationship too; otherwise SDK helpers can import successfully in the checkout
+  // yet fail after the app archive is extracted outside the repository.
+  for (const dep of Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies, ...pkg.peerDependencies })) {
     try { link(copyPackage(findDependency(src, dep)), path.join(dest, 'node_modules', dep)); }
-    catch (e) { if (!pkg.optionalDependencies?.[dep]) throw e; }
+    catch (e) { if (!pkg.optionalDependencies?.[dep] && !pkg.peerDependenciesMeta?.[dep]?.optional) throw e; }
   }
   return dest;
 }
@@ -87,4 +96,13 @@ normalize(out);
 const list = path.join(cache, 'engine-files.txt');
 fs.writeFileSync(list, archiveFiles.sort().join('\n') + '\n');
 execFileSync('/usr/bin/tar', ['czf', path.join(path.dirname(out), 'engine.tar.gz'), '--no-xattrs', '--uid', '0', '--gid', '0', '--uname', 'root', '--gname', 'root', '--no-recursion', '-C', path.dirname(out), '-T', list], { stdio: 'inherit' });
+// Check the actual archive in isolation so Node cannot find missing modules by
+// walking up into this checkout's node_modules. `help` performs no provider probe.
+const smoke = fs.mkdtempSync(path.join(os.tmpdir(), 'one-connect-package-smoke-'));
+try {
+  execFileSync('/usr/bin/tar', ['xzf', path.join(path.dirname(out), 'engine.tar.gz'), '-C', smoke]);
+  const engine = path.join(smoke, 'engine');
+  execFileSync(path.join(engine, 'runtime/node'), ['packages/daemon/src/cli.ts', 'help'], { cwd: engine, stdio: 'pipe' });
+} finally { fs.rmSync(smoke, { recursive: true, force: true }); }
+console.log('Extracted Node 24 engine import check passed (offline, no provider probe).');
 console.log(`Prepared ${copied.size} runtime packages and Node ${version} (${process.arch}) at ${out}`);

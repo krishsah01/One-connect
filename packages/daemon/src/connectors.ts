@@ -4,28 +4,37 @@
 // editing the configuration voids it. Imported text is untrusted data, never instructions.
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { createHash } from 'node:crypto';
 import {
-  CONNECTOR_DESCRIPTORS, connectorAllows, connectorState, ConnectorDraftSchema, containsSecret, HUMAN, newId,
-  type Actor, type Connector, type ConnectorAction, type ConnectorAvailability, type Decision, type WorkItem,
+  CONNECTOR_DESCRIPTORS, RELEASE_CONNECTOR_DEFAULTS, RELEASE_CONNECTOR_KINDS, connectorAllows, connectorState, ConnectorDraftSchema, containsSecret, HUMAN, newId, isReleaseConnector, productionBranchOf,
+  type Actor, type Connector, type ConnectorAction, type ConnectorAvailability, type Decision, type TrackerCategory, type WorkItem,
+  type ReleaseConnectorConfig, type ReleaseConnectorKind, type ReleaseCapability,
+  type ControlCenterConfig,
 } from '@acc/core';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { ListRootsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { GitHubTracker, LinearTracker, type TrackerIssue } from './adapters/trackers/index.ts';
+import { ConnectorToolActions, type ConnectorToolRequest } from './connectorToolActions.ts';
 import { EgressDenied } from './egress.ts';
 import { getSecret, hasSecret } from './secrets.ts';
 import { CommandError, type Daemon } from './daemon.ts';
 import type { AnswerOptions } from './decisions.ts';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
+function stable(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${stable(v)}`).join(',')}}`;
+  return JSON.stringify(value) ?? 'null';
+}
 const DECISION_TTL_MS = 15 * 60_000;
 const PREVIEW_TTL_MS = 10 * 60_000;
-const TOOL_OUTPUT_LIMIT = 32_000;
+const MAX_PREVIEW_PAGE = 10_000;
+const MAX_PREVIEW_PAGE_SIZE = 100;
+const DEFAULT_PREVIEW_PAGE_SIZE = 50;
 
 interface PendingDecision { connectorId: string; action: ConnectorAction; configHash: string; expires: number; consumed: boolean }
-interface Preview { connectorId: string; configHash: string; issues: (TrackerIssue & { contentHash: string })[]; at: number }
+interface ImportBinding { connectorId: string; configHash: string; approvalDecisionId: string; projectHash: string }
+interface SourceScope { type: 'github' | 'linear'; repo?: string; team?: string; project?: string | null }
+interface PreviewIssue extends TrackerIssue { contentHash: string; sourceRevision: string }
+interface PreviewSnapshot { binding: ImportBinding; query: string; issues: PreviewIssue[]; snapshotHash: string; createdAt: number; expiresAt: number }
 
 function findBin(name: string, env: NodeJS.ProcessEnv): string | null {
   if (path.isAbsolute(name)) return isExecutable(name) ? name : null;
@@ -38,14 +47,42 @@ function findBin(name: string, env: NodeJS.ProcessEnv): string | null {
 function isExecutable(p: string): boolean {
   try { const st = fs.statSync(p); if (!st.isFile()) return false; fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; }
 }
-const issueHash = (i: TrackerIssue) => sha(JSON.stringify([i.title, i.description, i.acceptance, i.labels]));
+const redactedIssueHash = (d: Daemon, i: TrackerIssue) => sha(JSON.stringify([
+  d.redactText(i.title), d.redactText(i.description), i.acceptance.map(a => d.redactText(a)), i.labels.map(l => d.redactText(l)),
+  i.priority, i.parentKey, i.status.category, i.updatedAt,
+]));
+
+function parsePreviewPage(v?: number): number {
+  if (v === undefined) return 1;
+  if (typeof v !== 'number' || !Number.isFinite(v) || !Number.isInteger(v) || v < 1 || v > MAX_PREVIEW_PAGE) throw new CommandError('page must be a positive integer within range', 400);
+  return v;
+}
+function parsePreviewPageSize(v?: number): number {
+  if (v === undefined) return DEFAULT_PREVIEW_PAGE_SIZE;
+  if (typeof v !== 'number' || !Number.isFinite(v) || !Number.isInteger(v) || v < 1 || v > MAX_PREVIEW_PAGE_SIZE) throw new CommandError('pageSize must be an integer from 1 to 100', 400);
+  return v;
+}
+
+export interface ToolBindingCheck {
+  connectorId: string;
+  configHash: string;
+  projectHash: string;
+  activationDecisionId: string;
+  tool: string;
+}
 
 export class Connectors {
   readonly d: Daemon;
+  readonly toolActions: ConnectorToolActions;
   /** Overridable in tests with a fixture; defaults to the configured tracker's gh binary or PATH. */
   ghBinary: string | null = null;
-  private previews = new Map<string, Preview>();
-  constructor(d: Daemon) { this.d = d; }
+  /** Test hook: awaited before and after each provider await during preview. */
+  previewFetchGate: (() => Promise<void>) | null = null;
+  private previews = new Map<string, PreviewSnapshot>();
+  constructor(d: Daemon) {
+    this.d = d;
+    this.toolActions = new ConnectorToolActions(this);
+  }
 
   private all(): Record<string, Connector> { return this.d.state.connectors ?? {}; }
   private get(id: string): Connector {
@@ -59,17 +96,192 @@ export class Connectors {
     return (t.type === 'github' && t.gh_binary) || 'gh';
   }
 
+  private configured(kind: ReleaseConnectorKind) {
+    return kind === 'github' || kind === 'gitlab' ? this.d.config.code_host ?? null : this.d.config.infra?.[kind] ?? null;
+  }
+
+  private binding(kind: ReleaseConnectorKind) {
+    const project = this.d.config.project;
+    const settingsDecisionId = Object.values(this.d.state.decisions).filter(decision => decision.kind === 'settings' && decision.answer === 'save' && decision.answeredAt).at(-1)?.id ?? null;
+    return { projectRepo: path.resolve(project.repo), projectName: project.name, productionBranch: productionBranchOf(project), configuredHash: sha(stable({ connection: this.configured(kind), project, settingsDecisionId })) };
+  }
+
+  private projectHash(): string {
+    const project = this.d.config.project;
+    const settingsDecisionId = Object.values(this.d.state.decisions).filter(decision => decision.kind === 'settings' && decision.answer === 'save' && decision.answeredAt).at(-1)?.id ?? null;
+    return sha(stable({ projectRepo: path.resolve(project.repo), projectName: project.name, tracker: this.d.config.tracker, settingsDecisionId }));
+  }
+
+  private importBinding(c: Connector): ImportBinding {
+    const ap = c.approvals.import;
+    if (!ap) throw new CommandError('Import not approved for this connection.', 412);
+    return { connectorId: c.id, configHash: c.configHash, approvalDecisionId: ap.decisionId, projectHash: this.projectHash() };
+  }
+
+  private assertImportBinding(binding: ImportBinding): Connector {
+    if (this.d.closed) throw new CommandError('This project engine has stopped.', 409);
+    const c = this.get(binding.connectorId);
+    if (c.disabled) throw new CommandError('This connection is disabled.', 412);
+    if (c.configHash !== binding.configHash) throw new CommandError('The connection changed after this preview. Preview again.', 409);
+    if (!this.bound(c)) throw new CommandError('Project settings changed after this preview. Preview again.', 409);
+    if (!this.allows(c, 'import')) throw new CommandError(`"${c.name}" is ${this.view(c).state}. A human must approve import for its current settings first.`, 412);
+    const current = this.importBinding(c);
+    if (current.approvalDecisionId !== binding.approvalDecisionId || current.projectHash !== binding.projectHash) {
+      throw new CommandError('The import approval changed after this preview. Preview again.', 409);
+    }
+    return c;
+  }
+
+  private sourceScope(c: Connector): SourceScope {
+    if (c.config.kind === 'github-issues') return { type: 'github', repo: c.config.repo };
+    if (c.config.kind === 'linear') return { type: 'linear', team: c.config.team, project: c.config.project ?? null };
+    throw new CommandError('This connection does not import issues');
+  }
+
+  private scopesMatch(scope: SourceScope, other: SourceScope | undefined): boolean {
+    if (!other || scope.type !== other.type) return false;
+    if (scope.type === 'github') return scope.repo === other.repo;
+    return scope.team === other.team && (scope.project ?? null) === (other.project ?? null);
+  }
+
+  private sanitizeIssue(i: TrackerIssue): PreviewIssue {
+    const title = this.d.redactText(i.title).slice(0, 500);
+    const description = this.d.redactText(i.description).slice(0, 20_000);
+    const acceptance = i.acceptance.map(a => this.d.redactText(a).slice(0, 2_000)).filter(Boolean).slice(0, 50);
+    const labels = [...new Set(i.labels.map(l => this.d.redactText(l).slice(0, 80)).filter(Boolean))].slice(0, 20);
+    const sanitized: TrackerIssue = {
+      ...i,
+      title,
+      description,
+      acceptance,
+      labels,
+      priority: i.priority === null ? null : Math.min(4, Math.max(0, Math.trunc(i.priority))),
+      parentKey: i.parentKey ? this.d.redactText(i.parentKey).slice(0, 120) : null,
+      url: i.url ? this.d.redactText(i.url).slice(0, 500) : null,
+      key: i.key ? this.d.redactText(i.key).slice(0, 120) : i.key,
+    };
+    return { ...sanitized, contentHash: redactedIssueHash(this.d, sanitized), sourceRevision: i.updatedAt };
+  }
+
+  private authoritativeBind(c: Connector, i: PreviewIssue): { trackerId: string; key: string; url: string | null; trackerStatus: { category: TrackerCategory; native: string } } | null {
+    const t = this.d.config.tracker;
+    const scope = this.sourceScope(c);
+    if (scope.type === 'github' && t.type === 'github' && scope.repo === t.repo) {
+      return { trackerId: i.id, key: i.key, url: i.url, trackerStatus: i.status };
+    }
+    if (scope.type === 'linear' && t.type === 'linear' && scope.team === t.team && (scope.project ?? null) === (t.project ?? null)) {
+      return { trackerId: i.id, key: i.key, url: i.url, trackerStatus: i.status };
+    }
+    return null;
+  }
+
+  private matches(config: ReleaseConnectorConfig): boolean {
+    const current = this.configured(config.kind);
+    if (!current) return true;
+    if ('provider' in current && current.provider !== config.kind) return false;
+    if (current.host && current.host.toLowerCase() !== config.host) return false;
+    if (current.scopes.length && stable([...current.scopes].sort()) !== stable([...config.scopes].sort())) return false;
+    if (config.kind === 'github') return 'repo' in current && current.repo === config.repo;
+    if (config.kind === 'gitlab' || config.kind === 'vercel') return 'project' in current && current.project === config.project;
+    return 'project_ref' in current && current.project_ref === config.project_ref && current.migrations_dir === config.migrations_dir;
+  }
+
+  private bound(c: Connector): boolean {
+    return !isReleaseConnector(c.config) || (c.configHash === sha(JSON.stringify(c.config)) && stable(c.config.binding) === stable(this.binding(c.config.kind)) && this.matches(c.config));
+  }
+
+  private allows(c: Connector, action: ConnectorAction): boolean {
+    if (!connectorAllows(c, action) || !this.bound(c)) return false;
+    if (!isReleaseConnector(c.config)) return true;
+    const ap = c.approvals[action]!;
+    const decision = this.d.state.decisions[ap.decisionId];
+    const raw = this.d.store.kvGet(`connector:decision:${ap.decisionId}`);
+    const rec = raw ? JSON.parse(raw) as PendingDecision : null;
+    return Boolean(decision?.kind === 'connector' && decision.answer === 'approve' && decision.answeredAt && rec?.consumed && rec.connectorId === c.id && rec.action === action && rec.configHash === c.configHash);
+  }
+
+  /** Current-project capability, revalidated before every outbound request and after every await. */
+  releaseAccess(kind: ReleaseConnectorKind, id?: string) {
+    const candidates = Object.values(this.all()).filter(c => c.kind === kind && (!id || c.id === id) && this.allows(c, 'read'));
+    if (candidates.length !== 1) return null;
+    const connection = candidates[0];
+    if (!isReleaseConnector(connection.config)) return null;
+    const config = connection.config;
+    const authorize = (capability: ReleaseCapability) => {
+      const now = this.all()[connection.id];
+      if (!now || now.configHash !== connection.configHash || !this.allows(now, 'read')) throw new CommandError('The release connection changed or was disabled. Request approval for the current project settings.', 412);
+      if (!config.capabilities.includes(capability)) throw new CommandError(`Capability ${capability} was not approved.`, 412);
+      // Scope names are exact reviewed metadata, not proof of the token's actual grants.
+      // Capabilities are the enforced local ceiling; HTTP permission failures stay unknown.
+    };
+    return { connection, config, authorize };
+  }
+
+  private evidence(kind: ReleaseConnectorKind): unknown {
+    return kind === 'github' || kind === 'gitlab' ? this.d.state.codeHost : kind === 'vercel' ? this.d.state.infra?.vercel : this.d.state.infra?.migrations;
+  }
+
+  /** Release executors can reject retained evidence after an edit or a new approval without a read. */
+  releaseReadCurrent(kind: ReleaseConnectorKind, capability?: ReleaseCapability): boolean {
+    const raw = this.d.store.kvGet(`connector:read:${kind}`);
+    if (!raw) return false;
+    const marker = JSON.parse(raw) as { connectorId: string; configHash: string; evidenceHash: string };
+    const access = this.releaseAccess(kind, marker.connectorId);
+    if (!access || access.connection.configHash !== marker.configHash || marker.evidenceHash !== sha(stable(this.evidence(kind)))) return false;
+    try { if (capability) access.authorize(capability); } catch { return false; }
+    return true;
+  }
+
+  /** Derived read configuration for release wiring. Never mutates Settings or authorizes a write. */
+  approvedReleaseConfig(): ControlCenterConfig {
+    const current = this.d.config;
+    const codeAccesses = (current.code_host ? [current.code_host.provider] : ['github', 'gitlab'] as const).flatMap(kind => {
+      const access = this.releaseAccess(kind);
+      return access ? [access] : [];
+    });
+    const code = codeAccesses.length === 1 ? codeAccesses[0].config : null;
+    const code_host = code?.kind === 'github' ? { ...current.code_host, provider: 'github' as const, repo: code.repo, host: code.host, scopes: code.scopes, activated: true, finding_issues: current.code_host?.finding_issues ?? 'manual' as const }
+      : code?.kind === 'gitlab' ? { ...current.code_host, provider: 'gitlab' as const, project: code.project, host: code.host, scopes: code.scopes, activated: true, finding_issues: current.code_host?.finding_issues ?? 'manual' as const }
+      : current.code_host ? { ...current.code_host, activated: false } : undefined;
+    const vercel = this.releaseAccess('vercel')?.config;
+    const supabase = this.releaseAccess('supabase')?.config;
+    const infra = current.infra || vercel || supabase ? {
+      ...current.infra, finding_issues: current.infra?.finding_issues ?? 'manual' as const,
+      vercel: vercel?.kind === 'vercel' ? { ...current.infra?.vercel, project: vercel.project, host: vercel.host, scopes: vercel.scopes, activated: true } : current.infra?.vercel ? { ...current.infra.vercel, activated: false } : undefined,
+      supabase: supabase?.kind === 'supabase' ? { ...current.infra?.supabase, project_ref: supabase.project_ref, migrations_dir: supabase.migrations_dir, host: supabase.host, scopes: supabase.scopes, activated: true } : current.infra?.supabase ? { ...current.infra.supabase, activated: false } : undefined,
+    } : undefined;
+    return structuredClone({ ...current, code_host, infra });
+  }
+
+  defaults(): Record<ReleaseConnectorKind, ReleaseConnectorConfig> {
+    return Object.fromEntries(RELEASE_CONNECTOR_KINDS.map(kind => {
+      const configured = this.configured(kind);
+      const base = RELEASE_CONNECTOR_DEFAULTS[kind];
+      const fields = configured && (!('provider' in configured) || configured.provider === kind) ? configured : {};
+      // Keep only connector fields; runtime activation flags and webhook settings never become authority.
+      const candidate = { ...base, ...Object.fromEntries(Object.entries(fields).filter(([key]) => ['host', 'repo', 'project', 'project_ref', 'migrations_dir'].includes(key))), scopes: configured?.scopes.length ? configured.scopes : base.scopes };
+      return [kind, candidate];
+    })) as Record<ReleaseConnectorKind, ReleaseConnectorConfig>;
+  }
+
   list() {
     return {
       descriptors: Object.values(CONNECTOR_DESCRIPTORS),
+      defaults: this.defaults(),
       connections: Object.values(this.all()).sort((a, b) => a.id.localeCompare(b.id)).map(c => this.view(c)),
-      decisions: Object.values(this.all()).flatMap(c => Object.values(c.pending).map(p => p && this.d.state.decisions[p.decisionId]).filter((x): x is Decision => Boolean(x && !x.answeredAt))),
+      decisions: [
+        ...Object.values(this.all()).flatMap(c => Object.values(c.pending).map(p => p && this.d.state.decisions[p.decisionId]).filter((x): x is Decision => Boolean(x && !x.answeredAt))),
+        ...Object.values(this.d.state.decisions).filter(d => d.kind === 'connector' && d.action?.kind === 'connector_tool' && !d.answeredAt && !d.consumedAt),
+      ].sort((a, b) => a.id.localeCompare(b.id)),
     };
   }
 
   view(c: Connector) {
     const desc = CONNECTOR_DESCRIPTORS[c.kind];
-    return { ...c, state: connectorState(c), descriptor: desc, actions: desc.actions.map(a => ({ ...a, allowed: connectorAllows(c, a.id), pending: Boolean(c.pending[a.id] && c.pending[a.id]!.configHash === c.configHash) })) };
+    const bound = this.bound(c);
+    const effective = { ...c, approvals: Object.fromEntries(Object.entries(c.approvals).filter(([action]) => this.allows(c, action as ConnectorAction))), pending: bound ? c.pending : {} };
+    const availability = !bound && isReleaseConnector(c.config) ? { status: 'not_checked' as const, checkedAt: null, detail: 'Project settings changed. Current provider reachability and permissions are unknown until a fresh approved read.' } : c.availability;
+    return { ...c, availability, state: connectorState(effective), bindingCurrent: bound, readCurrent: isReleaseConnector(c.config) && this.allows(c, 'read') && this.releaseReadCurrent(c.config.kind), descriptor: desc, actions: desc.actions.map(a => ({ ...a, allowed: this.allows(c, a.id), pending: Boolean(bound && c.pending[a.id] && c.pending[a.id]!.configHash === c.configHash) })) };
   }
 
   /** Add or edit. Never contacts anything. Editing a config voids earlier approvals. */
@@ -78,6 +290,14 @@ export class Connectors {
     if (containsSecret(JSON.stringify(input ?? null), { denylist: this.d.denylist() }).length) throw new CommandError('Remove credentials from the connection settings. Keys belong in the connection key store.');
     if (!parsed.success) throw new CommandError(parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '));
     const draft = parsed.data;
+    if (isReleaseConnector(draft.config)) {
+      const cfg = draft.config;
+      if ((cfg.kind === 'vercel' && cfg.host !== 'api.vercel.com') || (cfg.kind === 'supabase' && cfg.host !== 'api.supabase.com')) throw new CommandError('Use the documented provider API host.');
+      const supported = RELEASE_CONNECTOR_DEFAULTS[cfg.kind].capabilities as readonly string[];
+      if (!cfg.capabilities.every(capability => supported.includes(capability))) throw new CommandError('Choose only this provider’s supported read capabilities.');
+      cfg.binding = this.binding(cfg.kind);
+      if (!this.matches(cfg)) throw new CommandError('These settings differ from the current configured release project, host or scopes. Use matching settings, or ask the project owner to update the project configuration.', 409);
+    }
     if (containsSecret(JSON.stringify(draft), { denylist: this.d.denylist() }).length) throw new CommandError('Remove credentials from the connection settings. Keys belong in the connection key store.');
     const cur = this.all()[draft.id];
     if ((cur?.configHash ?? null) !== expectedHash) throw new CommandError(cur ? 'This connection changed. Reload before saving.' : 'This connection no longer exists. Reload.', 409);
@@ -113,6 +333,9 @@ export class Connectors {
           ? { status: 'not_checked', checkedAt: at, detail: 'gh CLI found locally. Reachability and login are only known after an approved import preview.' }
           : { status: 'missing_credential', checkedAt: at, detail: 'GitHub CLI (gh) not found on PATH. Install it and run gh auth login yourself.' };
         break;
+      case 'github': case 'gitlab': case 'vercel': case 'supabase':
+        availability = { status: 'not_checked', checkedAt: at, detail: this.bound(c) ? 'Local settings checked. Token permissions and provider reachability remain unknown. Approve read in Decisions, then choose Read now.' : 'Project or release configuration changed. Save matching settings and request a new Decision.' };
+        break;
       case 'linear':
         availability = (await hasSecret('linear', env))
           ? { status: 'not_checked', checkedAt: at, detail: 'A Linear key is stored. Reachability is only known after an approved import preview.' }
@@ -142,26 +365,34 @@ export class Connectors {
   private question(c: Connector, action: ConnectorAction): string {
     const short = c.configHash.slice(0, 12);
     switch (c.config.kind) {
+      case 'github': case 'gitlab': case 'vercel': case 'supabase': {
+        const cfg = c.config;
+        const target = cfg.kind === 'github' ? cfg.repo : cfg.kind === 'supabase' ? cfg.project_ref : cfg.project;
+        return `Allow "${c.name}" to manually read ${target} at https://${cfg.host} for ${cfg.binding?.projectName} (${cfg.binding?.projectRepo}), production branch ${cfg.binding?.productionBranch}? Capabilities: ${cfg.capabilities.join(', ')}. Reviewed scopes: ${cfg.scopes.join(', ')}.${cfg.kind === 'supabase' ? ` Local migration folder: ${cfg.migrations_dir}.` : ''} The stored ${cfg.kind} token is sent only to this host. Actual token permissions remain unknown until a read. No automatic live calls or writes. (config ${short})`;
+      }
       case 'github-issues': return `Allow "${c.name}" to read open issues of ${c.config.repo} through your gh login for import previews? (config ${short})`;
       case 'linear': return `Allow "${c.name}" to send your stored Linear key to api.linear.app to read team ${c.config.team}${c.config.project ? ` / ${c.config.project}` : ''} issues for import previews? (config ${short})`;
-      case 'obsidian': return `Allow "${c.name}" to index ${c.config.folders.join(', ')} in ${c.config.vault} for One Answer and agent search? One Connect also writes project notes to its own folder there. (config ${short})`;
+      case 'obsidian': return `Allow "${c.name}" to index ${c.config.folders.join(', ')} in ${c.config.vault} for Dictionary and agent search? One Connect also writes project notes to its own folder there. (config ${short})`;
       case 'docker': return `Allow "${c.name}" to list this project's Compose containers and read their logs? Start/stop/restart still ask each time. (config ${short})`;
-      case 'mcp': return `Allow "${c.name}" to start exactly \`${[c.config.command, ...c.config.args].join(' ')}\` and call only ${c.config.tools.join(', ')} with roots ${c.config.read_roots.join(', ') || '(none)'}? Network and filesystem access of that program are not mediated by One Connect. (config ${short}, action ${action})`;
+      case 'mcp': return `Allow "${c.name}" to make eligible exactly \`${[c.config.command, ...c.config.args].join(' ')}\` with tools ${c.config.tools.join(', ')} and read roots ${c.config.read_roots.join(', ') || '(none)'}? This approves only the reviewed inventory. Each tool call still needs its own Decision with exact arguments. Network and filesystem access of that program are not mediated by One Connect. (config ${short})`;
     }
   }
 
   requestActivation(id: string, action: ConnectorAction) {
     const c = this.get(id);
+    if (!this.bound(c)) throw new CommandError('Project or release configuration changed. Save matching settings before requesting a new Decision.', 409);
     if (c.disabled) throw new CommandError('Enable this connection first.', 409);
     if (!CONNECTOR_DESCRIPTORS[c.kind].actions.some(a => a.id === action)) throw new CommandError(`${CONNECTOR_DESCRIPTORS[c.kind].title} has no ${action} action`);
-    if (connectorAllows(c, action)) return { decision: null, connection: this.view(c) };
+    if (this.allows(c, action)) return { decision: null, connection: this.view(c) };
     const open = c.pending[action];
     if (open && !this.d.state.decisions[open.decisionId]?.answeredAt) {
+      const pending = this.d.state.decisions[open.decisionId];
       const rec = JSON.parse(this.d.store.kvGet(`connector:decision:${open.decisionId}`) ?? 'null') as PendingDecision | null;
-      if (open.configHash === c.configHash && rec && rec.expires >= this.d.now().getTime()) return { decision: this.d.state.decisions[open.decisionId], connection: this.view(c) };
+      const confirmOk = pending?.confirmOptions?.includes('approve');
+      if (open.configHash === c.configHash && rec && rec.expires >= this.d.now().getTime() && confirmOk) return { decision: pending, connection: this.view(c) };
       this.retire(c.id, action, open.decisionId, open.configHash === c.configHash ? 'expired' : 'superseded');
     }
-    const decision: Decision = { id: newId('decision'), question: this.question(c, action), options: ['approve', 'deny'], recommendation: null, evidenceLinks: [], urgency: 'normal', irreversible: false, answer: null, answeredAt: null, channel: null, createdAt: this.d.nowIso(), kind: 'connector' };
+    const decision: Decision = { id: newId('decision'), question: this.question(c, action), options: ['approve', 'deny'], recommendation: null, evidenceLinks: [], urgency: 'normal', irreversible: false, answer: null, answeredAt: null, channel: null, createdAt: this.d.nowIso(), kind: 'connector', confirmOptions: ['approve'], expiresAt: new Date(this.d.now().getTime() + DECISION_TTL_MS).toISOString(), evidence: [{ label: 'Exact connector settings', detail: JSON.stringify(c.config, null, 2) }, { label: 'Configuration hash', detail: c.configHash }] };
     const rec: PendingDecision = { connectorId: id, action, configHash: c.configHash, expires: this.d.now().getTime() + DECISION_TTL_MS, consumed: false };
     this.d.commit([
       { type: 'decision.created', actor: HUMAN, data: { decision } },
@@ -181,7 +412,7 @@ export class Connectors {
     const c = this.get(rec.connectorId);
     if (rec.consumed) throw new CommandError('Approval missing or already used', 409);
     if (rec.expires < this.d.now().getTime()) { this.retire(c.id, rec.action, decisionId, 'expired'); throw new CommandError('Approval expired. Request it again.', 409); }
-    if (c.disabled || c.configHash !== rec.configHash) { this.retire(c.id, rec.action, decisionId, 'superseded'); throw new CommandError('The connection changed after this request. Request approval again for the new settings.', 409); }
+    if (c.disabled || c.configHash !== rec.configHash || !this.bound(c)) { this.retire(c.id, rec.action, decisionId, 'superseded'); throw new CommandError('The connection or project changed after this request. Request approval again for the new settings.', 409); }
     const consume = () => this.d.store.kvSet(`connector:decision:${decisionId}`, JSON.stringify({ ...rec, consumed: true }));
     if (answer === 'deny') {
       this.d.decisions.answerAtomic(decisionId, answer, { channel: 'dashboard', ...o }, actor, [
@@ -216,13 +447,38 @@ export class Connectors {
 
   /** Hosts the egress guard may contact for active connections (derived, never from imported data). */
   hosts(): string[] {
-    return Object.values(this.all()).some(c => c.kind === 'linear' && connectorAllows(c, 'import')) ? ['api.linear.app'] : [];
+    return [...new Set(Object.values(this.all()).flatMap(c => isReleaseConnector(c.config) && this.allows(c, 'read') ? [c.config.host] : c.kind === 'linear' && this.allows(c, 'import') ? ['api.linear.app'] : []))];
   }
 
   private require(id: string, action: ConnectorAction): Connector {
     const c = this.get(id);
-    if (!connectorAllows(c, action)) throw new CommandError(`"${c.name}" is ${connectorState(c)}. A human must approve ${action} for its current settings first.`, 412);
+    if (!this.allows(c, action)) throw new CommandError(`"${c.name}" is ${this.view(c).state}. A human must approve ${action} for its current settings first.`, 412);
     return c;
+  }
+
+  requireApproved(id: string, action: ConnectorAction): Connector {
+    return this.require(id, action);
+  }
+
+  revalidateToolBinding(binding: ToolBindingCheck): Connector {
+    if (this.d.closed) throw new CommandError('This project engine has stopped.', 409);
+    const c = this.get(binding.connectorId);
+    if (c.disabled) throw new CommandError('This connection is disabled.', 412);
+    if (c.configHash !== binding.configHash) throw new CommandError('The connection changed after this request. Request again.', 409);
+    if (!this.bound(c)) throw new CommandError('Project settings changed after this request. Request again.', 409);
+    if (!this.allows(c, 'execute')) throw new CommandError('Connection inventory is not approved for its current settings.', 412);
+    const ap = c.approvals.execute;
+    if (!ap || ap.decisionId !== binding.activationDecisionId || ap.configHash !== binding.configHash) {
+      throw new CommandError('The connection inventory approval changed after this request. Request again.', 409);
+    }
+    if (this.projectHash() !== binding.projectHash) throw new CommandError('Project settings changed after this request. Request again.', 409);
+    if (c.config.kind !== 'mcp') throw new CommandError('Not a tool connection', 412);
+    if (!c.config.tools.includes(binding.tool)) throw new CommandError(`${binding.tool} is not one of the approved tools`, 403);
+    return c;
+  }
+
+  recordUse(c: Connector, action: ConnectorAction, ok: boolean, detail: string, availability?: ConnectorAvailability) {
+    this.record(c, action, ok, detail, availability);
   }
 
   private record(c: Connector, action: ConnectorAction, ok: boolean, detail: string, availability?: ConnectorAvailability) {
@@ -232,19 +488,70 @@ export class Connectors {
     ]);
   }
 
-  async previewImport(id: string, query = '') {
+  private previewPage(snapshot: PreviewSnapshot, c: Connector, page: number, pageSize: number) {
+    const total = snapshot.issues.length;
+    const start = (page - 1) * pageSize;
+    const outOfRange = total > 0 && start >= total;
+    const pageIssues = outOfRange ? [] : snapshot.issues.slice(start, start + pageSize);
+    const scope = this.sourceScope(c);
+    return {
+      token: '', page, pageSize, total, hasMore: start + pageIssues.length < total, outOfRange,
+      snapshotHash: snapshot.snapshotHash, expiresAt: new Date(snapshot.expiresAt).toISOString(),
+      connection: this.view(this.get(c.id)),
+      issues: pageIssues.map(i => ({ ...i, imported: Boolean(this.existing(c.id, scope, i.id) ?? this.existingInTracker(scope, i)), untrusted: true as const })),
+    };
+  }
+
+  private purgeExpiredPreviews(nowMs = this.d.now().getTime()): void {
+    for (const [k, p] of this.previews) if (nowMs >= p.expiresAt) this.previews.delete(k);
+  }
+
+  async previewImport(id: string, query = '', o: { page?: number; pageSize?: number; token?: string } = {}) {
+    const page = parsePreviewPage(o.page);
+    const pageSize = parsePreviewPageSize(o.pageSize);
+    const nowMs = this.d.now().getTime();
+    this.purgeExpiredPreviews(nowMs);
+    if (o.token) {
+      const snapshot = this.previews.get(o.token);
+      if (!snapshot || nowMs >= snapshot.expiresAt) throw new CommandError('Preview expired. Preview this connection again.', 409);
+      if (snapshot.binding.connectorId !== id) throw new CommandError('Preview belongs to a different connection.', 409);
+      const c = this.assertImportBinding(snapshot.binding);
+      if (snapshot.query !== query) throw new CommandError('The preview filter changed. Start a new preview.', 409);
+      return { ...this.previewPage(snapshot, c, page, pageSize), token: o.token };
+    }
     const c = this.require(id, 'import');
+    const binding = this.importBinding(c);
     let issues: TrackerIssue[];
     try {
       if (c.config.kind === 'github-issues') {
+        await this.previewFetchGate?.();
+        this.assertImportBinding(binding);
         issues = await new GitHubTracker({ repo: c.config.repo, live: true, labelPrefix: 'acc:', gh: this.gh(), env: this.d.baseEnv() }).listIssues();
+        await this.previewFetchGate?.();
+        this.assertImportBinding(binding);
         if (c.config.labels.length) issues = issues.filter(i => c.config.kind === 'github-issues' && c.config.labels.every(l => i.labels.includes(l)));
       } else if (c.config.kind === 'linear') {
+        await this.previewFetchGate?.();
+        this.assertImportBinding(binding);
         if (!(await hasSecret('linear', this.d.baseEnv()))) {
           this.record(c, 'import', false, 'no Linear key', { status: 'missing_credential', checkedAt: this.d.nowIso(), detail: 'No Linear key stored.' });
           throw new CommandError('No Linear key is stored. Add it under Connections.', 412);
         }
-        issues = await new LinearTracker({ team: c.config.team, project: c.config.project, live: true, apiUrl: 'https://api.linear.app/graphql', stateNames: {}, fetch: this.d.egress.fetch, readKey: () => getSecret('linear', this.d.baseEnv()), onSecret: v => this.d.addSecret(v) }).listIssues();
+        await this.previewFetchGate?.();
+        this.assertImportBinding(binding);
+        issues = await new LinearTracker({ team: c.config.team, project: c.config.project, live: true, apiUrl: 'https://api.linear.app/graphql', stateNames: {}, fetch: async (url, init) => {
+          this.assertImportBinding(binding);
+          const response = await this.d.egress.fetch(url, init);
+          this.assertImportBinding(binding);
+          return response;
+        }, readKey: async () => {
+          this.assertImportBinding(binding);
+          const key = await getSecret('linear', this.d.baseEnv());
+          this.assertImportBinding(binding);
+          return key;
+        }, onSecret: v => this.d.addSecret(v) }).listIssues();
+        await this.previewFetchGate?.();
+        this.assertImportBinding(binding);
       } else throw new CommandError('This connection does not import issues');
     } catch (e) {
       if (e instanceof CommandError) throw e;
@@ -253,81 +560,115 @@ export class Connectors {
       this.record(c, 'import', false, msg, { status: offline ? 'offline' : 'error', checkedAt: this.d.nowIso(), detail: this.d.redactText(msg).slice(0, 300) });
       throw new CommandError(`Preview failed: ${this.d.redactText(msg).slice(0, 300)}`, 502);
     }
-    issues = issues.filter(i => !['done', 'canceled'].includes(i.status.category) && (!query || `${i.key} ${i.title} ${i.labels.join(' ')}`.toLowerCase().includes(query.toLowerCase())));
-    const withHash = issues.map(i => ({ ...i, title: this.d.redactText(i.title), description: this.d.redactText(i.description), acceptance: i.acceptance.map(a => this.d.redactText(a)), contentHash: issueHash(i) }));
-    this.record(c, 'import', true, `previewed ${withHash.length} issues`, { status: 'available', checkedAt: this.d.nowIso(), detail: `Preview returned ${withHash.length} open issues.` });
+    const filtered = issues.filter(i => !['done', 'canceled'].includes(i.status.category) && (!query || `${i.key} ${i.title} ${i.labels.join(' ')}`.toLowerCase().includes(query.toLowerCase())));
+    const withHash = filtered.map(i => this.sanitizeIssue(i));
+    const snapshotHash = sha(stable({ binding, query, issues: withHash.map(i => ({ id: i.id, contentHash: i.contentHash, sourceRevision: i.sourceRevision })) }));
     const token = newId('preview');
-    const nowMs = this.d.now().getTime();
-    for (const [k, p] of this.previews) if (nowMs - p.at > PREVIEW_TTL_MS) this.previews.delete(k);
-    this.previews.set(token, { connectorId: c.id, configHash: c.configHash, issues: withHash, at: nowMs });
-    return { token, connection: this.view(this.get(c.id)), issues: withHash.map(i => ({ ...i, imported: Boolean(this.existing(c.id, i.id)), untrusted: true })) };
+    const snapshot: PreviewSnapshot = { binding, query, issues: withHash, snapshotHash, createdAt: nowMs, expiresAt: nowMs + PREVIEW_TTL_MS };
+    this.previews.set(token, snapshot);
+    const pageResult = this.previewPage(snapshot, c, page, pageSize);
+    this.record(c, 'import', true, `previewed ${pageResult.issues.length}/${withHash.length} issues`, { status: 'available', checkedAt: this.d.nowIso(), detail: `Preview snapshot ${snapshotHash.slice(0, 12)} returned ${pageResult.issues.length} of ${withHash.length} open issues (page ${page}).` });
+    return { ...pageResult, token };
   }
 
-  private existing(connectorId: string, issueId: string): WorkItem | undefined {
-    return Object.values(this.d.state.workItems).find(w => w.origin?.connectorId === connectorId && w.origin.issueId === issueId);
+  /** Explicit read route only; never used by polling or activation. */
+  async readRelease(id: string) {
+    const c = this.require(id, 'read');
+    if (!isReleaseConnector(c.config)) throw new CommandError('This is not a release connection.');
+    const access = this.releaseAccess(c.config.kind, id);
+    if (!access) throw new CommandError('No active connection matches this project.', 412);
+    const result = c.kind === 'github' || c.kind === 'gitlab'
+      ? await this.d.hosts.refresh({ live: true, connectorId: id })
+      : await this.d.infra.refresh({ live: true, connectorId: id });
+    // A concurrent edit cannot make stale evidence available to this connection.
+    access.authorize(c.config.capabilities[0]);
+    const probe = c.kind === 'github' || c.kind === 'gitlab' ? ('source' in result ? result : null) : 'vercel' in result ? c.kind === 'vercel' ? result.vercel : result.migrations : null;
+    const detail = probe && 'detail' in probe ? probe.detail : probe && 'protectionDetail' in probe ? probe.protectionDetail : 'Read result unavailable.';
+    const ok = Boolean(probe && probe.source === 'live' && ('error' in probe ? !probe.error : probe.state !== 'error' && probe.state !== 'unchecked'));
+    if (probe?.source === 'live') this.d.store.kvSet(`connector:read:${c.config.kind}`, JSON.stringify({ connectorId: c.id, configHash: c.configHash, evidenceHash: sha(stable(this.evidence(c.config.kind))) }));
+    this.record(c, 'read', ok, detail, { status: ok ? 'available' : probe?.source === 'live' ? 'error' : 'not_checked', checkedAt: this.d.nowIso(), detail });
+    return { connection: this.view(this.get(id)), result };
+  }
+
+  private existing(connectorId: string, scope: SourceScope, issueId: string): WorkItem | undefined {
+    return Object.values(this.d.state.workItems).find(w => w.origin?.connectorId === connectorId && w.origin.issueId === issueId && this.scopesMatch(scope, w.origin.sourceScope));
+  }
+
+  /** Skip duplicates already mirrored from this connector or already present in the authoritative tracker for the same source scope. */
+  private existingInTracker(scope: SourceScope, i: TrackerIssue): WorkItem | undefined {
+    return Object.values(this.d.state.workItems).find(w => {
+      if (w.origin && this.scopesMatch(scope, w.origin.sourceScope) && (w.origin.issueId === i.id || (i.url && w.origin.url === i.url))) return true;
+      if (w.origin?.sourceScope && !this.scopesMatch(scope, w.origin.sourceScope)) return false;
+      if (i.url && w.url === i.url) return true;
+      if (w.trackerId === i.id && w.origin?.sourceScope && this.scopesMatch(scope, w.origin.sourceScope)) return true;
+      return false;
+    });
+  }
+
+  private resolveParentKey(parentKey: string | null | undefined, scope: SourceScope): string | null {
+    if (!parentKey) return null;
+    const parent = Object.values(this.d.state.workItems).find(w => this.scopesMatch(scope, w.origin?.sourceScope) && (w.key === parentKey || w.origin?.key === parentKey));
+    return parent?.key ?? null;
   }
 
   /** Creates local issues with human-confirmed acceptance criteria and immutable provenance. */
   acceptImport(token: string, selections: { id: string; acceptance: string[] }[]) {
-    const p = this.previews.get(token);
-    if (!p || this.d.now().getTime() - p.at > PREVIEW_TTL_MS) throw new CommandError('Preview expired. Preview this connection again.', 409);
-    const c = this.require(p.connectorId, 'import');
-    if (c.configHash !== p.configHash) throw new CommandError('The connection changed after this preview. Preview again.', 409);
-    if (this.d.tracker.type !== 'local') throw new CommandError('Connector import currently requires the local tracker; an external tracker already imports through polling.', 409);
+    const snapshot = this.previews.get(token);
+    const nowMs = this.d.now().getTime();
+    if (!snapshot || nowMs >= snapshot.expiresAt) throw new CommandError('Preview expired. Preview this connection again.', 409);
+    const c = this.assertImportBinding(snapshot.binding);
     if (!Array.isArray(selections) || !selections.length) throw new CommandError('Select issues from this preview');
+    const scope = this.sourceScope(c);
     const items: WorkItem[] = [];
+    const unsupported: string[] = [];
     let skipped = 0;
+    let mirror = false;
     for (const s of selections) {
-      const i = p.issues.find(x => x.id === s?.id);
+      const i = snapshot.issues.find(x => x.id === s?.id);
       if (!i) throw new CommandError('Select issues from this preview');
       const acceptance = (s.acceptance ?? []).map(a => String(a).trim()).filter(Boolean).slice(0, 20);
       if (!acceptance.length) throw new CommandError(`${i.key}: confirm at least one acceptance criterion before importing.`);
       if (containsSecret(acceptance.join('\n'), { denylist: this.d.denylist() }).length) throw new CommandError('Remove credentials from acceptance criteria.');
     }
     for (const s of selections) {
-      if (this.existing(c.id, s.id)) { skipped++; continue; }
-      const i = p.issues.find(x => x.id === s.id)!;
+      const i = snapshot.issues.find(x => x.id === s.id)!;
+      if (this.existing(c.id, scope, s.id) || this.existingInTracker(scope, i)) { skipped++; continue; }
       const acceptance = s.acceptance.map(a => String(a).trim()).filter(Boolean).slice(0, 20);
-      const item = this.d.createIssue({ title: i.title, description: i.description, acceptance, labels: [...new Set([...i.labels.slice(0, 10), 'imported'])], priority: i.priority ?? 3 }, HUMAN);
-      this.d.commit([{ type: 'work_item.updated', actor: HUMAN, workItemId: item.id, data: { patch: {
-        origin: { sourceId: `connector:${c.id}`, type: c.kind === 'linear' ? 'linear' : 'github', issueId: i.id, key: i.key ?? i.id, url: i.url, importedAt: this.d.nowIso(), readOnly: true, connectorId: c.id, contentHash: i.contentHash, importedBy: HUMAN.id, untrusted: true },
-      } } }]);
+      const parentKey = this.resolveParentKey(i.parentKey, scope);
+      const warnings: string[] = [];
+      if (i.parentKey && !parentKey) warnings.push(`parent ${i.parentKey} is not imported here yet; link it manually after import.`);
+      if (i.parentKey && parentKey) warnings.push(`parent ${i.parentKey} linked within the same source scope.`);
+      const bind = this.authoritativeBind(c, i);
+      const isMirror = !bind && this.d.tracker.type !== 'local';
+      mirror = mirror || isMirror;
+      const { item, events, outbox } = this.d.buildIssue({
+        title: i.title, description: i.description, acceptance, labels: [...new Set([...i.labels.slice(0, 10), 'imported'])], priority: i.priority ?? 3, parentKey,
+      }, HUMAN, bind ? { bind } : isMirror ? { mirror: true } : undefined);
+      const origin = {
+        sourceId: `connector:${c.id}`, type: scope.type, issueId: i.id, key: i.key ?? i.id, url: i.url, importedAt: this.d.nowIso(),
+        readOnly: !bind, localMirror: isMirror, connectorId: c.id, contentHash: i.contentHash, sourceRevision: i.sourceRevision, sourceScope: scope,
+        importedBy: HUMAN.id, untrusted: true, ...(warnings.length ? { warnings } : {}),
+      };
+      if (i.parentKey && !parentKey) unsupported.push(`${i.key ?? i.id}: parent ${i.parentKey} is not imported here yet; link it manually after import.`);
+      this.d.commit([...events, { type: 'work_item.updated', actor: HUMAN, workItemId: item.id, data: { patch: { origin } } }], outbox);
+      if (!bind && !isMirror) this.d.outbox.kick();
       items.push(this.d.state.workItems[item.id]);
     }
-    this.record(c, 'import', true, `imported ${items.length}, skipped ${skipped}`);
-    return { items, skipped };
+    this.record(c, 'import', true, `imported ${items.length}, skipped ${skipped}${mirror ? ' (mirror)' : ''}`);
+    return { items, skipped, mirror, unsupported, snapshotHash: snapshot.snapshotHash };
   }
 
-  /** Approved MCP tools only; the server is started for one call with a minimal environment. */
-  async callTool(id: string, tool: string, args: Record<string, unknown> = {}, o: { timeoutMs?: number } = {}) {
-    const c = this.require(id, 'execute');
-    if (c.config.kind !== 'mcp') throw new CommandError('Not a tool connection');
-    const cfg = c.config;
-    if (!cfg.tools.includes(tool)) throw new CommandError(`${tool} is not one of the approved tools (${cfg.tools.join(', ')})`, 403);
-    if (containsSecret(JSON.stringify(args ?? {}), { denylist: this.d.denylist() }).length) throw new CommandError('Tool arguments contain a credential', 400);
-    const home = path.join(this.d.paths.root, 'connectors', c.id);
-    fs.mkdirSync(home, { recursive: true, mode: 0o700 });
-    const cwd = cfg.read_roots.find(r => fs.existsSync(r) && fs.statSync(r).isDirectory()) ?? home;
-    const transport = new StdioClientTransport({ command: cfg.command, args: cfg.args, cwd, stderr: 'pipe', env: { PATH: '/usr/bin:/bin:/usr/sbin:/sbin', HOME: home, TMPDIR: os.tmpdir(), LANG: 'C.UTF-8' } });
-    const client = new Client({ name: 'one-connect', version: '0.1.0' }, { capabilities: { roots: { listChanged: false } } });
-    client.setRequestHandler(ListRootsRequestSchema, async () => ({ roots: cfg.read_roots.map(r => ({ uri: `file://${r}`, name: path.basename(r) })) }));
-    const timeout = o.timeoutMs ?? 20_000;
-    try {
-      await client.connect(transport, { timeout });
-      const listed = await client.listTools(undefined, { timeout });
-      if (!listed.tools.some(t => t.name === tool)) throw new CommandError(`The server does not offer ${tool}`, 404);
-      const r = await client.callTool({ name: tool, arguments: args ?? {} }, undefined, { timeout });
-      const content = (Array.isArray(r.content) ? r.content : []) as { type: string; text?: string }[];
-      const text = content.map(x => (x.type === 'text' ? x.text ?? '' : `[${x.type} omitted]`)).join('\n');
-      const out = this.d.redactText(text);
-      this.record(c, 'execute', !r.isError, `${tool}: ${out.length} chars`);
-      return { connector: c.id, tool, isError: Boolean(r.isError), text: out.slice(0, TOOL_OUTPUT_LIMIT), truncated: out.length > TOOL_OUTPUT_LIMIT };
-    } catch (e) {
-      if (!(e instanceof CommandError)) this.record(c, 'execute', false, `${tool}: ${(e as Error).message}`, { status: 'error', checkedAt: this.d.nowIso(), detail: this.d.redactText((e as Error).message).slice(0, 300) });
-      throw e instanceof CommandError ? e : new CommandError(`Tool call failed: ${this.d.redactText((e as Error).message).slice(0, 300)}`, 502);
-    } finally {
-      await client.close().catch(() => undefined);
-    }
+  /** Preview only: creates a per-call Decision; no process start or outbound call. */
+  requestToolCall(id: string, tool: string, args: Record<string, unknown> = {}, o: { runId?: string | null; workItemId?: string | null; requester?: Actor } = {}) {
+    return this.toolActions.request(id, tool, args, o);
+  }
+
+  async resolveToolCall(decisionId: string, answer: string, actor: Actor = HUMAN, o: AnswerOptions = {}) {
+    return this.toolActions.resolve(decisionId, answer, actor, o);
+  }
+
+  getToolCallResult(requestId: string, o: { runId?: string | null; requester?: Actor } = {}): ConnectorToolRequest {
+    return this.toolActions.get(requestId, o);
   }
 
   async containers(id: string) {

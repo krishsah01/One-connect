@@ -18,6 +18,7 @@ import type {
   ModelInfo,
   Review,
   Decision,
+  JevAdvisory,
   Run,
   RunState,
   TestCounts,
@@ -27,7 +28,7 @@ import type {
   WorkItem,
   TeamMessage,
   DocsStatus,
-  OneAnswerStatus,
+  DictionaryStatus,
 } from './entities.ts';
 import type { BlockedOn, LifecycleState } from './lifecycle.ts';
 import type { DesignRevision } from './design.ts';
@@ -36,6 +37,9 @@ import type { IntegrationMerge, MergeGate, ReviewRecord } from './reviews.ts';
 import type { SkillVersion } from './skills.ts';
 import type { Connector, ConnectorAction, ConnectorAvailability } from './connectors.ts';
 import type { MockArtifact, MockEvidence, MockException, MockReview, MockRevision } from './mocks.ts';
+import type { DesignStudioEvent } from './designStudio.ts';
+import type { NotificationChannel, NotificationConfig, NotificationRecord, RemoteConfig, RemoteScope } from './phone.ts';
+import type { CodeHostSnapshot, InfraHealthReport, ReleasePlan } from './release.ts';
 
 export interface ControlEventData {
   'design.system_saved':{revision:DesignRevision};
@@ -50,10 +54,17 @@ export interface ControlEventData {
   'connector.activation_denied': { connectorId: string; action: ConnectorAction; decisionId: string };
   'connector.checked': { connectorId: string; availability: ConnectorAvailability };
   'connector.used': { connectorId: string; action: ConnectorAction; detail: string; ok: boolean };
+  'connector.tool_requested': { requestId: string; connectorId: string; tool: string; decisionId: string; configHash: string; argumentsHash: string };
+  'connector.tool_denied': { requestId: string; connectorId: string; tool: string; decisionId: string };
+  'connector.tool_execution_started': { requestId: string; connectorId: string; tool: string; decisionId: string };
+  'connector.tool_executed': { requestId: string; connectorId: string; tool: string; decisionId: string; ok: boolean };
+  'tracker.operation_skipped': { operation: string; reason: string };
   'design.mock_captured': { artifact: Omit<MockArtifact, 'revisions'>; revision: MockRevision };
   'design.mock_exception': { artifactId: string; rev: number; exception: MockException };
   'design.mock_reviewed': { artifactId: string; rev: number; review: MockReview };
   'design.mock_evidence': { artifactId: string; rev: number; evidence: MockEvidence };
+  /** Designer studio jobs and capture attempts (one discriminated event type owned by designStudio.ts). */
+  'design.studio': DesignStudioEvent;
   'team.message_sent': { message: TeamMessage };
   'team.message_acknowledged': { messageId: string; recipientId: string };
   'team.message_notified': { messageId: string; targetRunId: string };
@@ -62,6 +73,14 @@ export interface ControlEventData {
   'decision.answered': { decisionId: string; answer: string; channel: string; confirmed?: boolean };
   /** Advisory recommendation (e.g. Jev). Never an answer. */
   'decision.recommended': { decisionId: string; recommendation: string; rationale: string };
+  /** Jev advisory persisted after an explicitly confirmed request. Advisory only: never an answer. */
+  'decision.advisory': { decisionId: string; advisory: JevAdvisory };
+  /** The evidence the advisory was based on changed; it no longer describes this decision. */
+  'decision.advisory_invalidated': { decisionId: string; reason: string };
+  /** Owner enabled/disabled the metered Jev connection (audit only; the key stays in the Keychain). */
+  /** The owner closed a Jev preview without sending anything (audit only). */
+  'jev.cancelled': { decisionId: string; inputHash: string };
+  'jev.configured': { enabled: boolean; host: string; confirmations: string[] };
   'decision.confirmation_requested': { decisionId: string; answer: string; expiresAt: string };
   /** The approved action ran (or can no longer run); the decision cannot authorize anything again. */
   'decision.consumed': { decisionId: string; outcome: string };
@@ -74,6 +93,9 @@ export interface ControlEventData {
   'merge.completed': { merge: IntegrationMerge };
   'merge.post_checks': { mergeId: string; status: IntegrationMerge['postChecks']['status']; evidenceIds: string[] };
   'merge.refused': { workItemId: string; decisionId: string | null; reason: string; gates: MergeGate[] };
+  'release.saved': { plan: ReleasePlan };
+  'code_host.checked': { snapshot: CodeHostSnapshot };
+  'infra.checked': { health: InfraHealthReport };
   'docker.action': { decisionId: string; command: string[]; exitCode: number | null; output: string };
   'daemon.started': { version: string; pid: number };
   'config.loaded': { project: ProjectConfig; tracker: TrackerConfig; policies: Policy };
@@ -113,6 +135,8 @@ export interface ControlEventData {
   'run.started': { pid: number | null };
   'run.session': { sessionId: string | null; model: string | null };
   'run.state': { state: RunState; reason?: string };
+  /** A child session of the harness (e.g. an OpenCode subagent): shown as a child run in the console. */
+  'run.child': { sessionId: string; parentSessionId: string | null; title: string; state: 'running' | 'completed' | 'failed' | 'aborted'; error?: string | null };
   /** `state` overrides the default (finished / failed / orphaned), e.g. paused. */
   'run.ended': { exit: ExitReason; state?: RunState };
   'run.handoff': { handoff: Handoff };
@@ -128,8 +152,24 @@ export interface ControlEventData {
   'context.vault': { status: VaultStatus | null };
   'context.graph': { status: GraphStatus | null };
   'context.docs': { status: DocsStatus | null };
-  'context.answer': { status: OneAnswerStatus };
+  'context.answer': { status: DictionaryStatus };
   'context.connected': { vault: string; folders: string[]; semantic: boolean };
+  // ---- phone access, notifications and context benchmark (audit only; state lives in daemon storage) ----
+  'remote.config_changed': { config: RemoteConfig; scopeHash: string };
+  'remote.tunnel_requested': { decisionId: string; adapter: string; planDigest: string; hostname: string | null };
+  'remote.tunnel_state': { state: 'down' | 'starting' | 'up' | 'reconnecting' | 'error'; adapter: string; hostname: string | null; detail: string; decisionId?: string | null };
+  'remote.pairing_issued': { pairingId: string; expiresAt: string; scopes: RemoteScope[] };
+  'remote.paired': { sessionId: string; pairingId: string; scopes: RemoteScope[]; expiresAt: string; label: string };
+  'remote.pair_failed': { reason: string; locked: boolean };
+  'remote.session_revoked': { sessionId: string; reason: string; by: string };
+  'remote.request_denied': { sessionId: string | null; method: string; path: string; reason: string };
+  'notification.emitted': { notification: NotificationRecord };
+  'notification.acked': { id: string };
+  'notification.config_changed': { config: NotificationConfig };
+  'notification.delivered': { id: string; channel: NotificationChannel; ok: boolean; detail: string };
+  'notification.endpoint_activated': { channel: 'webpush' | 'chat'; host: string; decisionId: string; expiresAt: string };
+  'notification.endpoint_denied': { channel: 'webpush' | 'chat'; host: string; decisionId: string };
+  'benchmark.completed': { runId: string; corpus: string; summary: Record<string, unknown> };
 }
 
 export interface TranscriptEventData {

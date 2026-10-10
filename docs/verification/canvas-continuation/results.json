@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-10",
+  "branch": "codex/canvas-continuation",
+  "checkout": "/tmp/Interface-canvas-continuation",
+  "base": "280ad03",
+  "checks": {
+    "typecheck": {
+      "commands": [
+        "./node_modules/.bin/tsc -p packages/core",
+        "./node_modules/.bin/tsc -p packages/daemon",
+        "./node_modules/.bin/tsc -p packages/web"
+      ],
+      "result": "passed"
+    },
+    "tests": {
+      "command": "./node_modules/.bin/vitest run --config vitest.continuation.config.ts --project core --project web --project daemon packages/core/test packages/web/test packages/daemon/test/workflow-options.test.ts packages/daemon/test/workflow-links.test.ts packages/daemon/test/workflow-link-routes.test.ts packages/daemon/test/marketplace.test.ts packages/daemon/test/canvas.test.ts packages/daemon/test/canvas-engine-integration.test.ts",
+      "passed": 299,
+      "failed": 0,
+      "files": 40
+    },
+    "webBuild": {
+      "command": "./packages/web/node_modules/.bin/vite build packages/web --config packages/web/vite.config.ts",
+      "result": "passed",
+      "modules": 448
+    }
+  },
+  "regressionsBeforeFix": [
+    "Canvas terminate waits for the full deadline when a new MCP handoff is staged before exit; new HTTP test times out at 15 seconds.",
+    "With staged pickup capture fixed, continuation compiles with consults=[] instead of the original [codex]."
+  ],
+  "fixtureOnly": true,
+  "liveProviderCalls": false,
+  "nativeDesktopTested": false,
+  "fullDaemonSuiteRun": false,
+  "sharedPatch": "run-manager.patch",
+  "unrelatedUncommittedWorkStaged": false
+}

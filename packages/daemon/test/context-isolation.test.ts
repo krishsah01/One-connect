@@ -28,7 +28,7 @@ async function launch(cfg:ReturnType<typeof makeConfig>,dataDir?:string,fetch=fi
   const h=await startDaemon(cfg,{server:false,probe:false,fetch,dataDir:dataDir??tmpDir('isolated-answer-data')});harnesses.push(h);return h;
 }
 
-describe('project-owned One Answer context',()=>{
+describe('project-owned Dictionary context',()=>{
   it('isolates same-name projects in one vault across updates, name changes and independent restarts',async()=>{
     const vault=tmpDir('shared-answer'),repoA=makeRepo(),repoB=makeRepo();
     fs.mkdirSync(path.join(vault,'Team'));fs.writeFileSync(path.join(vault,'Team','Shared.md'),'Shared coordination guide.');
@@ -52,7 +52,10 @@ describe('project-owned One Answer context',()=>{
     await a.d.context.answer.refresh(false);
     expect(a.d.context.answer.status).toMatchObject({notesRevision:next,embeddingsRevision:next,graphRevision:next});
     expect(b.d.context.answer.status.revision).toBe(revisionB);
-    expect(a.d.context.answer.cite(result).citations.every(c=>!c.projectSource)).toBe(true);
+    // A citation of changed source loses attribution; identical unchanged text may only claim the new revision.
+    const recited=a.d.context.answer.cite(result).citations;
+    expect(recited.filter(c=>c.excerpt.includes('alphaexclusive')).every(c=>!c.projectSource)).toBe(true);
+    expect(recited.filter(c=>c.projectSource).every(c=>c.projectSource!.revision===next)).toBe(true);
     const dataA=a.dataDir,dataB=b.dataDir;await a.close();await b.close();harnesses.splice(0);
     a=await launch({...cfgA,project:{...cfgA.project,name:'renamed project'}},dataA);b=await launch(cfgB,dataB);
     expect(a.d.context.vault!.folder).toBe(folderA);expect(b.d.context.vault!.folder).toBe(folderB);
@@ -63,11 +66,11 @@ describe('project-owned One Answer context',()=>{
 
   it('migrates the old display-name registry by regeneration without reading or mutating legacy/user/foreign notes',async()=>{
     const repo=makeRepo(),vault=tmpDir('legacy-answer'),revision=committed(repo,'# Owned\nownedmigration source.'),cfg=config(repo,vault);
-    let h=await launch(cfg);const dataDir=h.dataDir,own=h.d.context.vault!.folder,legacy='One Connect/sample/One Answer';
+    let h=await launch(cfg);const dataDir=h.dataDir,own=h.d.context.vault!.folder,legacy='One Connect/sample/Dictionary';
     const registry=JSON.parse(h.d.store.kvGet('answer:sources')!);
     h.d.store.kvSet('answer:sources',JSON.stringify(Object.fromEntries(Object.entries(registry).map(([rel,s])=>[`${legacy}/${path.basename(rel)}`,s]))));
     h.d.store.kvSet('answer:source-key','legacy-key');await h.close();harnesses.splice(0);
-    fs.mkdirSync(path.join(vault,path.dirname(legacy)),{recursive:true});fs.renameSync(path.join(vault,own,'One Answer'),path.join(vault,legacy));
+    fs.mkdirSync(path.join(vault,path.dirname(legacy)),{recursive:true});fs.renameSync(path.join(vault,own,'Dictionary'),path.join(vault,legacy));
     fs.writeFileSync(path.join(vault,legacy,'.one-connect-generated'),'One Connect generated project notes\n');
     fs.writeFileSync(path.join(vault,legacy,'User.md'),'Keep my legacy user note.');
     fs.writeFileSync(path.join(vault,legacy,`${'f'.repeat(64)}.md`),'Foreign project source must stay private.');
@@ -82,23 +85,23 @@ describe('project-owned One Answer context',()=>{
 
   it('repairs deleted, corrupt and symlink-replaced generated notes and overview, preserving unregistered additions',async()=>{
     const repo=makeRepo(),vault=tmpDir('repair-answer'),revision=committed(repo,'# Owned\nrepairmarker intact.'),h=await launch(config(repo,vault,true));
-    const v=h.d.context.vault!,note=v.notePath('One Answer',digest('README.md')+'.md'),abs=path.join(vault,note);
+    const v=h.d.context.vault!,note=v.notePath('Dictionary',digest('README.md')+'.md'),abs=path.join(vault,note);
     const result=h.d.context.answer.cite(await h.d.context.docs!.search('repairmarker'));
     const forged=h.d.context.answer.cite({...result,citations:result.citations.map(c=>({...c,excerpt:'invented source statement'}))});
     expect(forged.citations.every(c=>!c.projectSource)).toBe(true);
-    const extra=path.join(vault,v.notePath('One Answer','User.md'));fs.writeFileSync(extra,'Preserve this user addition.');
+    const extra=path.join(vault,v.notePath('Dictionary','User.md'));fs.writeFileSync(extra,'Preserve this user addition.');
     for(const damage of ['missing','corrupt','symlink','overview','graph','graph-revision'] as const) {
       if(damage==='missing')fs.unlinkSync(abs);
       if(damage==='corrupt')fs.writeFileSync(abs,'Corrupt source.');
       if(damage==='symlink'){fs.unlinkSync(abs);fs.symlinkSync(extra,abs);}
-      if(damage==='overview')fs.appendFileSync(path.join(vault,v.notePath('One Answer','Overview.md')),'Forged overview with same SHA.');
+      if(damage==='overview')fs.appendFileSync(path.join(vault,v.notePath('Dictionary','Overview.md')),'Forged overview with same SHA.');
       if(damage==='graph')fs.unlinkSync(h.d.context.graph!.graphPath());
       if(damage==='graph-revision')fs.writeFileSync(path.join(h.d.context.graph!.dir,'graphify-out','.acc-sha'),'not a revision');
       await h.d.context.answer.refresh(false);
       expect(h.d.context.answer.status).toMatchObject({state:'ready',notesRevision:revision,embeddingsRevision:revision,graphRevision:revision});
       expect(fs.lstatSync(abs).isSymbolicLink()).toBe(false);expect(fs.readFileSync(abs,'utf8')).toContain('repairmarker');
       expect(fs.readFileSync(extra,'utf8')).toBe('Preserve this user addition.');
-      expect(()=>v.read(v.notePath('One Answer','../One Answer/User.md'))).toThrow(/registry/);
+      expect(()=>v.read(v.notePath('Dictionary','../Dictionary/User.md'))).toThrow(/registry/);
       expect(h.d.context.answer.cite(await h.d.context.docs!.search('repairmarker')).citations.some(c=>c.projectSource?.revision===revision)).toBe(true);
       expect(JSON.stringify(await h.d.context.docs!.search('Preserve this user addition'))).not.toContain('Preserve this user addition.');
     }
@@ -164,12 +167,12 @@ describe('bounded source metadata redaction',()=>{
 describe('vault ownership boundaries',()=>{
   it('preserves colliding user note names and recovers a interrupted swap with unregistered additions',()=>{
     const root=tmpDir('generated-collision'),v=new Vault(KnowledgeConfigSchema.parse({vault:root,folder:'Own',obsidian_cli:'off'}),root,'a'.repeat(64));
-    const collection=v.notePath('One Answer'),name=digest('source.md')+'.md',next=digest('new.md')+'.md';
+    const collection=v.notePath('Dictionary'),name=digest('source.md')+'.md',next=digest('new.md')+'.md';
     v.replaceGenerated(collection,{[name]:'generated','Overview.md':'overview'});
     fs.writeFileSync(path.join(root,collection,next),'User content with a colliding name.');
     expect(()=>v.replaceGenerated(collection,{[name]:'updated',[next]:'new source','Overview.md':'overview'})).toThrow(/unowned note/);
     expect(fs.readFileSync(path.join(root,collection,next),'utf8')).toBe('User content with a colliding name.');
-    const backup=path.join(root,v.folder,'.One Answer.one-connect-previous');
+    const backup=path.join(root,v.folder,'.Dictionary.one-connect-previous');
     fs.renameSync(path.join(root,collection),backup);
     v.replaceGenerated(collection,{[name]:'recovered','Overview.md':'overview'});
     expect(fs.readFileSync(path.join(root,collection,name),'utf8')).toBe('recovered');

@@ -136,7 +136,7 @@ describe('project intake', () => {
     expect(status.revision).toBe(p.inspection.intake.revision);
     expect(status.notesRevision).toBe(p.inspection.intake.revision);
     expect(['ready', 'partial']).toContain(status.state);
-    const notesDir = path.join(h.d.context.vault!.root, h.d.context.vault!.notePath('One Answer'));
+    const notesDir = path.join(h.d.context.vault!.root, h.d.context.vault!.notePath('Dictionary'));
     const notes = fs.readdirSync(notesDir).map(f => fs.readFileSync(path.join(notesDir, f), 'utf8')).join('\n');
     expect(notes).toContain('export const ok = true;');
     expect(notes).not.toContain('UNCOMMITTED_MARKER');

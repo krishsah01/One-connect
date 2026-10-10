@@ -4,6 +4,7 @@ import { claudeAdapter } from './claude.ts';
 import { codexAdapter } from './codex.ts';
 import { cursorAdapter } from './cursor.ts';
 import { genericAdapter } from './generic.ts';
+import { opencodeAdapter } from './opencode.ts';
 import { relayAdapter } from './relay.ts';
 import type { VendorAdapter } from './types.ts';
 
@@ -13,6 +14,7 @@ export const VENDOR_ADAPTERS: Record<AdapterType, VendorAdapter> = {
   'cursor-agent-cli': cursorAdapter,
   'generic-cli': genericAdapter,
   relay: relayAdapter,
+  'opencode-server': opencodeAdapter,
 };
 
 export function adapterFor(type: AdapterType): VendorAdapter {

@@ -1,0 +1,58 @@
+{
+  "at": "2026-10-08T03:34:59.849Z",
+  "baseline": "6b413864a73163ea8dfdcfd7347459ffa63cfd08",
+  "files": [
+    {
+      "name": "packages/core/src/entities.ts",
+      "oldHash": "ea81cb6f5f7a0ee9c0ac5447f7e20332bd277ca56d05a1b37da284f33c65aecd",
+      "sourceHash": "c5cb856c2ccd4bf1afb3c09aafbb5565c95b071039b07ba7933eb0ff98d52404"
+    },
+    {
+      "name": "packages/daemon/src/connectors.ts",
+      "oldHash": "d532c7cd77bbe2b6c720c7ee790eae9060e83e465d9c77cc8823b9f0fbfcb666",
+      "sourceHash": "c735ba5a0c691b11e95e25040d3200a2a38e21e38960beaacc2888dfdedf315f"
+    },
+    {
+      "name": "packages/daemon/src/daemon.ts",
+      "oldHash": "84b7e70b291c36e72951ba52dbbda52d367d7b63ac493e299f7467abce468558",
+      "sourceHash": "f6bd86acebf22a524c2dab2fae218f30fd0fd4fad43f0147cbb8e0f0fb1c1d00"
+    },
+    {
+      "name": "packages/daemon/src/outbox.ts",
+      "oldHash": "833431183e0739bee82b7d982bca44855f8da6c08d8e822011fe00d53d3646af",
+      "sourceHash": "f170ea0cc99291104aafac3acac8ff51d2dd849fb0566c14f8ee70fbff0b47f0"
+    },
+    {
+      "name": "packages/daemon/src/server/libraryRoutes.ts",
+      "oldHash": "7f6cbb069de9f6fc649e1795673c640f8d28a27419aaff10548fc095c44e75f4",
+      "sourceHash": "4f30daed40ad83f02228f8e74970ff86250822dcfc45896da86d623c2eeb9d7e"
+    },
+    {
+      "name": "packages/daemon/test/connectors.test.ts",
+      "oldHash": "b11a77d93430b5d94c751954380ee727196fb046f214a136e57e9b381ef9354d",
+      "sourceHash": "d131bac7504310325a35f0a20a4db4be0a4c5ef257e421ae87585003f047db14"
+    },
+    {
+      "name": "packages/daemon/test/connector-phone.test.ts",
+      "oldHash": null,
+      "sourceHash": "c63ccbc3f2ec4a20007cf6716646aac3fd6e7af742887ee621f55151c6da6454"
+    },
+    {
+      "name": "packages/daemon/test/release-connectors.test.ts",
+      "oldHash": "821f047c32c28cb272f6c6ddb875078d5eea5f10cbd67fb2433d5844c7144b95",
+      "sourceHash": "70feaa31e6708b7dfa8f6d032762483d92ded6fd08eef87efb0b6652b9c4b544"
+    },
+    {
+      "name": "packages/web/src/pages/Connectors.tsx",
+      "oldHash": "4bab2fc2ac2616aadea7c0b8c7399e57118b77d0317f7f3f4ee2b4d6c38cdd49",
+      "sourceHash": "729d81251188ef2419b8cbab43f4f28f6faa3274451b40982af3850ad4b01528"
+    },
+    {
+      "name": "packages/web/test/release-connectors.test.tsx",
+      "oldHash": "e902de672c607402dfde1bdb3889b59804cb4659d7053edd460378f3065a7aae",
+      "sourceHash": "c990aad80efa01015b08e2e2fb2089ea8ce90adeb4c6d29d9c33df10e14e537b"
+    }
+  ],
+  "verification": "Parent review repairs and integrated checks pending; frozen worker report is not full acceptance",
+  "nativeBundle": "Current app predates this source"
+}

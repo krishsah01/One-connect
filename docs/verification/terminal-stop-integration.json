@@ -1,0 +1,49 @@
+{
+  "updatedAt": "2026-10-08T05:17:51.081690+00:00",
+  "changes": [
+    "Native close retains ownership until a stop succeeds or authoritative exit is available",
+    "Project/all terminal stop attempts every target and reports retained failures",
+    "Explicit UI close shows failed results and retries the same session",
+    "Input-error retry reattaches instead of spawning another process",
+    "Late close callbacks are scoped to session/project generation",
+    "PTY output loss is not presented as process exit"
+  ],
+  "files": [
+    {
+      "path": "packages/web/src/components/NativeTerminal.tsx",
+      "sha256": "3ce4f6bda801a6b4631836b5ee6336c89b374e7a990079df6ceadcecd6e23afe"
+    },
+    {
+      "path": "packages/web/src/pages/Workspace.tsx",
+      "sha256": "4bff1803aefce031fdd47923dce67a068c35d6b925ebdf9624935bb79b62e600"
+    },
+    {
+      "path": "packages/desktop/src-tauri/src/terminal.rs",
+      "sha256": "0d939fc3810ed3ce81bf41d20f534f437153e86fadf161f45827715f9dcefb7e"
+    },
+    {
+      "path": "packages/desktop/src-tauri/src/main.rs",
+      "sha256": "cf66a28e9a415c4a96005813beeec6de33adb7897dbc70eff0452d9a2c03c341"
+    },
+    {
+      "path": "packages/web/test/native-terminal-transport.test.tsx",
+      "sha256": "369f0ab66780b3b0c9dd4f80bc5d21924be4047eaf9e03e96b6b51f716fe1570"
+    }
+  ],
+  "verification": {
+    "focusedWeb": {
+      "passed": 27,
+      "failed": 0,
+      "report": "terminal-stop-client-results.json"
+    },
+    "nativeRust": {
+      "passed": 23,
+      "failed": 0,
+      "command": "DEVELOPER_DIR=/Library/Developer/CommandLineTools CARGO_NET_OFFLINE=true CARGO_TARGET_DIR=/private/tmp/one-connect-cursor-Bu9W8J/cargo-target cargo test --manifest-path packages/desktop/src-tauri/Cargo.toml --locked"
+    },
+    "webTypecheck": "passed"
+  },
+  "bundled": true,
+  "nativeRendered": "Skills verification app contains terminal corrections; terminal close rendered acceptance not yet exercised",
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect-skills.app"
+}

@@ -1,0 +1,9 @@
+# Project settings
+
+Settings & policies belongs to the currently selected project. It configures integration and protected branches, project check commands and their Docker runtime, model rules, stall thresholds, code-host and infrastructure drafts, Graphify code-only extraction, and redaction rules. Repository identity and the Docker namespace stay bound to the project registered in the Mac app. Changing the integration branch or graph settings recreates the context pipeline so notes, search and graph read the updated revision.
+
+Choose **Review settings changes** to create an exact, expiring Decision. Review its configuration and confirm **save**. Settings, the human answer and its audit events commit together in the project database and survive a restart. A stale or replaced draft cannot be applied, and settings cannot change while work is running or queued. Existing protected branches, required approvals, strict connector scope and the zero-extra-spend default cannot be removed through this editor.
+
+Saving does not run project code, contact a provider, pull an image or activate a remote integration. Code-host and infrastructure drafts must separately be approved in Connectors. Read permissions are invalidated when the project or connection binding changes. Keys are entered only in the dedicated connection key store, never in settings, prompts, skills or tracker comments. Use Phone & alerts for notification routing and quiet hours.
+
+API agents use **Review cost approval** in the agent builder. Each review binds the exact configuration, model, prices, enabled state and daily stop threshold, requires a second confirmation, and expires after fifteen minutes. The app stops on recorded usage; in-flight requests and other agents can exceed this threshold. Set provider-side spending limits for a hard cap. Provider-reported cost takes precedence over estimates. Saving a disabled agent makes no model request.

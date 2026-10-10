@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: Apache-2.0
-// acc: the Agent Control Center command line.
+// acc: the One Connect command line.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -76,7 +76,7 @@ async function main() {
       const srv = await createServer(d, { port, devOrigins });
       await d.start();
       fs.writeFileSync(path.join(d.paths.root, 'daemon.json'), JSON.stringify({ url: srv.url, pid: process.pid, startedAt: new Date().toISOString(), config: cfgPath }));
-      console.log(`Agent Control Center ${srv.url}`);
+      console.log(`One Connect ${srv.url}`);
       console.log(`  config   ${cfgPath}`);
       console.log(`  data     ${d.paths.root}`);
       console.log(`  tracker  ${d.tracker.target}${d.tracker.live ? '' : ' (dry run: not live)'}`);
@@ -223,6 +223,22 @@ async function main() {
       if (!result.ok) process.exitCode = 1;
       return;
     }
+    case 'bench': {
+      // acc bench context [--graphify <bin>] [--embedding-model <name>] [--json]
+      if (argv[1] !== 'context') { console.error('usage: acc bench context [--graphify bin] [--embedding-model name] [--json]'); process.exit(2); }
+      const { runContextBenchmark } = await import('./benchmark/contextBenchmark.ts');
+      const r = await runContextBenchmark({ graphifyBinary: flag('graphify'), embeddingModel: flag('embedding-model') });
+      if (has('json')) console.log(JSON.stringify(r, null, 2));
+      else {
+        console.log(`Context benchmark on the disposable ${r.corpus.name} corpus (${r.corpus.files} files, ${r.corpus.bytes} bytes, ${r.corpus.questions} labelled questions)`);
+        for (const a of r.arms) console.log(`  ${a.status === 'measured' ? '' : '[not measured] '}${a.label}: ${a.status === 'measured' ? `${a.contextBytesPerQuestion} B/question (~${a.estimatedTokensPerQuestion} est. tokens), p50 ${a.latencyMsP50} ms, accuracy ${a.retrievalAccuracy === null ? 'n/a' : `${Math.round(100 * a.retrievalAccuracy)}%`}, citations ${a.citationIntegrity === null ? 'n/a' : `${Math.round(100 * a.citationIntegrity)}%`}, abstention ${a.abstentionAccuracy === null ? 'n/a' : `${Math.round(100 * a.abstentionAccuracy)}%`}` : a.reason}`);
+        console.log('  Token figures are bytes/4 estimates, not provider-reported usage.');
+        for (const c of r.checks) console.log(`  ${c.ok ? 'ok  ' : 'FAIL'} ${c.name}: ${c.detail}`);
+        console.log(r.regressions.length ? `REGRESSIONS:\n  ${r.regressions.join('\n  ')}` : 'No regressions on this evaluation set.');
+      }
+      process.exit(r.regressions.length ? 1 : 0);
+      return;
+    }
     case 'rebuild': {
       const p = resolveDataPaths();
       const store = new EventStore(p.db);
@@ -239,7 +255,7 @@ async function main() {
       return;
     }
     default:
-      console.log(`acc: Agent Control Center
+      console.log(`acc: One Connect
 
   acc daemon [--config f] [--port n]   start the supervisor + UI (127.0.0.1 only)
   acc open [--print] [--data-dir d]    sign the browser in (one-time link; finds the demo too)
@@ -250,6 +266,7 @@ async function main() {
   acc status                           agents, Now/Next, open alerts
   acc kill-all | acc release           stop every run instantly / release the kill switch
   acc context [sync | query <text>]    shared context: Obsidian notes + graphify code graph
+  acc bench context [--graphify bin]   context-quality benchmark on a disposable fixture corpus
   acc rebuild                          rebuild state by replaying the event log
   acc project inspect --dir d          describe a repository for onboarding (JSON; runs no scripts)
   acc project prepare --dir d --config-dir c   bind a repository and write its generated config`);

@@ -137,15 +137,15 @@ async function gitInfo(dir: string): Promise<ProjectInspection['git']> {
 }
 
 function intake(g: ProjectInspection['git'], dir: string): ProjectInspection['intake'] {
-  const commitStep: OnboardingStep = { id: 'first-commit', title: 'Create a first commit', detail: 'Review the files first. One Answer indexes exact committed revisions only, so nothing is indexed until this commit exists.', commands: [['git', 'status'], ['git', 'add', '-A'], ['git', 'commit', '-m', 'Initial commit']], runIn: 'project-terminal' };
+  const commitStep: OnboardingStep = { id: 'first-commit', title: 'Create a first commit', detail: 'Review the files first. Dictionary indexes exact committed revisions only, so nothing is indexed until this commit exists.', commands: [['git', 'status'], ['git', 'add', '-A'], ['git', 'commit', '-m', 'Initial commit']], runIn: 'project-terminal' };
   if (g.state === 'not_git') return { indexable: false, revision: null, ref: null, message: 'This folder is not a Git repository. One Connect binds each project to one repository root.', steps: [{ id: 'git-init', title: 'Initialize Git in this exact folder', detail: `Runs git init in ${dir} after you approve it. It creates .git only; no files are added or committed.`, commands: [['git', 'init', '-b', 'main', dir]], runIn: 'approved-action' }, commitStep] };
   if (g.state === 'not_root') return { indexable: false, revision: null, ref: null, message: `This folder is inside the repository at ${g.root}. Choose the repository root so the project binding is exact.`, steps: [] };
-  if (g.state === 'no_commits') return { indexable: false, revision: null, ref: null, message: 'The repository has no commits. One Answer reports “needs first commit” rather than indexing uncommitted files.', steps: [commitStep] };
-  // Mirrors One Answer: the integration branch when it exists, otherwise HEAD.
+  if (g.state === 'no_commits') return { indexable: false, revision: null, ref: null, message: 'The repository has no commits. Dictionary reports “needs first commit” rather than indexing uncommitted files.', steps: [commitStep] };
+  // Mirrors Dictionary: the integration branch when it exists, otherwise HEAD.
   const ref = g.integrationBranch ?? 'HEAD';
   const sha = g.integrationHead ?? g.head!;
-  if (g.state === 'dirty') return { indexable: true, revision: sha, ref, message: `One Answer indexes committed ${ref} at ${sha.slice(0, 12)}. ${g.dirtyFiles} changed and ${g.untrackedFiles} untracked files are excluded until committed.`, steps: [{ ...commitStep, id: 'commit-changes', title: 'Commit local changes to include them', commands: [['git', 'status'], ['git', 'add', '-A'], ['git', 'commit', '-m', 'Work in progress']] }] };
-  return { indexable: true, revision: sha, ref, message: `One Answer indexes committed ${ref} at ${sha.slice(0, 12)}.`, steps: [] };
+  if (g.state === 'dirty') return { indexable: true, revision: sha, ref, message: `Dictionary indexes committed ${ref} at ${sha.slice(0, 12)}. ${g.dirtyFiles} changed and ${g.untrackedFiles} untracked files are excluded until committed.`, steps: [{ ...commitStep, id: 'commit-changes', title: 'Commit local changes to include them', commands: [['git', 'status'], ['git', 'add', '-A'], ['git', 'commit', '-m', 'Work in progress']] }] };
+  return { indexable: true, revision: sha, ref, message: `Dictionary indexes committed ${ref} at ${sha.slice(0, 12)}.`, steps: [] };
 }
 
 function existingConfig(root: string): ProjectInspection['config'] {
@@ -180,7 +180,7 @@ export async function inspectProject(dir: string): Promise<ProjectInspection> {
     try { compose = parseCompose(composeFile, path.basename(resolved)); warnings.push(...compose.warnings); }
     catch (e) { warnings.push((e as Error).message); }
   }
-  if (git.state === 'dirty' && git.integrationBranch === null) warnings.push('No integration branch yet; One Answer will index HEAD and agent worktrees will create integration from the protected branch.');
+  if (git.state === 'dirty' && git.integrationBranch === null) warnings.push('No integration branch yet; Dictionary will index HEAD and agent worktrees will create integration from the protected branch.');
   return {
     path: resolved,
     name,

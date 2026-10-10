@@ -1,0 +1,29 @@
+{
+  "builtAt": "2026-10-08T05:06:42.947931+00:00",
+  "appPath": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect-next.app",
+  "currentlyOpenApp": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect.app",
+  "openAppPreserved": true,
+  "profile": "macOS arm64 unsigned debug development preview",
+  "engineSha256": "4bddc2a0266469d6ce34f3c93e4693deccc545eeaebc3ed8e1438579f012a7a6",
+  "node": "24.21.0",
+  "sourceManifest": "docs/verification/rebundle-next-source-manifest.json",
+  "sourceFiles": 223,
+  "verification": {
+    "workspacePassed": 641,
+    "workspaceFailed": 0,
+    "workspaceSkipped": 0,
+    "testFiles": 72,
+    "nativeRustPassed": 22,
+    "typechecks": "all passed",
+    "webBuild": "passed",
+    "spdxSourceFiles": 292,
+    "extractedArchiveCliImport": "passed with bundled Node24, no provider probe"
+  },
+  "includedChanges": [
+    "Reviewed Cursor onboarding/native terminal and coordinator corrections",
+    "Durable approved Docker secret/config mounts, tamper guards and restart redaction",
+    "One Connect CLI and README/NOTICE naming"
+  ],
+  "nativeRenderedStatus": "Not launched; the existing app showed an unsaved Designer draft and was preserved. Save the draft and quit that app before opening this separate bundle.",
+  "fullProductAcceptance": "pending; live providers, paired phone, semantic/design/workflow completion and deployment remain beyond these checks"
+}

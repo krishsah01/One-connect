@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "include": [
+    "../src/release/plans.ts",
+    "../src/release/runner.ts",
+    "release-plans.test.ts",
+    "release-ordered.test.ts",
+    "release-findings.test.ts",
+    "release-safety.test.ts",
+    "release-second-pass.test.ts"
+  ]
+}

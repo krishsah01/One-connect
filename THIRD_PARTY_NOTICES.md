@@ -594,6 +594,10 @@ Selected Open Design resources are pinned at [53231d40b778d88eba23f35547bf99485d
 | Accessible product UI | 1 | Apache-2.0 |
 | Responsive mocks | 1 | Apache-2.0 |
 | [Playwright CLI checks](https://github.com/microsoft/playwright-cli) | one-connect-guide-1 | Apache-2.0 |
+| Product UI patterns | 1 | Apache-2.0 |
+| Typography and content | 1 | Apache-2.0 |
+| Design system implementation | 1 | Apache-2.0 |
+| Visual critique | 1 | Apache-2.0 |
 
 ### Taste Skill upstream notice
 

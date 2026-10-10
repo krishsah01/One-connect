@@ -66,6 +66,10 @@ The JSON result identifies the exact source SHA, installed image ID, runtime con
 
 Each command receives a fresh writable copy of committed Git blobs on container tmpfs. Uncommitted/untracked files are excluded. Tracked symlinks, submodules, unsafe paths, sources above 10,000 files or 128 MiB and images with volumes are reported unavailable. Provision dependencies into the image rather than fetching them. Output is bounded to 256 KiB and redacted using known secret values and token patterns; this does not prove arbitrary committed secrets are absent. The runner removes only its own uniquely named container and source directory, including on command timeout. If cleanup cannot reach Docker, the failed proof reports that an owned container may remain; it never prunes unrelated resources.
 
+## API keys, local models and OpenCode
+
+Subscription agents use their vendor CLI and your login. For API keys and local models install the official OpenCode release yourself (not bundled; MIT) and create an agent in the builder: choose a model source (Ollama local, Ollama cloud, or an API-key provider) and OpenCode is selected for you. Keys are stored under Agents & connections (macOS Keychain). Ollama needs no key locally; Ollama cloud models use a signed-in local Ollama (`ollama signin`, `ollama pull <model>:cloud`) or an Ollama API key. API-key agents need `metered_opt_in` and a daily budget in `control-center.yaml`. Jev recommendations stay off until enabled under Agents & connections.
+
 ## Git execution policy
 
 App-owned Git reads, worktree operations, conflict previews and local merges suppress repository/global hooks and fsmonitor, clean/smudge/process filters, external diff/textconv drivers, credential helpers and lazy fetching. Configured custom merge drivers make conflict previews and merges unavailable until the project uses supported built-in merging. Signing programs and submodule recursion are also disabled for app-owned operations. A merge approval authorizes the local merge of the recorded SHAs; it does not approve repository hook code. Run intended quality checks as named Docker commands.

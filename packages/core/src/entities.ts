@@ -8,6 +8,8 @@ import type { IntegrationMerge, ReviewRecord } from './reviews.ts';
 import type { ProjectSkill, SkillRef } from './skills.ts';
 import type { Connector } from './connectors.ts';
 import type { MockArtifact } from './mocks.ts';
+import type { DesignStudioState } from './designStudio.ts';
+import type { CodeHostSnapshot, InfraHealthReport, ReleaseAction, ReleasePlan } from './release.ts';
 
 export type Actor = { type: 'human' | 'agent' | 'system'; id: string };
 
@@ -145,7 +147,7 @@ export interface WorkItem {
   sprint?: string | null;
   workType?: string | null;
   reviews?: Review[];
-  origin?: { sourceId: string; type: 'github' | 'linear'; issueId: string; key: string; url: string | null; importedAt: string; readOnly: boolean; connectorId?: string; contentHash?: string; importedBy?: string; untrusted?: boolean };
+  origin?: { sourceId: string; type: 'github' | 'linear'; issueId: string; key: string; url: string | null; importedAt: string; readOnly: boolean; localMirror?: boolean; connectorId?: string; contentHash?: string; importedBy?: string; untrusted?: boolean; sourceScope?: { type: 'github' | 'linear'; repo?: string; team?: string; project?: string | null }; sourceRevision?: string; warnings?: string[] };
   trackerStatus: { category: TrackerCategory; native: string } | null;
   sync: { status: 'synced' | 'pending' | 'failed' | 'dry_run'; lastError: string | null; at: string | null };
   createdAt: string;
@@ -271,6 +273,18 @@ export interface Run {
   outOfScope: string[];
   tests: (TestCounts & { command: string; at: string; source: 'agent' | 'daemon' }) | null;
   logDir: string | null;
+  /** Child sessions the harness spawned (OpenCode subagents). Projection only: they never hold the agent's Now slot. */
+  children?: ChildSession[];
+}
+
+export interface ChildSession {
+  sessionId: string;
+  parentSessionId: string | null;
+  title: string;
+  state: 'running' | 'completed' | 'failed' | 'aborted';
+  startedAt: string;
+  endedAt: string | null;
+  error?: string | null;
 }
 
 export interface Approval {
@@ -311,7 +325,10 @@ export type AlertKind =
   | 'orphaned_run'
   | 'workflow'
   | 'review'
-  | 'merge';
+  | 'merge'
+  | 'branch_protection'
+  | 'infra'
+  | 'release';
 
 export interface Alert {
   id: string;
@@ -341,7 +358,7 @@ export interface Decision {
   answeredAt: string | null;
   channel: string | null;
   createdAt: string;
-  kind?: 'merge' | 'docker' | 'environment' | 'connector' | 'question';
+  kind?: 'merge' | 'docker' | 'environment' | 'connector' | 'remote' | 'notification' | 'cost' | 'release' | 'settings' | 'question';
   workItemId?: string | null;
   risk?: 'low' | 'medium' | 'high';
   /** The exact action an approval authorizes. An answer never authorizes anything else. */
@@ -358,6 +375,33 @@ export interface Decision {
   consumedAt?: string | null;
   outcome?: string | null;
   expiresAt?: string | null;
+  /** Jev (TypeSafe System One) advisory. Separate from `recommendation`; never an answer or approval. */
+  advisory?: JevAdvisory | null;
+}
+
+/** A persisted, advisory-only Jev result bound to the exact evidence it was computed from. */
+export interface JevAdvisory {
+  provider: 'jev';
+  /** sha256 of the bounded, redacted evidence that was sent. */
+  inputHash: string;
+  model: string;
+  usage: Record<string, number | string | null>;
+  requestedAt: string;
+  /** One of the decision's options (validated). */
+  recommendation: string;
+  rationale: string;
+  /** Items and characters of redacted evidence that left this machine. */
+  evidenceItems: number;
+  evidenceChars: number;
+  /** Source evidence the request was built from (decision evidence labels and work-item evidence ids). */
+  evidenceIds: string[];
+  /** Typed confidence from Jev when it reports one; otherwise null (unknown stays unknown). */
+  confidence: number | null;
+  host: string;
+  /** Set when the decision's evidence changed after the request; a stale advisory is not shown as current. */
+  stale: boolean;
+  staleReason: string | null;
+  staleAt: string | null;
 }
 
 export interface MergeAction {
@@ -371,7 +415,30 @@ export interface MergeAction {
   /** Stable hash of the fields above; changes if anything about the action changes. */
   hash: string;
 }
-export type DecisionAction = MergeAction;
+/** Approval to save one exact pay-per-token agent configuration with a daily budget. */
+export interface CostAction {
+  kind: 'cost';
+  agentId: string;
+  provider: string;
+  model: string;
+  budgetUsdPerDay: number;
+  /** Stable hash of the exact agent configuration being approved. */
+  hash: string;
+}
+export interface SettingsAction {
+  kind: 'settings';
+  /** Project repository and the exact settings revision being approved. */
+  repo: string;
+  hash: string;
+}
+/** One exact MCP tool invocation bound to connector inventory, tool name and argument hash. */
+export interface ConnectorToolAction {
+  kind: 'connector_tool';
+  connectorId: string;
+  tool: string;
+  hash: string;
+}
+export type DecisionAction = MergeAction | CostAction | ReleaseAction | SettingsAction | ConnectorToolAction;
 
 export interface Review {
   id: string;
@@ -395,16 +462,7 @@ export interface MergeRecord {
   at: string;
 }
 
-export interface ReleaseStep {
-  id: string;
-  title: string;
-  owner: string;
-  command: string;
-  check: string;
-  rollback: string;
-  approval: 'not_required' | 'pending' | 'approved' | 'denied';
-  status: 'todo' | 'running' | 'passed' | 'failed' | 'skipped';
-}
+export type { ReleasePlan, ReleaseStep } from './release.ts';
 
 export interface VaultStatus {
   root: string;
@@ -420,6 +478,8 @@ export interface VaultStatus {
 export interface GraphStatus {
   state: 'missing' | 'building' | 'ready' | 'error' | 'unavailable';
   sha: string | null;
+  /** Dictionary identity includes revision, redaction policy and project/vault scope. */
+  generation?: string | null;
   builtAt: string | null;
   nodes: number;
   edges: number;
@@ -453,18 +513,52 @@ export interface DocsStatus {
   indexedAt: string | null; error: string | null; truncated: boolean; backend: string; scope: string[];
   queries: number; contextChars: number; candidateChars: number;
 }
-export interface DocCitation { id: string; path: string; title: string; line: number; endLine: number; excerpt: string; url: string; projectSource?:{path:string;revision:string;hash:string;line:number;endLine:number}; }
-export interface OneAnswerStatus {
-  state:'missing'|'extracting'|'indexing'|'ready'|'partial'|'error'|'interrupted';
+export interface DocCitation { id: string; path: string; title: string; line: number; endLine: number; excerpt: string; url: string; projectSource?:{path:string;revision:string;hash:string;line:number;endLine:number}; via?:'keyword'|'semantic'|'graph'; }
+export interface DictionaryStatus {
+  state:'missing'|'extracting'|'indexing'|'ready'|'partial'|'error'|'interrupted'|'cancelled';
   revision:string|null;ref:string;updatedAt:string|null;files:number;totalFiles:number;excludedFiles:number;truncated:boolean;
   languages:Record<string,number>;packages:{path:string;name:string|null;dependencies:string[];scripts:Record<string,string>}[];
   notesRevision:string|null;embeddingsRevision:string|null;graphRevision:string|null;error:string|null;
+  /** Durable intake job (optional for older persisted statuses). */
+  job?:DictionaryJob|null;
+  /** Each pipeline stage with the exact source revision it was built from. */
+  stages?:Record<DictionaryStageName,DictionaryStage>;
+  /** What the last intake changed relative to the previous indexed revision. */
+  changes?:DictionaryChanges|null;
+  /** Immutable identity: source revision + redaction policy + vault scope + pipeline version. */
+  generation?:string|null;
+  /** Declarative import/manifest structure graph (not Graphify). */
+  structure?:{files:number;symbols:number;edges:number;entryPoints:string[]}|null;
+}
+export type DictionaryStageName='extract'|'notes'|'structure'|'keywords'|'vectors'|'graph';
+export interface DictionaryStage {
+  state:'pending'|'running'|'ready'|'off'|'unavailable'|'error'|'stale';
+  revision:string|null;detail:string|null;
+}
+export interface DictionaryJob {
+  id:string;state:'queued'|'running'|'succeeded'|'partial'|'failed'|'cancelled'|'interrupted';
+  reason:'startup'|'poll'|'manual'|'config'|'resume';
+  revision:string|null;startedAt:string;finishedAt:string|null;
+  done:number;total:number;stage:DictionaryStageName|null;error:string|null;
+  /** Requests that arrived while this job ran and were folded into one follow-up run. */
+  coalesced:number;
+}
+export interface DictionaryChanges {
+  from:string|null;to:string;mode:'full'|'incremental';
+  added:string[];modified:string[];deleted:string[];renamed:{from:string;to:string}[];
+  reused:number;reread:number;reason:string;
+}
+/** Answer sufficiency, computed from the cited excerpts only (never from model confidence). */
+export interface DocEvidence {
+  support:'supported'|'insufficient';coverage:number;terms:string[];missing:string[];
 }
 export interface DocSearchResult {
   backend: 'keywords' | 'hybrid'; citations: DocCitation[]; warning: string | null;
   contextChars: number; candidateChars: number; budgetChars: number; indexedAt: string | null;
+  /** Retrieval details (optional): graph expansion and de-duplication applied by Dictionary. */
+  retrieval?:{expanded:number;deduplicated:number;generation:string|null;revision:string|null};
 }
-export interface DocAnswer extends DocSearchResult { mode: 'excerpts' | 'answer'; claims: {text:string;sources:string[]}[]; answerError?:string; }
+export interface DocAnswer extends DocSearchResult { mode: 'excerpts' | 'answer'; claims: {text:string;sources:string[]}[]; answerError?:string; evidence?:DocEvidence; }
 
 export interface ControlState {
   seq: number;
@@ -482,14 +576,22 @@ export interface ControlState {
   teamMessages: Record<string, TeamMessage>;
   rules: Partial<Record<RuleName, boolean>>;
   killSwitch: { engaged: boolean; at: string | null; by: string | null };
-  context: { vault: VaultStatus | null; graph: GraphStatus | null; docs?: DocsStatus | null;answer?:OneAnswerStatus|null };
+  context: { vault: VaultStatus | null; graph: GraphStatus | null; docs?: DocsStatus | null;answer?:DictionaryStatus|null };
   design:DesignRevision|null;
   workflows: Record<string, Workflow>;
   reviews: Record<string, ReviewRecord>;
   merges: Record<string, IntegrationMerge>;
+  /** Durable ordered release plans. Steps cannot be skipped. */
+  releases: Record<string, ReleasePlan>;
+  /** Last read-only code-host probe. Null until a check runs. */
+  codeHost: CodeHostSnapshot | null;
+  /** Last read-only infra probe. Null until a check runs. */
+  infra: InfraHealthReport | null;
   skills?: Record<string, ProjectSkill>;
   connectors?: Record<string, Connector>;
   mocks?: Record<string, MockArtifact>;
+  /** Designer studio jobs and capture attempts. Absent until the first studio event. */
+  designStudio?: DesignStudioState;
 }
 
 export function emptyState(): ControlState {
@@ -514,6 +616,9 @@ export function emptyState(): ControlState {
     workflows: {},
     reviews: {},
     merges: {},
+    releases: {},
+    codeHost: null,
+    infra: null,
     skills: {},
     connectors: {},
     mocks: {},

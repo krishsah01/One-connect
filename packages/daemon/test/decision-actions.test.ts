@@ -41,7 +41,10 @@ describe('one inbox for bound actions', () => {
     const { d } = h;
     d.connectors.save({ id: 'issues', name: 'Issues', config: { kind: 'linear', team: 'ENG' } }, null);
     const requested = d.connectors.requestActivation('issues', 'import').decision!;
-    expect((await answer(requested.id, 'approve')).status).toBe(200);
+    expect((await answer(requested.id, 'approve')).status).toBe(428);
+    const confirmation = await phone(`/api/decisions/${requested.id}/prepare`, { answer: 'approve' });
+    const { nonce } = await confirmation.json() as { nonce: string };
+    expect((await answer(requested.id, 'approve', nonce)).status).toBe(200);
     expect(d.connectors.list().connections[0].state).toBe('active');
     expect(d.state.decisions[requested.id]).toMatchObject({ answeredBy: HUMAN, channel: 'phone', answer: 'approve' });
     expect(JSON.parse(d.store.kvGet(`connector:decision:${requested.id}`)!)).toMatchObject({ consumed: true });
@@ -59,8 +62,10 @@ describe('one inbox for bound actions', () => {
     const requested = h.d.connectors.requestActivation('issues', 'import').decision!;
     expect((await phone(`/api/decisions/${requested.id}/answer`, { answer: 'approve' }, false)).status).toBe(401);
     expect(() => h!.d.decisions.answer(requested.id, 'approve')).toThrow(/action executor/);
+    const confirmation = await phone(`/api/decisions/${requested.id}/prepare`, { answer: 'approve' });
+    const { nonce } = await confirmation.json() as { nonce: string };
     h.d.connectors.save({ id: 'issues', name: 'Issues', config: { kind: 'linear', team: 'OTHER' } }, draft.configHash);
-    expect((await answer(requested.id)).status).toBe(409);
+    expect((await answer(requested.id, 'approve', nonce)).status).toBe(409);
     expect(h.d.connectors.list().connections[0].state).toBe('draft');
     expect(h.d.store.list({ types: ['connector.activated'] })).toEqual([]);
   });

@@ -1,0 +1,96 @@
+{
+  "at": "2026-10-08T05:38:49.314940+00:00",
+  "workspace": "/private/tmp/one-connect-parallel-20261007/skills-portability",
+  "baseline": "aafc5b1aba818c39c25dd9f51dfecee69223e1da",
+  "files": [
+    {
+      "path": "packages/core/package.json",
+      "baselineSha256": "06bd9398a8a4f509402b7fd42db99353b9e8ac871d597b6681cc7a5bd688db1b",
+      "sha256": "573147b2c96f8c40eef401988b7b87f3b2c730ac57b4cf7d47dbadf285ff8dd1"
+    },
+    {
+      "path": "packages/core/src/skills.ts",
+      "baselineSha256": "e06d89b198da4ee05c89aaf7cc3edef7700562b0c5fdca5ecb67b2737f7feb00",
+      "sha256": "0762c6024ceeabd2b45f8e4e3db1b9f7505ab63c1b32491aeb96c4826adc5571"
+    },
+    {
+      "path": "packages/core/src/skillHash.ts",
+      "baselineSha256": null,
+      "sha256": "d8b545a94105d50363ab25ce59a256305f59beb4adb333844d8faab922ccecd6"
+    },
+    {
+      "path": "packages/core/test/skills.test.ts",
+      "baselineSha256": null,
+      "sha256": "58ac2d34a0b3ebafe52464a03bca8cc1c45ee9186fb7eb4fc620d06480bb4ca0"
+    },
+    {
+      "path": "packages/daemon/src/skills.ts",
+      "baselineSha256": "5fcb7233c753238c90846df2d327bb0fa6d6330b619fee31bf5e98615b337937",
+      "sha256": "523f1a8f85e5261e838a67379f86491fb64e338637e42030b4167492fd7e1950"
+    },
+    {
+      "path": "packages/daemon/src/skillImport.ts",
+      "baselineSha256": null,
+      "sha256": "e7045ddebb41810c7573cb0ef31be53c19c76ff0295bf41d6b6b6fbe81742b5a"
+    },
+    {
+      "path": "packages/daemon/src/server/libraryRoutes.ts",
+      "baselineSha256": "d768614ad80d0b1313d497731d10238d0b0194cec61e7a4fa7adaa78044a548d",
+      "sha256": "e4462e3e7ec27c0058cfe27fb1d23c1583bc0b3e1e8ba4839d7174e0d8b457d5"
+    },
+    {
+      "path": "packages/daemon/test/skills.test.ts",
+      "baselineSha256": "3ec4b995b7dfd1ca3e31c01f7b516f602f9103afc5b36a688e87b1d9b7c974bd",
+      "sha256": "f69c991fe9d33bf6aa54609c01e9c419a9c18282090705b42e1e2a8806be628d"
+    },
+    {
+      "path": "packages/daemon/test/mocks.test.ts",
+      "baselineSha256": "c253e31608805d24fdd33552806fde73ea42cfdd5be9be083bfa48e73a57a701",
+      "sha256": "2bc74edad30ba9d25d2d64de6bd8e03aeaea209694fef02f713b1e5dcf9e59a3"
+    },
+    {
+      "path": "packages/web/src/pages/Skills.tsx",
+      "baselineSha256": "b6e52eeb225eb39fcf3b685539b227d67aa9d18e6fc9b23bb03a3044dd549ada",
+      "sha256": "ef4dc413f5033d47aba58582089dfe34e033d2a3e3a266f024881d51ab6df0a6"
+    },
+    {
+      "path": "packages/web/test/skills.test.tsx",
+      "baselineSha256": null,
+      "sha256": "7f30b0a59950e1a34328a08e697ad4caf2e9a0c831251389c60981c7e08818ff"
+    },
+    {
+      "path": "packages/web/test/library.test.tsx",
+      "baselineSha256": "a966ed62fae77466cd6ddea1eda7c82cd6a2cc81181ff023582b48c86e98eda4",
+      "sha256": "c309bf7e990b35fddab15262f8ff875dc224ce43a4b76eb40ac20263ee28502a"
+    },
+    {
+      "path": "docs/skills.md",
+      "baselineSha256": null,
+      "sha256": "10b4c174e4827706db3dd35f319ddae3b48e85afc5a1618afd6142ccf1032b61"
+    }
+  ],
+  "cursor": "Composer 2.5 through official subscription CLI; paid fallback off",
+  "parentCorrections": [
+    "Independent catalog/editor generations; new save opens details",
+    "Conflict-preserved edits compared to actual remote draft",
+    "Import/file reads invalidated by current input generation",
+    "Strict input schemas and anchor/alias AST checks; raw denylist before parse",
+    "Export metadata compared to canonical event version",
+    "Nonblocking bounded regular-file checks, exclusive creates without truncation",
+    "Fetch fixture accepts URL input and optional init for TypeScript checks",
+    "Published immutable editor baseline no longer falsely marked unsaved; web regression passed"
+  ],
+  "verification": {
+    "focusedTests": 24,
+    "testFiles": 5,
+    "typecheck": "passed on primary after correcting test-only fetch/SkillDraft typings",
+    "webBuild": "passed",
+    "spdx": "296 passed",
+    "directNode24Imports": "passed",
+    "loopbackFixtures": "executed locally; no outbound integration"
+  },
+  "bundled": true,
+  "rendered": true,
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect-skills.app",
+  "nativeEvidence": "rebundle-skills-build.json"
+}

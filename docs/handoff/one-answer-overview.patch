@@ -1,0 +1,21 @@
+diff --git a/packages/web/src/pages/MissionControl.tsx b/packages/web/src/pages/MissionControl.tsx
+index 6f7952d..4edb9c1 100644
+--- a/packages/web/src/pages/MissionControl.tsx
++++ b/packages/web/src/pages/MissionControl.tsx
+@@ -8,6 +8,7 @@ import type { Tone } from '../lib/format';
+ import { post } from '../lib/api';
+ import { AGENT_TONE, ago, until } from '../lib/format';
+ import { useLiveText } from '../lib/store';
++import { OneAnswerStatusCard } from '../components/OneAnswer';
+ 
+ export function MissionControl({ state }: { state: ControlState }) {
+   const now = useTick(5000);
+@@ -239,7 +240,7 @@ function ContextPanel({ state }: { state: ControlState }) {
+         <h2>One Answer</h2>
+       </div>
+       <div className="card-b col">
+-        {state.context.answer&&<div className="col small"><div className="row"><b>Project intake</b><Badge tone={state.context.answer.state==='ready'?'ok':'warn'}>{state.context.answer.state}</Badge><span className="spacer"/><Link to="/docs">Ask your project</Link></div><span className="faint">{state.context.answer.files} source files · {state.context.answer.ref} · {state.context.answer.revision?.slice(0,12)??'pending'}</span></div>}
++        {state.context.answer&&<><OneAnswerStatusCard status={state.context.answer} compact/><Link className="small" to="/docs">Ask your project</Link></>}
+         {v && (
+           <div className="col" style={{ gap: 4 }}>
+             <div className="row small">

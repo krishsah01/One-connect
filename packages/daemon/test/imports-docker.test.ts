@@ -52,7 +52,10 @@ describe('Docker project controls', () => {
     await docker.resolve(denied.decision.id, 'deny');
     expect(calls.some(c => c[0] === 'stop')).toBe(false);
     const requested = await docker.request(id, 'restart');
-    const outcomes = await Promise.allSettled([docker.resolve(requested.decision.id, 'approve'), docker.resolve(requested.decision.id, 'approve')]);
+    await expect(docker.resolve(requested.decision.id, 'approve')).rejects.toMatchObject({ status: 428 });
+    expect(calls.filter(c => c[0] === 'restart')).toEqual([]);
+    const { nonce } = h.d.decisions.prepare(requested.decision.id, 'approve');
+    const outcomes = await Promise.allSettled([docker.resolve(requested.decision.id, 'approve', { nonce }), docker.resolve(requested.decision.id, 'approve', { nonce })]);
     expect(outcomes.filter(r => r.status === 'fulfilled')).toHaveLength(1);
     expect(calls.filter(c => c[0] === 'restart')).toEqual([['restart', id]]);
     expect(h.d.state.decisions[requested.decision.id]).toMatchObject({ answer: 'approve', channel: 'dashboard' });

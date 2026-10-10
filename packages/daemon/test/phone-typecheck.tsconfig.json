@@ -1,0 +1,5 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "files": ["../src/phone/logs.ts", "../src/phone/gate.ts", "../src/phone/notifications.ts", "../src/phone/projection.ts", "../src/phone/remote.ts", "../src/phone/routes.ts", "phone-notifications.test.ts", "phone-remote.test.ts", "phone-gate.test.ts"],
+  "include": []
+}

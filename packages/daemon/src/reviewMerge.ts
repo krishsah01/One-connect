@@ -310,7 +310,7 @@ export class ReviewMerge {
     if (live.length === 0) return;
     const events: NewEvent[] = live.map((reviewId) => ({ type: 'review.invalidated' as const, actor: SYSTEM, workItemId, data: { reviewId, reason } }));
     for (const dec of Object.values(d.state.decisions)) {
-      if (dec.kind === 'merge' && dec.workItemId === workItemId && !dec.consumedAt && dec.action && live.includes(dec.action.reviewId)) events.push({ type: 'decision.consumed', actor: SYSTEM, workItemId, data: { decisionId: dec.id, outcome: `superseded: ${reason}` } });
+      if (dec.kind === 'merge' && dec.workItemId === workItemId && !dec.consumedAt && dec.action?.kind === 'merge' && live.includes(dec.action.reviewId)) events.push({ type: 'decision.consumed', actor: SYSTEM, workItemId, data: { decisionId: dec.id, outcome: `superseded: ${reason}` } });
     }
     const approvals = live.filter((id) => d.state.reviews[id].verdict === 'approve');
     const outbox: OutboxOp[] = approvals.length ? [{ workItemId, op: 'comment', payload: { body: `Approval of \`${short(d.state.reviews[approvals[0]].targetSha)}\` is stale: ${reason}. A new independent review is required.` } }] : [];
@@ -436,7 +436,7 @@ export class ReviewMerge {
   private async doMerge(decisionId: string, actor: Actor): Promise<MergeOutcome> {
     const d = this.d;
     const dec = d.state.decisions[decisionId];
-    if (!dec || dec.kind !== 'merge' || !dec.action) throw new CommandError(`unknown merge decision ${decisionId}`, 404);
+    if (!dec || dec.kind !== 'merge' || dec.action?.kind !== 'merge') throw new CommandError(`unknown merge decision ${decisionId}`, 404);
     const a = dec.action;
     const auth = d.decisions.authorizes(decisionId, MERGE_OPTION, a.hash);
     if (!auth.ok) return this.refuse(a.workItemId, decisionId, auth.reason, [{ id: 'decision', label: 'Human decision', ok: false, detail: auth.reason }], false, actor);

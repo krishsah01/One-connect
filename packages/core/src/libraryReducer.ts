@@ -7,6 +7,7 @@ import type { MockRevision } from './mocks.ts';
 export const LIBRARY_EVENT_TYPES = new Set<string>([
   'skill.draft_saved', 'skill.version_published', 'skill.disabled', 'skill.exported',
   'connector.saved', 'connector.disabled', 'connector.activation_requested', 'connector.activated', 'connector.activation_denied', 'connector.checked', 'connector.used',
+  'connector.tool_requested', 'connector.tool_denied', 'connector.tool_execution_started', 'connector.tool_executed',
   'design.mock_captured', 'design.mock_exception', 'design.mock_reviewed', 'design.mock_evidence',
 ]);
 

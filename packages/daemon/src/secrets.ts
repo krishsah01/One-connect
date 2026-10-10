@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import { run } from './exec.ts';
 
 export const KEYCHAIN_SERVICE = 'agent-control-center';
-export const SECRET_NAMES = ['anthropic-api', 'openai-api', 'openrouter', 'linear'] as const;
+export const SECRET_NAMES = ['anthropic-api', 'openai-api', 'openrouter', 'ollama-cloud', 'jev', 'linear', 'github', 'gitlab', 'vercel', 'supabase', 'github-webhook', 'gitlab-webhook'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 const envName = (n: string) => `ACC_SECRET_${n.toUpperCase().replace(/-/g, '_')}`;
@@ -47,4 +47,12 @@ export const PROVIDER_SECRET: Partial<Record<string, { secret: SecretName; envVa
   'anthropic-api': { secret: 'anthropic-api', envVars: ['ANTHROPIC_API_KEY'] },
   'openai-api': { secret: 'openai-api', envVars: ['OPENAI_API_KEY', 'CODEX_API_KEY'] },
   openrouter: { secret: 'openrouter', envVars: ['OPENROUTER_API_KEY'] },
+  // Only the cloud-API route needs this key; see providerSecretFor().
+  'ollama-cloud': { secret: 'ollama-cloud', envVars: ['OLLAMA_API_KEY'] },
 };
+
+/** The Keychain secret an agent's run needs, if any (Ollama cloud through a signed-in local daemon needs none). */
+export function providerSecretFor(agent: { provider: string; ollama_route?: string }): { secret: SecretName; envVars: string[] } | undefined {
+  if (agent.provider === 'ollama-cloud' && (agent.ollama_route ?? 'daemon') !== 'api') return undefined;
+  return PROVIDER_SECRET[agent.provider];
+}

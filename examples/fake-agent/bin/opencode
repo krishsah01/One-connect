@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Fake opencode (loopback protocol fixture) for tests. See ../fake-opencode.mjs.
+exec node "$(dirname "$0")/../fake-opencode.mjs" "$@"

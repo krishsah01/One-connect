@@ -1,0 +1,46 @@
+{
+  "at": "2026-10-09T14:18:15.626025+00:00",
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect Studio.app",
+  "identifier": "dev.oneconnect.studio-checkpoint",
+  "mode": "unsigned debug macOS arm64 local checkpoint; separate application data",
+  "engineSha256": "fb1fa06d7b286395925417c97a1f03add1b736e21c6e00643c65fec728aa7aca",
+  "binarySha256": "009e6223b3b8f4a8e2d1efb29d881bfe36916f0638f3a5a0395e4bba0441beb9",
+  "sourceManifest": "rebundle-studio-source-manifest.json",
+  "configOverride": "productName One Connect Studio; identifier dev.oneconnect.studio-checkpoint; separate main-window title",
+  "build": "offline locked Tauri app build succeeded; signing skipped",
+  "workspace": {
+    "passed": 787,
+    "skipped": 4,
+    "failed": 0,
+    "report": "designer-primary-workspace-results.json"
+  },
+  "native": {
+    "passed": 24,
+    "failed": 0,
+    "newCheck": "PUT through authenticated native HTTP bridge"
+  },
+  "browserIsolation": {
+    "passed": 2,
+    "engines": [
+      "installed Chromium",
+      "offline WebKit"
+    ]
+  },
+  "node24ExtractedEngineImport": "passed; no vendor probe or network",
+  "typechecks": "passed",
+  "license": "166 compatible runtime dependencies; current generated notices",
+  "included": [
+    "One Answer incremental intake, local semantic retrieval/graph/context packets",
+    "Designer Studio versioned contract/briefs/jobs/capture/refine/independent review/engineering handoff",
+    "Human-approved per-call MCP plugin actions",
+    "Skills portability and terminal ownership fixes"
+  ],
+  "renderedAcceptance": {
+    "status": "partial native fixture acceptance observed",
+    "evidence": "studio-native-observation.json",
+    "scope": "Designer save/generate/question/capture/isolated responsive preview; One Answer cited retrieval/source viewing. Remaining journeys documented."
+  },
+  "originalBundles": "Preserved; original unsaved draft not modified",
+  "paidFallback": "off",
+  "liveIntegrations": "none enabled"
+}

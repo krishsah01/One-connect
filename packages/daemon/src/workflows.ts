@@ -4,7 +4,7 @@
 // dependents only start, from recorded lifecycle evidence: verified commits and daemon-run checks
 // for code, a typed review record for reviews. All state is event-sourced and survives restart.
 import type { Actor, Assignment, EventEnvelope, NewEvent, Run, Workflow, WorkflowDefinition, WorkflowIssue, WorkflowTaskDef, WorkflowTaskState } from '@acc/core';
-import { checksAt, deriveWorkflowStatus, emptyTaskState, HUMAN, isActiveRun, newId, normalizeWorkflow, readyTaskIds, requiredCheckNames, SYSTEM, validateWorkflow } from '@acc/core';
+import { checksAt, checkRuntimeKey, deriveWorkflowStatus, emptyTaskState, HUMAN, isActiveRun, newId, normalizeWorkflow, readyTaskIds, requiredCheckNames, SYSTEM, topoOrder, validateWorkflow } from '@acc/core';
 import { revParse } from './adapters/vcs/git.ts';
 import { CommandError, type Daemon } from './daemon.ts';
 
@@ -60,7 +60,9 @@ export class WorkflowEngine {
   }
 
   private tracked(w: Workflow): boolean {
-    return w.status === 'running' || w.status === 'paused' || w.status === 'blocked' || w.status === 'failed';
+    // Completion remains conditional on the source/check/review evidence. Observing a completed
+    // workflow must never dispatch its finished tasks again, but invalidations still matter.
+    return w.status === 'running' || w.status === 'paused' || w.status === 'blocked' || w.status === 'failed' || w.status === 'completed';
   }
 
   // ---- definition --------------------------------------------------------------------------
@@ -220,7 +222,7 @@ export class WorkflowEngine {
     for (const w of Object.values(this.d.state.workflows ?? {})) {
       if (!this.tracked(w)) continue;
       const items = new Set(w.definition.tasks.map((t) => t.workItemId));
-      if (events.some((e) => TRIGGERS.has(e.type) && ((e.workItemId && items.has(e.workItemId)) || (e.type === 'run.ended' && e.runId)))) this.schedule(w.id);
+      if (events.some((e) => TRIGGERS.has(e.type) && ((e.workItemId && items.has(e.workItemId)) || (e.runId && items.has(this.d.state.runs[e.runId]?.workItemId))))) this.schedule(w.id);
     }
   }
 
@@ -278,10 +280,33 @@ export class WorkflowEngine {
     for (const t of w.definition.tasks) {
       const st = w.tasks[t.id];
       if (!st) continue;
-      const patch = await this.observe(t, st);
+      const patch = await this.observe(t, st, w);
+      if (d.closed || d.state.workflows[id]?.status === 'canceled') return;
       if (patch && this.changed(st, patch)) facts.push(this.taskEvent(id, t.id, patch));
     }
     if (facts.length) d.commit(facts);
+    w = d.state.workflows[id];
+
+    // Previously completed downstream work is no longer ready when its upstream proof changes.
+    // Keep live process state honest and preserve its history; do not claim that finishing the
+    // existing run repairs the dependency. The owner retries the invalidated chain explicitly.
+    for (const taskId of topoOrder(w.definition)) {
+      const t = w.definition.tasks.find((task) => task.id === taskId)!;
+      const st = d.state.workflows[id].tasks[taskId];
+      if (st.status === 'pending' || st.status === 'canceled' || st.status === 'failed' || st.status === 'changes_requested' || !st.assignmentId) continue;
+      const dependency = t.dependsOn.find((dep) => d.state.workflows[id].tasks[dep]?.status !== 'done');
+      if (!dependency) continue;
+      const a = d.state.assignments[st.assignmentId];
+      const active = a && d.runs.activeRunFor(a.id);
+      if (!active && a && (a.position === 'next' || a.position === 'draft')) this.cancelQuietly(a, SYSTEM);
+      const patch: TaskPatch = {
+        status: active ? 'running' : 'blocked',
+        reason: `upstream task ${dependency} is no longer ready; retry the affected task and its dependents`,
+        completedSha: null,
+        evidenceIds: [],
+      };
+      if (this.changed(st, patch)) d.commit([this.taskEvent(id, taskId, patch)]);
+    }
     w = d.state.workflows[id];
 
     // 2. Promote ready tasks while the workflow is running.
@@ -304,11 +329,36 @@ export class WorkflowEngine {
   }
 
   /** What the recorded events say about one task. Agents' claims alone never complete a task. */
-  private async observe(t: WorkflowTaskDef, st: WorkflowTaskState): Promise<TaskPatch | null> {
+  private async observe(t: WorkflowTaskDef, st: WorkflowTaskState, w: Workflow): Promise<TaskPatch | null> {
     const d = this.d;
     if (st.status === 'pending' || st.status === 'canceled') return null;
+    const dependency = t.dependsOn.find(dep => w.tasks[dep]?.status !== 'done');
+    if (dependency && st.assignmentId && st.status !== 'failed' && st.status !== 'changes_requested') {
+      // A review's actual request for changes remains visible even when it also invalidates the
+      // author's readiness. It cannot unblock anything, and should not be hidden as a generic block.
+      const review = t.kind === 'review' ? Object.values(d.state.reviews).find(r => r.assignmentId === st.assignmentId) : null;
+      if (review && !review.staleAt && review.verdict === 'request_changes') return { status: 'changes_requested', reason: review.summary || `${review.findings.length} finding(s)`, reviewId: review.id, completedSha: review.targetSha };
+      const active = d.runs.activeRunFor(st.assignmentId);
+      return { status: active ? 'running' : 'blocked', reason: `upstream task ${dependency} is no longer ready; retry the affected task and its dependents`, completedSha: null, evidenceIds: [] };
+    }
     if (st.status === 'done') {
-      if (t.kind === 'review' && st.reviewId && d.state.reviews[st.reviewId]?.staleAt) return { status: 'blocked', reason: `review is stale: ${d.state.reviews[st.reviewId].staleReason ?? 'new commit'}; retry the review` };
+      if (t.kind === 'review') {
+        const review = st.reviewId ? d.state.reviews[st.reviewId] : null;
+        if (!review || review.staleAt || review.verdict !== 'approve' || review.targetSha !== st.completedSha) return { status: 'blocked', reason: `review is stale: ${review?.staleReason ?? 'approval is no longer current'}; retry the review`, completedSha: null, evidenceIds: [] };
+      }
+      if (t.kind === 'code') {
+        const a = st.assignmentId ? d.state.assignments[st.assignmentId] : null;
+        const item = a ? d.state.workItems[a.workItemId] : null;
+        if (!a?.branch || !item) return { status: 'blocked', reason: 'completed task assignment or issue is missing', completedSha: null, evidenceIds: [] };
+        const head = await revParse(d.config.project.repo, `refs/heads/${a.branch}`);
+        if (!head || head !== st.completedSha) return { status: 'blocked', reason: `${a.branch} moved from ${short(st.completedSha)} to ${short(head)}; retry the code task`, completedSha: null, evidenceIds: [] };
+        if (item.state === 'changes_requested' || item.state === 'blocked' || item.state === 'failed' || item.state === 'canceled') return { status: 'blocked', reason: `the issue is ${item.state.replace(/_/g, ' ')}; retry the affected task`, completedSha: null, evidenceIds: [] };
+        const checks = checksAt(item, d.config.project, requiredCheckNames(d.config.project, a), head);
+        const failed = checks.filter(c => c.status === 'fail');
+        if (failed.length) return { status: 'failed', reason: `${failed.map(c => c.name).join(', ')} failed at ${short(head)}`, completedSha: null, evidenceIds: [] };
+        const runtime = checkRuntimeKey(d.config.project.check_runtime);
+        if (checks.some(c => c.status !== 'pass' || !runtime || c.evidence?.checkRuntime !== runtime)) return { status: 'blocked', reason: `checks at ${short(head)} need current configured runtime evidence; retry the code task`, completedSha: null, evidenceIds: [] };
+      }
       return null;
     }
     const a = st.assignmentId ? d.state.assignments[st.assignmentId] : null;
@@ -352,6 +402,8 @@ export class WorkflowEngine {
     if (failed.length) return { status: 'failed', reason: `${failed.map((c) => c.name).join(', ')} failed at ${short(head)}`, completedSha: null };
     const missing = checks.filter((c) => c.status === 'missing');
     if (missing.length) return { status: 'verifying', reason: `waiting for ${missing.map((c) => c.name).join(', ')} at ${short(head)}` };
+    const runtime = checkRuntimeKey(d.config.project.check_runtime);
+    if (checks.some(c => !runtime || c.evidence?.checkRuntime !== runtime)) return { status: 'blocked', reason: `checks at ${short(head)} need current configured runtime evidence; retry the code task` };
     return { status: 'done', reason: null, completedSha: head, evidenceIds: [commit.id, ...checks.flatMap((c) => (c.evidence ? [c.evidence.id] : []))] };
   }
 

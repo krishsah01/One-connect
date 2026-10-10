@@ -207,7 +207,9 @@ const remembered = (() => {
 const targetSha = /Target SHA: ([0-9a-f]{40})/.exec(prompt)?.[1] ?? null;
 const markers = [...prompt.matchAll(/\[fake:([\w-]+)\]/g)].map((m) => m[1]);
 const marked = targetSha ? (markers.find((m) => m.startsWith('review-')) ?? 'review-approve') : markers.find((m) => !m.startsWith('review-'));
-const scenario = marked ?? (resumed ? remembered.scenario : undefined) ?? process.env.FAKE_SCENARIO ?? 'success';
+// Designer studio prompts select the labelled design fixtures when no explicit marker is present.
+const studioScenario = /## Independent design review/.test(prompt) ? 'design-review' : /## Design deliverable \(Designer studio (?:generate|refine) job/.test(prompt) ? 'design-studio' : undefined;
+const scenario = marked ?? (resumed ? remembered.scenario : undefined) ?? studioScenario ?? process.env.FAKE_SCENARIO ?? 'success';
 const originalPrompt = resumed && remembered.prompt ? remembered.prompt : prompt;
 fs.writeFileSync(path.join(sessionsDir, sessionId), JSON.stringify({ scenario, prompt: originalPrompt }));
 const key = /Assignment \S+ for ([A-Z]+-\d+)/.exec(originalPrompt)?.[1] ?? 'WORK';
@@ -287,6 +289,118 @@ if (scenario.startsWith('review-')) {
     await emit.say(`submit_review: ${JSON.stringify(r)}`);
   }
   const text = `Reviewed the change at ${head}.\n\n### Handoff\nDone: reviewed ${head.slice(0, 12)}\nEvidence:\n- \`git rev-parse HEAD\` → ${head.slice(0, 12)}\nCommit: none\nBlocked: none\nNext: ${approve ? 'merge after the owner decides' : 'address the findings'}\nVerdict: ${approve ? 'approve' : 'request changes'}\nFindings:\n- ${scenario === 'review-handoff-approve' ? 'nit' : finding.severity}: ${finding.path}:${finding.line} - ${finding.title}`;
+  await emit.say(text);
+  emit.result(text, true);
+  process.exit(0);
+}
+
+// Designer studio fixture (labelled, no model): load one skill on demand, pull the frozen contract,
+// ask the human a real question through One Connect, write a multi-page accessible mock with local
+// fixture data, commit, and register it with a structured handoff. Follow-ups refine the same folder.
+if (scenario === 'design-studio') {
+  const dir = /`(design\/[a-z0-9][a-z0-9-]*)\/`/.exec(originalPrompt)?.[1] ?? `design/${key.toLowerCase()}`;
+  const pagesLine = /- Pages: (.+)\. Link pages/.exec(originalPrompt)?.[1] ?? '`index.html` (Overview)';
+  const refine = (resumed && /Refinement request from the Designer studio/.test(prompt) ? (/Request: (.+)/.exec(prompt)?.[1] ?? 'refine') : null)
+    ?? (/Designer studio refine job/.test(originalPrompt) ? (/- Request: (.+)/.exec(originalPrompt)?.[1] ?? 'refine') : null);
+  const existing = fs.existsSync(path.join(cwd, dir)) ? fs.readdirSync(path.join(cwd, dir)).filter((f) => f.endsWith('.html')).sort((a, b) => (a === 'index.html' ? -1 : b === 'index.html' ? 1 : a.localeCompare(b))) : [];
+  const listedPages = [...pagesLine.matchAll(/`([a-z0-9-]+\.html)` \(([^)]+)\)/g)].map((m) => ({ path: m[1], name: m[2] }));
+  // A refinement keeps the pages it starts from; their names come from each page's <h1>.
+  const pages = refine && existing.length ? existing.map((f) => ({ path: f, name: /<h1>([^<]+)<\/h1>/.exec(fs.readFileSync(path.join(cwd, dir, f), 'utf8'))?.[1] ?? f.replace('.html', '') })) : listedPages;
+  const states = (/covers (.+?) states/.exec(originalPrompt)?.[1] ?? 'empty, loading, error, success').split(/,\s*/).filter(Boolean);
+  const listed = await mcpCall('list_skills', {});
+  const pick = listed.skills.find((x) => x.id === 'responsive-mocks') ?? listed.skills[0];
+  if (pick && !refine) { const page = await mcpCall('get_skill', { id: pick.id, budget: 2000 }); await emit.say(`Loaded skill ${pick.id}@${pick.version} on demand (${page.content.length} chars).`); }
+  const design = await mcpCall('get_design_system', {});
+  const designHash = design.design?.revision?.hash;
+  await emit.say(`Using design contract v${design.design?.revision?.version ?? '?'} (${String(designHash ?? 'none').slice(0, 12)}). Fixture design agent: no model is called.`);
+  let answer = null;
+  if (!refine) {
+    const r = await mcpCall('ask_human', { question: `Should ${pages[0]?.name ?? 'the first screen'} list failures before passing items?`, options: ['yes', 'no'] });
+    answer = r.answer ?? 'no answer';
+    await emit.say(`The owner answered: ${answer}`);
+  }
+  const abs = path.join(cwd, dir);
+  fs.mkdirSync(abs, { recursive: true });
+  const nav = (current) => `<nav aria-label="Mock pages"><ul>${pages.map((p) => `<li><a href="${p.path}"${p.path === current ? ' aria-current="page"' : ''}>${p.name}</a></li>`).join('')}</ul></nav>`;
+  const checks = ['Unit tests:passed:42s', 'Integration tests:failed:3m 12s', 'Accessibility scan of the settings, billing and team pages:failed:1m 04s', 'Bundle size:passed:18s', 'Type check:passed:51s', 'Visual regression:passed:2m 40s'].map((c) => { const [name, status, time] = c.split(':'); return { name, status, time }; });
+  // Without scripts (the dashboard's static render) the success state and its rows are visible.
+  const hid = (st) => (st === 'success' ? '' : ' hidden');
+  const rowsHtml = checks.map((c) => `<tr><td>${c.name}</td><td><span class="badge ${c.status}">${c.status === 'failed' ? '× Failed' : '✓ Passed'}</span></td><td class="num">${c.time}</td><td><button type="button" class="secondary" data-open-dialog>Re-run</button></td></tr>`).join('');
+  const stateSections = (p, i) => states.map((st) => {
+    if (st === 'empty') return `<section data-when="empty"${hid('empty')}><h2>Nothing here yet</h2><p class="muted">${p.name} shows checks after the first scheduled run.</p><button type="button" class="primary" data-open-dialog>Schedule a run</button></section>`;
+    if (st === 'loading') return `<section data-when="loading"${hid('loading')} aria-busy="true"><h2>Loading ${p.name.toLowerCase()}…</h2><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton short"></div></section>`;
+    if (st === 'error') return `<section data-when="error"${hid('error')} role="alert"><h2 class="danger">${p.name} could not load</h2><p>Your filters are kept. Check the connection and try again.</p><button type="button" class="secondary" data-retry>Try again</button></section>`;
+    if (st === 'success') return `<section data-when="success"${hid('success')}>${i === 0 ? `<div class="toolbar" role="group" aria-label="Filter by status"><button type="button" aria-pressed="true" data-filter="all">All</button><button type="button" aria-pressed="false" data-filter="failed">Failed</button><button type="button" aria-pressed="false" data-filter="passed">Passed</button></div><table><caption class="visually-hidden">Release checks</caption><thead><tr><th scope="col">Check</th><th scope="col">Status</th><th scope="col" class="num">Duration</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="rows">${rowsHtml}</tbody></table>` : `<div class="card"><h2>${p.name}</h2><p>${p.name} for the selected check, built from local fixture data.</p><button type="button" class="primary" data-open-dialog>Re-run check</button></div>`}</section>`;
+    return `<section data-when="${st}"${hid(st)}><h2>${st[0].toUpperCase() + st.slice(1)} state</h2><p class="muted">Shown when ${p.name.toLowerCase()} is ${st}.</p></section>`;
+  }).join('\n');
+  const html = (p, i) => `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${p.name} · ${key} mock</title><link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="styles.css"></head>
+<body><a class="skip" href="#main">Skip to content</a><header>${nav(p.path)}</header>
+<main id="main" tabindex="-1"><div class="heading"><h1>${p.name}</h1><label>Preview state <select id="state">${states.map((st) => `<option value="${st}"${st === 'success' ? ' selected' : ''}>${st}</option>`).join('')}</select></label></div>
+${refine ? `<p class="notice" role="note">Refined: ${refine.replace(/[<&>"]/g, '')}</p>` : ''}
+${stateSections(p, i)}
+<p id="announce" class="visually-hidden" role="status" aria-live="polite"></p></main>
+<div class="backdrop" hidden><div role="dialog" aria-modal="true" aria-labelledby="dlg-title" id="dialog"><h2 id="dlg-title">Re-run this check?</h2><p>It runs on the integration branch. This mock simulates the result; nothing is sent.</p><form id="rerun"><label>Reason <input name="reason" required></label><div class="actions"><button type="submit" class="primary">Re-run</button><button type="button" class="secondary" data-close>Cancel</button></div></form></div></div>
+<script src="data.js"></script><script src="app.js"></script></body></html>
+`;
+  fs.writeFileSync(path.join(abs, 'tokens.css'), design.design?.css ?? '');
+  fs.writeFileSync(path.join(abs, 'styles.css'), `*{box-sizing:border-box}body{margin:0;background:var(--design-background);color:var(--design-text);font:var(--design-size-body,14px)/var(--design-leading,1.5) var(--design-font)}
+header{background:var(--design-surface);border-bottom:var(--design-border-width,1px) solid var(--design-border)}nav ul{display:flex;flex-wrap:wrap;gap:var(--design-space-2,8px);list-style:none;margin:0 auto;padding:var(--design-space-2,8px) var(--design-gutter,24px);max-width:var(--design-max-width,1200px)}
+nav a{display:inline-flex;align-items:center;min-height:var(--design-target,44px);padding:0 var(--design-space-3,12px);color:var(--design-muted);text-decoration:none;border-radius:var(--design-radius)}nav a[aria-current=page]{color:var(--design-text);background:var(--design-subtle,var(--design-background));font-weight:600}
+main{max-width:var(--design-max-width,1200px);margin:0 auto;padding:var(--design-space-5,24px) var(--design-gutter,24px);display:grid;gap:var(--design-space-4,16px)}.heading{display:flex;flex-wrap:wrap;gap:var(--design-space-3,12px);justify-content:space-between;align-items:end}
+h1{font-family:var(--design-font-display,var(--design-font));font-size:var(--design-size-h1,24px);line-height:var(--design-leading-heading,1.25);margin:0}h2{font-size:var(--design-size-h3,17px);margin:0 0 var(--design-space-2,8px)}
+.muted{color:var(--design-muted)}.danger{color:var(--design-danger,var(--design-text))}.card,section{background:var(--design-surface);border:var(--design-border-width,1px) solid var(--design-border);border-radius:var(--design-radius);padding:var(--design-space-4,16px);box-shadow:var(--design-shadow-1,none)}
+button,select,input{font:inherit;min-height:var(--design-control-height,40px);border-radius:var(--design-radius)}button{min-width:var(--design-target,44px);padding:0 var(--design-space-4,16px);border:var(--design-border-width,1px) solid transparent;cursor:pointer}
+select,input{border:var(--design-border-width,1px) solid var(--design-muted);background:var(--design-surface);color:var(--design-text);padding:0 var(--design-space-2,8px)}.primary{background:var(--design-accent);color:var(--design-accent-text)}.secondary,.toolbar button{background:var(--design-subtle,var(--design-background));color:var(--design-text)}
+.toolbar{display:flex;gap:var(--design-space-2,8px);margin-bottom:var(--design-space-3,12px)}.toolbar [aria-pressed=true]{background:var(--design-accent);color:var(--design-accent-text)}
+:focus-visible{outline:var(--design-focus-width,2px) solid var(--design-focus,var(--design-accent));outline-offset:2px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:var(--design-space-2,8px);border-bottom:var(--design-border-width,1px) solid var(--design-border)}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.badge{font-weight:600}.badge.failed{color:var(--design-danger,var(--design-text))}.badge.passed{color:var(--design-success,var(--design-text))}.skeleton{height:12px;margin:var(--design-space-2,8px) 0;border-radius:var(--design-radius-sm,4px);background:var(--design-subtle,var(--design-border))}.skeleton.short{width:60%}
+.notice{margin:0;padding:var(--design-space-2,8px) var(--design-space-3,12px);border-radius:var(--design-radius);background:var(--design-subtle,var(--design-background))}
+.backdrop{position:fixed;inset:0;display:grid;place-items:center;background:color-mix(in srgb,var(--design-text) 45%,transparent);padding:var(--design-space-4,16px)}.backdrop[hidden]{display:none}[role=dialog]{background:var(--design-surface);border-radius:var(--design-radius);box-shadow:var(--design-shadow-2,none);padding:var(--design-space-5,24px);max-width:420px;width:100%;display:grid;gap:var(--design-space-3,12px)}
+.actions{display:flex;gap:var(--design-space-2,8px);margin-top:var(--design-space-3,12px)}label{display:grid;gap:var(--design-space-1,4px);font-weight:600}.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:-999px}.skip:focus{left:var(--design-space-2,8px);top:var(--design-space-2,8px);background:var(--design-surface);padding:var(--design-space-2,8px)}
+@media (max-width:640px){thead{display:none}tr{display:grid;padding:var(--design-space-2,8px) 0;border-bottom:var(--design-border-width,1px) solid var(--design-border)}td{border:0;padding:2px 0}td.num{text-align:left}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+`);
+  fs.writeFileSync(path.join(abs, 'data.js'), `window.MOCK_DATA=${JSON.stringify({ checks, failuresFirst: answer === 'yes' })};\n`);
+  fs.writeFileSync(path.join(abs, 'app.js'), `(()=>{const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];const say=t=>{$('#announce').textContent=t};
+const show=st=>{$$('[data-when]').forEach(el=>{el.hidden=el.dataset.when!==st});say('Showing the '+st+' state')};const sel=$('#state');sel.addEventListener('change',()=>show(sel.value));show(sel.value);
+const data=window.MOCK_DATA||{checks:[]};let filter='all';const rows=$('#rows');
+const render=()=>{if(!rows)return;const list=data.checks.filter(c=>filter==='all'||c.status===filter).sort((a,b)=>data.failuresFirst?(a.status==='failed'?-1:1)-(b.status==='failed'?-1:1):0);rows.replaceChildren(...list.map(c=>{const tr=document.createElement('tr');tr.innerHTML='<td></td><td><span class="badge '+c.status+'">'+(c.status==='failed'?'× Failed':'✓ Passed')+'</span></td><td class="num"></td><td><button type="button" class="secondary" data-open-dialog>Re-run</button></td>';tr.children[0].textContent=c.name;tr.children[2].textContent=c.time;return tr}));say(list.length+' checks shown')};
+$$('[data-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;$$('[data-filter]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));render()}));render();
+const back=$('.backdrop'),dlg=$('#dialog');let opener=null;
+const open=t=>{opener=t;back.hidden=false;dlg.querySelector('input').focus()};const close=()=>{back.hidden=true;if(opener)opener.focus()};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-open-dialog]');if(t)open(t);if(e.target.closest('[data-close]'))close();if(e.target.closest('[data-retry]')){sel.value='success';show('success')}});
+dlg.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close()}if(e.key==='Tab'){const f=[...dlg.querySelectorAll('input,button')];const i=f.indexOf(document.activeElement);if(e.shiftKey&&i===0){e.preventDefault();f.at(-1).focus()}else if(!e.shiftKey&&i===f.length-1){e.preventDefault();f[0].focus()}}});
+$('#rerun').addEventListener('submit',e=>{e.preventDefault();close();say('Re-run queued (simulated; nothing was sent)')});})();\n`);
+  pages.forEach((p, i) => fs.writeFileSync(path.join(abs, p.path), html(p, i)));
+  emit.edit('e2', `${dir}/index.html`);
+  const t2 = sh(testCmd);
+  emit.command('c2', testCmd, t2.code, t2.out);
+  const committed2 = gitRun('add', '-A').code === 0 ? gitRun('-c', 'user.name=fake-agent', '-c', 'user.email=fake@example.com', 'commit', '-q', '-m', `${key}: ${refine ? 'refine' : 'add'} ${dir} mock (${vendor} fixture)`) : { code: 1, out: '' };
+  const head2 = gitRun('rev-parse', 'HEAD');
+  emit.command('c3', 'git add -A && git commit', committed2.code, committed2.out + head2.out);
+  const reg = await mcpCall('register_design_mock', { dir, handoff: { summary: refine ? `Refined ${dir}: ${refine}` : `${pages.length}-page interactive mock with a state switcher, status filters and a re-run dialog.`, pages: pages.map((p) => ({ path: p.path, title: p.name })), states, interactions: ['Preview state select switches every state', 'Status filter buttons (aria-pressed)', 'Re-run dialog: focus moves in, Tab is trapped, Escape closes and returns focus', 'Form submit is simulated with preventDefault'], checks: [{ name: 'project tests', status: t2.code === 0 ? 'passed' : 'failed', command: testCmd }, { name: 'browser keyboard walkthrough', status: 'not_run' }], limitations: ['Fixture data only', 'No browser check was run by this fixture agent'], questions: [], designHash } });
+  await sleep(300);
+  await mcpCall('record_mock_evidence', { artifactId: reg.artifactId, revision: reg.revision, kind: 'command', summary: 'project tests', executed: true, status: 'passed', command: testCmd, exitCode: t2.code, tool: 'node' });
+  await mcpCall('record_mock_evidence', { artifactId: reg.artifactId, revision: reg.revision, kind: 'viewport', summary: 'phone layout not checked in a browser by the fixture', executed: false, status: 'not_run', viewport: { name: 'phone', width: 390, height: 844 } });
+  await emit.say(`Registered ${dir} as revision ${reg.revision} (${reg.gate}).`);
+  const text = `${refine ? 'Refined' : 'Created'} the ${dir} mock.\n\n### Handoff\nDone: ${refine ? 'refined' : 'created'} ${dir}/ (${pages.map((p) => p.path).join(', ')}) and registered revision ${reg.revision}\nEvidence:\n- \`${testCmd}\` → exit ${t2.code}\nCommit: ${head2.out.trim().slice(0, 12)} on ${branch}\nBlocked: none\nNext: review the mock in One Connect`;
+  await emit.say(text);
+  emit.result(text, true);
+  process.exit(0);
+}
+
+// Independent design review fixture: reads the exact revision over MCP and submits a static review.
+if (scenario === 'design-review') {
+  const artifactId = /Review mock `([^`]+)`/.exec(prompt)?.[1];
+  const revision = Number(/revision (\d+), content/.exec(prompt)?.[1]);
+  const meta = await mcpCall('get_design_mock', { artifactId, revision });
+  const page = await mcpCall('get_design_mock', { artifactId, revision, path: 'index.html', budget: 4000 });
+  await emit.say(`Reviewed ${meta.files.length} files of revision ${meta.rev} (${String(meta.hash).slice(0, 12)}); index.html has ${page.content?.length ?? 0} characters. Fixture reviewer: static inspection only.`);
+  const items = ['responsive', 'keyboard', 'contrast', 'states', 'tokens'].map((id) => ({ id, result: 'pass', basis: 'static', note: 'Static source inspection by the fixture reviewer.' }));
+  const r = await mcpCall('submit_design_review', { artifactId, revision, verdict: 'approve', summary: 'Static review: tokens only, all listed states present, dialog handles Escape and focus return in source.', checklist: items });
+  const text = `Submitted an independent static review of revision ${revision}.\n\n### Handoff\nDone: reviewed ${artifactId} revision ${revision} (${r.decision})\nEvidence:\n- get_design_mock → ${meta.files.length} files\nCommit: none\nBlocked: none\nNext: a human decides`;
   await emit.say(text);
   emit.result(text, true);
   process.exit(0);

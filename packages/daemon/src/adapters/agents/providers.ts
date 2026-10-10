@@ -5,6 +5,7 @@
 import type { AgentConfig, AuthStatus, BillingInfo, ModelInfo, UsageInfo } from '@acc/core';
 import type { Fetch } from '../../egress.ts';
 import { getSecret, PROVIDER_SECRET } from '../../secrets.ts';
+import { ollamaStatus } from './ollama.ts';
 import { unknownUsage } from './types.ts';
 
 export interface ProviderProbe {
@@ -20,7 +21,7 @@ const json = async (f: Fetch, url: string, init: RequestInit = {}, timeoutMs = 4
   return res.json();
 };
 
-export const OLLAMA_DEFAULT = 'http://127.0.0.1:11434';
+export { OLLAMA_LOCAL_URL as OLLAMA_DEFAULT } from './ollama.ts';
 export const LMSTUDIO_DEFAULT = 'http://127.0.0.1:1234';
 
 /** USD per token (OpenRouter strings) → USD per million tokens. */
@@ -30,32 +31,27 @@ export async function probeProvider(agent: AgentConfig, f: Fetch, env: NodeJS.Pr
   const p = agent.provider;
   if (p === 'subscription') return null;
 
-  if (p === 'ollama' || p === 'lmstudio') {
-    const base = agent.base_url ?? (p === 'ollama' ? OLLAMA_DEFAULT : LMSTUDIO_DEFAULT);
-    const name = p === 'ollama' ? 'Ollama' : 'LM Studio';
-    const billing: BillingInfo = { mode: 'local', source: `${name} on this machine`, overage: 'off', notes: p === 'ollama' ? ['Models ending in -cloud run on Ollama\'s servers under your Ollama account plan.'] : [] };
+  if (p === 'ollama' || p === 'ollama-cloud') {
+    const st = await ollamaStatus(agent, f, env);
+    const sub = p === 'ollama-cloud';
+    const billing: BillingInfo = sub
+      ? { mode: 'subscription', source: `Ollama subscription (cloud models via ${st.route === 'api' ? 'the Ollama cloud API' : 'the signed-in local Ollama'})`, overage: 'unknown', notes: ['Ollama plans have usage limits and may offer paid extras; Ollama does not report remaining usage to this app, so confirm your plan settings.'] }
+      : { mode: 'local', source: 'Ollama on this machine', overage: 'off', notes: ["Models ending in -cloud run on Ollama's servers under your Ollama plan: use the Ollama cloud provider for those."] };
+    const usage = unknownUsage(sub ? 'Ollama does not report subscription usage; see your Ollama account' : 'local model: no usage limits beyond your hardware');
+    if (st.state === 'ready' || st.state === 'sign_in_unknown') {
+      return { auth: { state: st.state === 'ready' ? 'logged_in' : 'unknown', detail: st.message, ...(st.fix ? { fix: st.fix } : {}) }, billing, models: st.models, usage };
+    }
+    return { auth: { state: st.state === 'error' ? 'unknown' : 'expired', detail: st.message, ...(st.fix ? { fix: st.fix } : {}) }, billing, models: [], usage };
+  }
+
+  if (p === 'lmstudio') {
+    const base = agent.base_url ?? LMSTUDIO_DEFAULT;
+    const billing: BillingInfo = { mode: 'local', source: 'LM Studio on this machine', overage: 'off', notes: [] };
     try {
-      if (p === 'ollama') {
-        const v = (await json(f, `${base}/api/version`)) as { version?: string };
-        const tags = (await json(f, `${base}/api/tags`)) as { models?: { name: string; details?: { parameter_size?: string } }[] };
-        const models: ModelInfo[] = [];
-        for (const m of (tags.models ?? []).slice(0, 40)) {
-          let tools: boolean | undefined;
-          try {
-            const show = (await json(f, `${base}/api/show`, { method: 'POST', body: JSON.stringify({ model: m.name }), headers: { 'content-type': 'application/json' } })) as { capabilities?: string[] };
-            tools = show.capabilities ? show.capabilities.includes('tools') : undefined;
-          } catch {
-            tools = undefined;
-          }
-          const cloud = /[-:]cloud$/.test(m.name);
-          models.push({ id: m.name, label: `${m.name}${m.details?.parameter_size ? ` (${m.details.parameter_size})` : ''}${cloud ? ' · Ollama cloud' : ''}${tools === false ? ' · no tool calling' : ''}`, tools, pricing: { input: 0, output: 0 }, hidden: tools === false });
-        }
-        return { auth: { state: 'logged_in', detail: `Ollama ${v.version ?? ''} running at ${base}` }, billing, models, usage: unknownUsage('local model: no usage limits beyond your hardware') };
-      }
       const list = (await json(f, `${base}/v1/models`)) as { data?: { id: string }[] };
       return { auth: { state: 'logged_in', detail: `LM Studio server at ${base}` }, billing, models: (list.data ?? []).map((m) => ({ id: m.id, pricing: { input: 0, output: 0 } })), usage: unknownUsage('local model') };
     } catch (e) {
-      return { auth: { state: 'expired', detail: `${name} not reachable at ${base}: ${(e as Error).message}`, fix: p === 'ollama' ? 'Start Ollama (open the Ollama app, or run `ollama serve`)' : 'Start the LM Studio local server' }, billing, models: [], usage: unknownUsage('local model') };
+      return { auth: { state: 'expired', detail: `LM Studio not reachable at ${base}: ${(e as Error).message}`, fix: 'Start the LM Studio local server' }, billing, models: [], usage: unknownUsage('local model') };
     }
   }
 

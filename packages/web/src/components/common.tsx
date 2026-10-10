@@ -54,7 +54,7 @@ export function UsageMeter({ usage }: { usage: UsageInfo }) {
 export function BillingBadge({ agent }: { agent: AgentState }) {
   if (agent.config.adapter === 'relay') return <Badge tone="idle">relay</Badge>;
   if (agent.config.billing === 'local') return <Badge tone="ok" title={`${agent.config.provider} on this machine: no cost`}>local model</Badge>;
-  if (agent.config.metered_opt_in) return <Badge tone="crit" title={`${agent.config.provider}: pay per token${agent.config.budget_usd_per_day ? `, capped at $${agent.config.budget_usd_per_day}/day` : ', no daily cap'}`}>METERED{agent.config.budget_usd_per_day ? ` · cap $${agent.config.budget_usd_per_day}/day` : ''}</Badge>;
+  if (agent.config.metered_opt_in) return <Badge tone="crit" title={`${agent.config.provider}: pay per token${agent.config.budget_usd_per_day ? `, stop threshold $${agent.config.budget_usd_per_day}/day; in-flight usage can exceed it` : ', no daily stop threshold'}`}>METERED{agent.config.budget_usd_per_day ? ` · threshold $${agent.config.budget_usd_per_day}/day` : ''}</Badge>;
   if (agent.billing.mode === 'metered') return <Badge tone="crit" title={agent.billing.source}>metered: blocked</Badge>;
   if (agent.billing.mode === 'subscription') return <Badge tone={agent.billing.overage === 'on' ? 'crit' : 'ok'} title={`${agent.billing.source}${agent.billing.overage === 'unknown' ? ' · overage state unknown' : ''}`}>included plan{agent.billing.overage === 'on' ? ' · overage ON' : ''}</Badge>;
   return <Badge tone="warn" title={agent.billing.source}>billing unknown</Badge>;

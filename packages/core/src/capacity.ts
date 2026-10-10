@@ -4,6 +4,8 @@ import type { AgentConfig } from './config.ts';
 import type { AgentState, UsageInfo } from './entities.ts';
 
 export function subscriptionGroup(config:AgentConfig):string|null {
+  // Ollama's paid cloud models draw on one Ollama account plan, however many agents use it.
+  if(config.provider==='ollama-cloud') return 'ollama';
   if(config.provider!=='subscription') return null;
   const official=({'claude-headless':'anthropic','codex-cli':'openai','cursor-agent-cli':'cursor'} as Record<string,string>)[config.adapter];
   // These adapters use the same native login. A renamed group is not a different account.

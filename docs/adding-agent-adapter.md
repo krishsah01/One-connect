@@ -36,3 +36,7 @@ export const myAdapter: VendorAdapter = {
 1. Run one tiny real session with the vendor's CLI. Sanitize it (session ids, paths, account numbers) and commit it as `packages/daemon/test/fixtures/real/<vendor>.jsonl`.
 2. Add a case to `packages/daemon/test/adapters.contract.test.ts`. The shared assertions check session, final answer, success, token usage and the assistant message.
 3. Teach `examples/fake-agent/fake-agent.mjs` your output format, and add a `bin/<name>` wrapper, so the end-to-end suite can run failure scenarios for free.
+
+## Harnesses that run a local server (OpenCode)
+
+A vendor with a headless server instead of a CLI stream can still use this contract: the detached runner starts a small bridge that owns the server, prints one JSON line per event, and routes permission/question requests to One Connect with the per-run token in `mcp.json`. `opencodeAdapter` (`adapters/agents/opencode.ts`) is the reference: `encodeMessage` queues user messages, `encodeAbort` lets Stop/Pause abort cleanly before any signal, and a pinned protocol version fails visibly. Test it with a loopback fixture (`examples/fake-agent/fake-opencode.mjs`), never a live paid provider.

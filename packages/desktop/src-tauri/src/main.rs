@@ -49,7 +49,7 @@ fn api_path(p: &str) -> Result<(), String> {
 }
 async fn request(c: &Connection, path: &str, method: &str, body: Option<Value>) -> Result<Value, String> {
     api_path(path)?;
-    let method = match method { "GET" => reqwest::Method::GET, "POST" => reqwest::Method::POST, "PATCH" => reqwest::Method::PATCH, "DELETE" => reqwest::Method::DELETE, _ => return Err("Method not supported".into()) };
+    let method = match method { "GET" => reqwest::Method::GET, "POST" => reqwest::Method::POST, "PUT" => reqwest::Method::PUT, "PATCH" => reqwest::Method::PATCH, "DELETE" => reqwest::Method::DELETE, _ => return Err("Method not supported".into()) };
     let mut r = reqwest::Client::new().request(method, format!("{}{}", c.url, path)).bearer_auth(&c.token).timeout(Duration::from_secs(65));
     if let Some(b) = body { r = r.json(&b); }
     let response = r.send().await.map_err(|e| e.to_string())?;
@@ -282,14 +282,16 @@ async fn project_stop(app: tauri::AppHandle, state: State<'_, Desktop>, project:
             let _ = e.child.kill();
         }).await.map_err(|e| e.to_string())?;
     }
-    state.terminals.close_project(&project);
+    let terminals_closed = state.terminals.close_project(&project);
     let mut reg = lock(&state.registry)?;
     reg.set_running(&project, false);
-    reg.save(&data_dir(&app)?)
+    reg.save(&data_dir(&app)?)?;
+    terminals_closed.map(|_| ())
 }
 #[tauri::command]
 fn project_remove(app: tauri::AppHandle, state: State<'_, Desktop>, project: String) -> Result<(), String> {
     if lock(&state.engines)?.contains_key(&project) { return Err("Stop this project before removing it".into()); }
+    if state.terminals.count(&project) > 0 { return Err("Close this project's remaining terminals before removing it".into()); }
     let mut reg = lock(&state.registry)?;
     reg.remove(&project)?;
     reg.save(&data_dir(&app)?)
@@ -368,7 +370,7 @@ async fn choose_vault() -> Result<String, String> {
 }
 /// Quit: ask every engine to shut down gracefully. Their running set is kept so the next launch restores them.
 fn shutdown_all(state: &Desktop) {
-    state.terminals.close_all();
+    if let Err(e) = state.terminals.close_all() { eprintln!("One Connect terminal shutdown: {e}"); }
     let engines: Vec<Engine> = state.engines.lock().map(|mut e| e.drain().map(|(_, v)| v).collect()).unwrap_or_default();
     for e in &engines {
         let _ = reqwest::blocking::Client::new().post(format!("{}/api/desktop/shutdown", e.connection.url)).bearer_auth(&e.connection.token).timeout(Duration::from_secs(3)).json(&json!({})).send();
@@ -427,6 +429,36 @@ mod tests {
         assert_eq!(parse_cli("{\"ok\":false,\"error\":\"nope\"}").unwrap_err(), "nope");
         assert!(parse_cli("").is_err());
         assert!(parse_cli("{bad").is_err());
+    }
+    #[test] fn draft_put_crosses_the_authenticated_native_http_bridge() {
+        use std::io::{Read, Write};
+        let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = server.local_addr().unwrap().port();
+        let worker = std::thread::spawn(move || {
+            let (mut stream, _) = server.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let mut data = Vec::new();
+            loop {
+                let mut buf = [0u8; 1024]; let n = stream.read(&mut buf).unwrap();
+                assert!(n > 0); data.extend_from_slice(&buf[..n]);
+                if let Some(end) = data.windows(4).position(|w| w == b"\r\n\r\n") {
+                    let head = String::from_utf8_lossy(&data[..end]);
+                    let len: usize = head.lines().find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse().unwrap())).unwrap();
+                    if data.len() >= end + 4 + len { break; }
+                }
+            }
+            let sent = String::from_utf8(data).unwrap();
+            assert!(sent.starts_with("PUT /api/designer/drafts/brief HTTP/1.1"));
+            assert!(sent.to_ascii_lowercase().contains("authorization: bearer fixture-only"));
+            assert!(sent.contains(r#"{"value":"project alpha draft"}"#));
+            let body = r#"{"draft":{"value":"project alpha draft"}}"#;
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap();
+        });
+        let connection = Connection { url: format!("http://127.0.0.1:{}", port), token: "fixture-only".into() };
+        let result = tauri::async_runtime::block_on(request(&connection, "/api/designer/drafts/brief", "PUT", Some(serde_json::json!({"value":"project alpha draft"})))).unwrap();
+        assert_eq!(result["draft"]["value"], "project alpha draft"); worker.join().unwrap();
+        assert!(tauri::async_runtime::block_on(request(&connection, "/api/mcp/secrets", "PUT", None)).is_err());
+        assert!(tauri::async_runtime::block_on(request(&connection, "/api/designer/drafts/brief", "CONNECT", None)).is_err());
     }
     #[test] fn connections_are_bound_to_one_project() {
         let state = Desktop { engines: Mutex::new(HashMap::new()), registry: Mutex::new(Registry::default()), starting: tauri::async_runtime::Mutex::new(()), restored: AtomicBool::new(false), terminals: terminal::Terminals::default(), gate: projects::Gate::default() };

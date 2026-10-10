@@ -13,8 +13,7 @@ const enabled = process.env.ONE_CONNECT_DOCKER_SMOKE === '1';
 describe.skipIf(!enabled)('real Docker smoke (disposable project)', () => {
   it('starts a wizard Postgres, reports healthcheck readiness, and keeps data in its scoped volume across down/up', async () => {
     if ((await run('docker', ['image', 'inspect', 'postgres:16-alpine'], { timeoutMs: 10_000 })).code !== 0) {
-      console.warn('postgres:16-alpine is not present locally; smoke test skipped without pulling.');
-      return;
+      throw new Error('Docker smoke was explicitly enabled but postgres:16-alpine is not present locally. Install the image separately; this test never pulls.');
     }
     const project = `ocsmoke${randomBytes(4).toString('hex')}`;
     const repo = makeRepo();
@@ -25,7 +24,9 @@ describe.skipIf(!enabled)('real Docker smoke (disposable project)', () => {
     const approve = async (action: string, services: string[]) => {
       const r = await env.request(action, services);
       expect(r.blockers).toEqual([]);
-      const { job } = await env.resolve(r.decision!.id, 'approve', r.digest!);
+      const decision = r.decision!;
+      const confirmation = h.d.decisions.prepare(decision.id, 'approve');
+      const { job } = await env.resolve(decision.id, 'approve', r.digest!, { nonce: confirmation.nonce ?? undefined });
       for (let i = 0; i < 240; i++) {
         const j = (await env.status()).jobs.find(x => x.id === job!.id);
         if (j && j.state !== 'running') return j;

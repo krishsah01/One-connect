@@ -8,6 +8,7 @@ import { meteredVarsPresent, sanitizeEnv } from './adapters/agents/env.ts';
 import { adapterFor } from './adapters/agents/index.ts';
 import { whichAll } from './adapters/agents/detect.ts';
 import { probeProvider } from './adapters/agents/providers.ts';
+import { checkVersion } from './adapters/agents/opencode/protocol.ts';
 import type { Fetch } from './egress.ts';
 
 export type ProbeResult = ControlEventData['agent.probed'] & { newerBinary: BinaryInfo | null; meteredVars: string[] };
@@ -52,7 +53,12 @@ export async function probeAgent(agent: AgentState, baseEnv: NodeJS.ProcessEnv, 
   const p = { binary: binary.path, agent: cfg, env };
   // Bring-your-own-model connections: the provider answers login/billing/models, not the harness.
   const provider = fetchFn ? await probeProvider(cfg, fetchFn, baseEnv).catch(() => null) : null;
-  const [auth, billing, models] = provider ? [provider.auth, provider.billing, provider.models] : await Promise.all([adapter.authStatus(p), adapter.billingMode(p), adapter.listModels(p).catch(() => [])]);
+  let [auth, billing, models] = provider ? [provider.auth, provider.billing, provider.models] : await Promise.all([adapter.authStatus(p), adapter.billingMode(p), adapter.listModels(p).catch(() => [])]);
+  if (cfg.adapter === 'opencode-server') {
+    // The protocol is pinned: an unknown OpenCode release is reported here and blocks dispatch in pre-flight.
+    const v = checkVersion(binary.version, baseEnv);
+    if (!v.ok) auth = { ...auth, state: auth.state === 'logged_in' ? 'unknown' : auth.state, detail: `${auth.detail ? `${auth.detail}. ` : ''}${v.message}`, fix: 'Install a supported OpenCode release (see docs/harnesses.md)' };
+  }
   const usage = provider ? provider.usage : await adapter.usage({ ...p, sessionIds }).catch(() => undefined);
   if (meteredVars.length && !cfg.metered_opt_in) {
     billing.notes = [...(billing.notes ?? []), `${meteredVars.join(', ')} set in your shell; stripped from agent runs so they stay on your subscription.`];

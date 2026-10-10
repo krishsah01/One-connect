@@ -22,7 +22,7 @@ function state(): ControlState {
 describe('library pages', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.startsWith('/api/skills')) return new Response(JSON.stringify({ builtin: [{ id: 'taste-skill', name: 'Taste', description: 'Use when redesigning.', license: 'MIT', source: 'builtin', version: 'abc' }], project: [], exportDirs: { 'codex-cli': '.agents/skills' } }), { status: 200 });
+      if (url.startsWith('/api/skills')) return new Response(JSON.stringify({ builtin: [{ id: 'taste-skill', name: 'Taste', description: 'Use when redesigning.', license: 'MIT', source: 'builtin', version: 'abc' }], project: [], exportDirs: { 'codex-cli': '.agents/skills' }, templates: [] }), { status: 200 });
       if (url.startsWith('/api/mocks')) return new Response(JSON.stringify({ mocks: [], design: null }), { status: 200 });
       return new Response(JSON.stringify({ error: 'not found' }), { status: 404 });
     }));

@@ -2,11 +2,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { AgentState, Alert, ControlState } from '@acc/core';
-import { LIFECYCLE_LABELS, PIPELINE, sharedUsageView } from '@acc/core';
+import { LIFECYCLE_LABELS, PIPELINE, ciSummary, sharedUsageView } from '@acc/core';
 import { Avatar, Badge, BillingBadge, ErrorLine, Light, UsageMeter, useAction, useTick, ApprovalCard } from '../components/common';
+import type { Tone } from '../lib/format';
 import { post } from '../lib/api';
 import { AGENT_TONE, ago, until } from '../lib/format';
 import { useLiveText } from '../lib/store';
+import { DictionaryStatusCard } from '../components/Dictionary';
 
 export function MissionControl({ state }: { state: ControlState }) {
   const now = useTick(5000);
@@ -43,15 +45,45 @@ export function MissionControl({ state }: { state: ControlState }) {
           </section>
           <AlertsPanel alerts={alerts} state={state} now={now} />
           <ContextPanel state={state} />
-          <section className="card">
-            <div className="card-h">
-              <h2>Release gates · Infra</h2>
-            </div>
-            <div className="card-b small faint">Release cockpit, CI and infra health (hosting, database) arrive in Phase 3. Nothing here is reported as healthy until an adapter actually checks it.</div>
-          </section>
+          <ReleaseInfra state={state} />
         </aside>
       </div>
     </div>
+  );
+}
+
+function GateRow({ label, tone, detail }: { label: string; tone: Tone; detail: string }) {
+  return (
+    <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+      <Badge tone={tone}>{label}</Badge>
+      <span className="small">{detail}</span>
+    </div>
+  );
+}
+
+function ReleaseInfra({ state }: { state: ControlState }) {
+  const host = state.codeHost;
+  const infra = state.infra;
+  const plans = Object.values(state.releases ?? {}).filter((p) => p.status !== 'canceled');
+  const plan = plans.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+  const ci = ciSummary(host?.checks ?? []);
+  const checked = Boolean(host || infra);
+  return (
+    <section className="card">
+      <div className="card-h">
+        <h2>Release gates · Infra</h2>
+        <Link to="/release">Cockpit</Link>
+      </div>
+      <div className="card-b col" style={{ gap: 8 }}>
+        {plan && <div className="small">{plan.name}: {plan.steps.filter((s) => s.status === 'approved').length}/{plan.steps.length} steps approved. Later steps stay closed until the earlier one is approved.</div>}
+        <GateRow label={host?.protected === true ? 'protected' : host?.protected === false ? 'unprotected' : 'unchecked'} tone={host?.protected === true ? 'ok' : host?.protected === false ? 'crit' : 'idle'} detail={host?.protectionDetail ?? 'Branch protection has not been checked.'} />
+        <GateRow label={ci.state === 'green' ? 'CI green' : ci.state === 'failing' ? 'CI failing' : ci.state === 'pending' ? 'CI pending' : 'CI unchecked'} tone={ci.state === 'green' ? 'ok' : ci.state === 'failing' ? 'crit' : ci.state === 'pending' ? 'warn' : 'idle'} detail={host ? ci.detail : 'CI has not been checked.'} />
+        <GateRow label={infra?.postgres.state === 'ready' ? 'database ready' : infra?.postgres.state === 'paused' ? 'database paused' : infra ? `database ${infra.postgres.state}` : 'database unchecked'} tone={infra?.postgres.state === 'ready' ? 'ok' : infra?.postgres.state === 'paused' || infra?.postgres.state === 'unhealthy' ? 'crit' : 'idle'} detail={infra?.postgres.detail ?? 'Docker and local Postgres have not been checked.'} />
+        <GateRow label={infra?.vercel.state === 'ready' ? 'hosting ready' : infra?.vercel.state === 'error' ? 'hosting error' : infra?.vercel.state === 'degraded' ? 'hosting degraded' : 'hosting unchecked'} tone={infra?.vercel.state === 'ready' ? 'ok' : infra?.vercel.state === 'error' ? 'crit' : infra?.vercel.state === 'degraded' ? 'warn' : 'idle'} detail={infra?.vercel.detail ?? 'Vercel has not been checked. Real-provider validation is pending.'} />
+        <GateRow label={infra?.migrations.state === 'in_sync' ? 'migrations match' : infra?.migrations.state === 'drift' ? 'migration drift' : 'migrations unchecked'} tone={infra?.migrations.state === 'in_sync' ? 'ok' : infra?.migrations.state === 'drift' ? 'warn' : 'idle'} detail={infra?.migrations.detail ?? 'Migration history has not been read.'} />
+        {!checked && <div className="small faint">Nothing here is reported as healthy until an adapter actually checks it.</div>}
+      </div>
+    </section>
   );
 }
 
@@ -205,10 +237,10 @@ function ContextPanel({ state }: { state: ControlState }) {
   return (
     <section className="card">
       <div className="card-h">
-        <h2>One Answer</h2>
+        <h2>Dictionary</h2>
       </div>
       <div className="card-b col">
-        {state.context.answer&&<div className="col small"><div className="row"><b>Project intake</b><Badge tone={state.context.answer.state==='ready'?'ok':'warn'}>{state.context.answer.state}</Badge><span className="spacer"/><Link to="/docs">Ask your project</Link></div><span className="faint">{state.context.answer.files} source files · {state.context.answer.ref} · {state.context.answer.revision?.slice(0,12)??'pending'}</span></div>}
+        {state.context.answer&&<><DictionaryStatusCard status={state.context.answer} compact/><Link className="small" to="/docs">Ask your project</Link></>}
         {v && (
           <div className="col" style={{ gap: 4 }}>
             <div className="row small">

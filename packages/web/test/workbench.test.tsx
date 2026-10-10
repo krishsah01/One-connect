@@ -5,6 +5,12 @@ import { DockerWorkbench, shellQuote, type EnvironmentStatus } from '../src/comp
 import { IntakePreview } from '../src/pages/Projects';
 import type { Inspection } from '../src/lib/desktop';
 
+import { setRemoteSession } from '../src/lib/remote';
+
+// These isolated management fixtures explicitly model a verified local owner.
+beforeEach(() => setRemoteSession(null, 'local'));
+afterEach(() => setRemoteSession(null, 'checking'));
+
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const base = ['docker', 'compose', '--project-name', 'shop', '--project-directory', '/repos/shop', '-f', '/repos/shop/compose.yaml'];
@@ -98,7 +104,7 @@ describe('Project intake preview', () => {
     const i: Inspection = {
       path: '/repos/shop', name: 'shop',
       git: { state: 'dirty', root: '/repos/shop', head: 'a'.repeat(40), branch: 'main', integrationBranch: null, integrationHead: null, dirtyFiles: 2, untrackedFiles: 1 },
-      intake: { indexable: true, revision: 'a'.repeat(40), ref: 'main', message: 'One Answer indexes committed main at aaaaaaaaaaaa. 2 changed and 1 untracked files are excluded until committed.', steps: [] },
+      intake: { indexable: true, revision: 'a'.repeat(40), ref: 'main', message: 'Dictionary indexes committed main at aaaaaaaaaaaa. 2 changed and 1 untracked files are excluded until committed.', steps: [] },
       frameworks: ['next', 'react'], packageManager: 'pnpm', checks: [{ name: 'test', command: 'pnpm run test', source: 'package.json' }],
       compose: { file: '/repos/shop/compose.yaml', project: 'shop', services: [{ name: 'web', image: 'node:22', build: false, healthcheck: false }], warnings: [] },
       dockerfiles: ['Dockerfile'], config: { existing: null, bound: null, error: null }, warnings: [],

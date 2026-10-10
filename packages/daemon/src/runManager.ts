@@ -12,7 +12,8 @@ import { CURSOR_MCP_FILE } from './adapters/agents/cursor.ts';
 import { sanitizeEnv } from './adapters/agents/env.ts';
 import { classifyFailure, type Failure } from './adapters/agents/failures.ts';
 import { estimateCost } from './adapters/agents/providers.ts';
-import { getSecret, PROVIDER_SECRET } from './secrets.ts';
+import { getSecret, providerSecretFor } from './secrets.ts';
+import { checkVersion } from './adapters/agents/opencode/protocol.ts';
 import { adapterFor } from './adapters/agents/index.ts';
 import type { LaunchContext, Parsed, StreamParser } from './adapters/agents/types.ts';
 import { changedFiles, commitOnBranch, commitsSince, createWorktree, ensureBranch, ensureExcluded, gitCommonDir, headSha, installWorktreeHooks, isTracked } from './adapters/vcs/git.ts';
@@ -112,6 +113,11 @@ export class RunManager {
     if (agent.config.adapter === 'relay') return undefined;
     if (!agent.binary) return { status: 'fail', message: 'no vendor binary found; install the official CLI and re-probe' };
     if (!fs.existsSync(agent.binary.path)) return { status: 'fail', message: `pinned binary ${agent.binary.path} no longer exists; re-probe` };
+    if (agent.config.adapter === 'opencode-server') {
+      // Unknown OpenCode releases fail visibly before any model call; the protocol is pinned.
+      const v = checkVersion(agent.binary.version, this.d.baseEnv());
+      if (!v.ok) return { status: 'fail', message: v.message };
+    }
     return { status: 'pass', message: `${agent.binary.path}${agent.binary.version ? ` (${agent.binary.version})` : ''}` };
   }
 
@@ -227,7 +233,7 @@ export class RunManager {
     if (agent.config.provider !== 'subscription') {
       providerHome = path.join(d.paths.root, 'providers', agent.id, 'home');
       fs.mkdirSync(providerHome, { recursive: true, mode: 0o700 });
-      const spec = PROVIDER_SECRET[agent.config.provider];
+      const spec = providerSecretFor(agent.config);
       if (spec) {
         const key = await getSecret(spec.secret, d.baseEnv());
         if (!key) {
@@ -322,6 +328,9 @@ export class RunManager {
           }
           break;
         }
+        case 'child':
+          out.push({ ...refs, actor: SYSTEM, type: 'run.child', data: { sessionId: p.sessionId, parentSessionId: p.parentSessionId, title: p.title, state: p.state, ...(p.error ? { error: p.error } : {}) } });
+          break;
         case 'final':
           ctx.finalText = p.text;
           break;
@@ -619,6 +628,14 @@ export class RunManager {
     if (run.adapter === 'relay' || !this.supervisor.info(runId)) {
       await this.finalize(runId, { code: null, signal: null });
       return;
+    }
+    // A plain stop/pause first asks a streaming harness to abort its turn cleanly (the vendor records
+    // the abort and nothing is left half-written); the process group is signalled only if it lingers.
+    const adapter = adapterFor(run.adapter);
+    if (kind === 'stopped' && adapter.encodeAbort && this.supervisor.isAlive(runId)) {
+      this.supervisor.send(runId, adapter.encodeAbort());
+      const until = Date.now() + 5000;
+      while (this.supervisor.isAlive(runId) && Date.now() < until) await new Promise((r) => setTimeout(r, 100));
     }
     await this.supervisor.stop(runId);
   }

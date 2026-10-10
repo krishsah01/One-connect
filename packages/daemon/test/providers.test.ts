@@ -39,7 +39,7 @@ describe('config', () => {
     const c = base([{ id: 'local', name: 'L', role: 'engineer', adapter: 'codex-cli', provider: 'ollama', model: 'qwen3-coder:30b' }]);
     expect(c.agents[0].billing).toBe('local');
     expect(() => base([{ id: 'r', name: 'R', role: 'engineer', adapter: 'codex-cli', provider: 'openrouter' }])).toThrow(/bills per token/);
-    expect(() => base([{ id: 'a', name: 'A', role: 'engineer', adapter: 'cursor-agent-cli', provider: 'anthropic-api', metered_opt_in: true }])).toThrow(/runs through claude-headless/);
+    expect(() => base([{ id: 'a', name: 'A', role: 'engineer', adapter: 'cursor-agent-cli', provider: 'anthropic-api', metered_opt_in: true }])).toThrow(/runs through opencode-server or claude-headless/);
     expect(base([{ id: 'a', name: 'A', role: 'engineer', adapter: 'claude-headless', provider: 'anthropic-api', metered_opt_in: true, budget_usd_per_day: 5 }]).agents[0].billing).toBe('metered');
   });
 });

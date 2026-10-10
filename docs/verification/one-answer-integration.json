@@ -1,0 +1,271 @@
+{
+  "integratedAt": "2026-10-08T19:49:53.533853+00:00",
+  "primary": "/Users/krishkumarsah/Docs/Projects/Interface",
+  "worker": {
+    "worktree": "/private/tmp/one-connect-claude/one-answer",
+    "base": "7c18eb8",
+    "head": "42ca54cc10c5e3c5e500d4d7dd9335d8ed14faca",
+    "handoff": "docs/verification/delegation/CLAUDE_ONE_ANSWER_HANDOFF.md"
+  },
+  "reviewStage": "/private/tmp/one-connect-claude-integration-nahg3jc_",
+  "backup": "/private/tmp/one-connect-one-answer-backup-eke7ln8j",
+  "bundled": true,
+  "verification": {
+    "node": "24.21.0",
+    "workspace": {
+      "passed": 752,
+      "skipped": 4,
+      "failed": 0,
+      "files": 82,
+      "report": "docs/verification/one-answer-workspace-integration-results.json"
+    },
+    "focused": {
+      "passed": 57,
+      "skipped": 1,
+      "failed": 0
+    },
+    "directNodeContracts": {
+      "passed": 2,
+      "failed": 0,
+      "durationMs": 2474.436459,
+      "beforeShutdownTimerFixMs": 21377.516709
+    },
+    "typechecks": "passed in staging; primary repeated below",
+    "webBuild": "passed",
+    "spdx": {
+      "passed": true,
+      "sourceFiles": 314
+    },
+    "installedLocalToolsDemo": {
+      "passed": true,
+      "graphify": "/Users/krishkumarsah/.local/bin/graphify",
+      "embedding": "all-minilm",
+      "report": "docs/verification/one-answer-reviewed-local-demo.json",
+      "scope": "Disposable repository/vault; AST mode; loopback embeddings; no downloads"
+    },
+    "benchmark": {
+      "report": "docs/verification/one-answer-reviewed-benchmark.json",
+      "scope": "Fixed corpus, not independent evaluation; no provider-reported token savings",
+      "sourceTiming": "Measured before only graph-generation binding and shutdown timer corrections; retrieval code unchanged"
+    }
+  },
+  "coordinatorCorrections": [
+    "Preserved the newer cached-citation revision guard",
+    "Validated Graphify output before replacing a published graph",
+    "Rollback of failed graph promotion and restart recovery",
+    "Full generation binding and obsolete privacy/scope cache purge",
+    "Complete serialized packet measurement, valid budgets, scope protection",
+    "Fresh state/current denylist and concurrent generation detection",
+    "Query draining before manifest close and closure on vault reconnect",
+    "Exact cited revision viewing and late UI response guards",
+    "Live Mission Control card and context-first assignments",
+    "Scoped context and per-call request/receipt tools in Claude allowlist",
+    "Shutdown timeout cleanup"
+  ],
+  "source": [
+    {
+      "path": "packages/daemon/test/context-isolation.test.ts",
+      "before": "5314f49aa16f6dc4355cbc516e09c5f104fd715c93d9606d9573b0178d379c20",
+      "sha256": "b3ca272abf3cf1d53795ffea8b7829ae1c075fb8a1f805cd40bf1011067c4a1d"
+    },
+    {
+      "path": "packages/daemon/test/one-answer.strip.test.mjs",
+      "before": "86a4a9585acc729e91a1c414c4b47409024662adcb4324af550ad7b1c6ec8be1",
+      "sha256": "d268763e2c3461f0ef319b474cf0d9ad8064f9ac0d9d7eea598d193a9306caad"
+    },
+    {
+      "path": "packages/daemon/test/one-answer-structure.test.ts",
+      "before": null,
+      "sha256": "15cd14dfc9472f1dfe24b28e346b69d8d395019371233d154599669593eda69f"
+    },
+    {
+      "path": "packages/daemon/test/one-answer-incremental.test.ts",
+      "before": null,
+      "sha256": "9ed39ba6473297ea24f4869321e93299a65cc89ba6f8b0ec2ce62df72293def9"
+    },
+    {
+      "path": "packages/daemon/test/context-benchmark.test.ts",
+      "before": "6d8581ef4098524fa21efdfb2dc49e1f524bff8757e4dcd3b7d9048a7be7d1dd",
+      "sha256": "c03cf376c26fe6689e58c72d3137497cdbb4890991c8f80843b5cb67ca7aa016"
+    },
+    {
+      "path": "packages/daemon/test/one-answer.test.ts",
+      "before": "b1d13b23879a022c038175a1f7185eddebc525308045e5cb2aa402954f297d08",
+      "sha256": "751bb95d34918927257c46a0a4fdb7802028d395c4a67f05a687406abd81a39f"
+    },
+    {
+      "path": "packages/daemon/test/one-answer-recovery.test.ts",
+      "before": null,
+      "sha256": "c73c3fa7166d66e3fdede0e968a9d6ae9faad7126dbfd6d39690696002489665"
+    },
+    {
+      "path": "packages/daemon/src/daemon.ts",
+      "before": "dd586c5236e11755afc9a2a1d3583104a0f6a9460f16bc6cd703ed8c70fee4b4",
+      "sha256": "c9434c673b94977d23dcd270bbc628751c1a7ccbb93f3015c898997806032646"
+    },
+    {
+      "path": "packages/daemon/src/mcpBridge.ts",
+      "before": "53d6eecf42454eda6aa9ca4c7fe02ff1c72754cedc2a71419bc6f07b5a26bed6",
+      "sha256": "caaec6988928fcd15b9ee22899b9e457daa5930688a96c05ea47ca12b6990e88"
+    },
+    {
+      "path": "packages/daemon/src/benchmark/corpus.ts",
+      "before": "3052dd57d9cd1d5ab4df3f6766aa11377b0e898a96a8ffd3ed952c9f63351524",
+      "sha256": "d3e1451d181c5f80e41a9c0c1cc3c530c8cdda8ef983769a6ac2fd786b39f4dc"
+    },
+    {
+      "path": "packages/daemon/src/benchmark/contextBenchmark.ts",
+      "before": "c7230c0ba4d9be03c75dc9a171ec538e14656e9e02a6cfc0015675542f650c99",
+      "sha256": "b4d909e4ca1adde55843dcc0cbc369bfeb8b9a7f34f12b2f99985e656c6dc6c1"
+    },
+    {
+      "path": "packages/daemon/src/context/packet.ts",
+      "before": null,
+      "sha256": "9b5fa990bc66f07d8b4c33ab9fdd624afc30d8bc9f323ed305710e88a6cc74ba"
+    },
+    {
+      "path": "packages/daemon/src/context/structure.ts",
+      "before": null,
+      "sha256": "bef1bdccdbb928a2108ab57e857f823191769d89e538da099b4c65073df0249b"
+    },
+    {
+      "path": "packages/daemon/src/context/retrieval.ts",
+      "before": null,
+      "sha256": "4ed27ca40aecefd57e2fab8f059f7904802309965f6a4f043cc4098dcd3d9f37"
+    },
+    {
+      "path": "packages/daemon/src/context/vault.ts",
+      "before": "5bdba6f17764168fa304e32d04ebb31741fa2a992f162307a69e71ce62ca6de7",
+      "sha256": "7b0f906b0e582505bf6c50bbbf3ea9a9e74080f4290a5c953030bca560d3470f"
+    },
+    {
+      "path": "packages/daemon/src/context/docs.ts",
+      "before": "4f5700e3d6b1c5dca2c059cc709310e2cd6ff72ce8537181037534e09076318d",
+      "sha256": "5f472ad4f29cd43bcf018e4898262dc4b85d76b6872549f1fb962d38d9bc0604"
+    },
+    {
+      "path": "packages/daemon/src/context/graph.ts",
+      "before": "32867f02c0b742584fc7ced1b2d48bc8eff204126a6975cd33bef81c384f5f75",
+      "sha256": "d164e06fda6fb5e7db338a0145d769b32202edb72826d87cc54c7525d6174e51"
+    },
+    {
+      "path": "packages/daemon/src/context/one-answer.ts",
+      "before": "8a511e92cd973d70992871b96bb005b9ed837f96c5b9692f6e4c8db6a5ca3013",
+      "sha256": "88a71d9cd47efa71a1a79609d96dcd7ad0f08f616a8a4f119bc0a97b7797335c"
+    },
+    {
+      "path": "packages/daemon/src/context/manifest.ts",
+      "before": null,
+      "sha256": "521c899a16e32ac9d4dfbd9d7fd0a3543f6a1adcfcad3449d9dc27ae7055d17e"
+    },
+    {
+      "path": "packages/daemon/src/context/extract-project.ts",
+      "before": "6e293af69eb6e9307d0bd2429612ede67c58b98366d45a603c6e8542566e4e1c",
+      "sha256": "2da14c1a4767d2d4aea691acd0e6faffe43f76aa1c1e41ea5897f7e9f42b8d0a"
+    },
+    {
+      "path": "packages/daemon/src/context/sync.ts",
+      "before": "d4c2f871a21f83304687d725758aa2ab389c8c43be3c28aa0de50d4b18331c43",
+      "sha256": "2b137591b36f7ec4e17b8b9725723520b3856d71644fefc0f2f55c1466ebe51e"
+    },
+    {
+      "path": "packages/daemon/src/server/http.ts",
+      "before": "6e0fb6c78b637c50a9d312fef4b901b3d7a9f7692e809892cb93936c5e0405cb",
+      "sha256": "01849e91b75d6ae0384839950a3097d7d7cde453aa0937ecaddfa4be4c08ed9f"
+    },
+    {
+      "path": "packages/daemon/src/server/oneAnswerRoutes.ts",
+      "before": null,
+      "sha256": "0788c542f177867bc399cf4b50bac6697f4e5217454df35e035edd50005a1a8a"
+    },
+    {
+      "path": "packages/daemon/src/mcp/server.ts",
+      "before": "6110d4a4d7cb2bb42f4d1d2bd4c995ae6a309ed71f5ddfbaa020f3bb71e6b132",
+      "sha256": "ccede03e938b3228b65bdf7c991234cf94d2745437a0a6ae341bc361ee7f389c"
+    },
+    {
+      "path": "packages/daemon/src/adapters/agents/claude.ts",
+      "before": "fbc422d247b4144170df402bcc186a2a4eb67d7a1f7c5f52d68188dd46b81175",
+      "sha256": "e5244c7dfb2c55b88f21116d9089b3211f9603fe2d45b43060a96a3232a45985"
+    },
+    {
+      "path": "packages/daemon/test/fixtures/controlled-graphify.mjs",
+      "before": null,
+      "sha256": "153deaf0420f0574bf9f7ceaa01e65675ed93945339e940ff4dedd6cf3c79c34"
+    },
+    {
+      "path": "packages/web/test/one-answer.test.tsx",
+      "before": null,
+      "sha256": "88aaed7a271c1e65872a9284ecfb101f397bfffb75e0009dae720fa100b3a727"
+    },
+    {
+      "path": "packages/web/src/components/one-answer.css",
+      "before": null,
+      "sha256": "60fbb6098a48e6aaba0e7fd57a086ed8830ecad1ff865549bb85bfee8cfb9ae2"
+    },
+    {
+      "path": "packages/web/src/components/OneAnswer.tsx",
+      "before": null,
+      "sha256": "ed4e42acbc812a2a80a9128bda25dfa6009491c34b47b86ee68897a44e2db62d"
+    },
+    {
+      "path": "packages/web/src/pages/MissionControl.tsx",
+      "before": "2a6c1054095a2cdee6d93cbf276457dae4e1ce0133bd6a9fb889d0a12dde7967",
+      "sha256": "4d40717657f4851b2e5e28dba83c414aa367616ea08389b74451dc758ada5876"
+    },
+    {
+      "path": "packages/web/src/pages/Docs.tsx",
+      "before": "921bcae31fd49772c1ab38e60f3a5a7d9c5c79dc732517e5f4c3e3731857c863",
+      "sha256": "455c6192ffb760aff2bcf3bafa0a40344594e031287e3a4cd91d9e81bd6fa975"
+    },
+    {
+      "path": "packages/core/src/entities.ts",
+      "before": "cb73cb257e23db00cc7ec49528076de9a25da28454daa29d67fddf694351f405",
+      "sha256": "e5e50b1fdbbbc492fe27724041185ea731bee665a4f3c3f601680aa715f52670"
+    },
+    {
+      "path": "packages/core/src/template.ts",
+      "before": "9d4c4480734b1be2d5bd86ab4a27cdc1bcbf0c09a998f9d1ba1aad9f957a3411",
+      "sha256": "9109e7213a4e684620fb619d1a560bf59777052f7a2c1e2b7cbcb4536640417b"
+    },
+    {
+      "path": "packages/core/src/benchmark.ts",
+      "before": "368e7b6cf785d63487ff954d7b72907bab9541a7df35a8f3538fdefc7ad9cbe9",
+      "sha256": "0da17e95d471916d2446a0396e33a39831313501f6a7874cc01b1ebb50d9fbc1"
+    },
+    {
+      "path": "scripts/one-answer-demo.mjs",
+      "before": null,
+      "sha256": "c0d9989e6138f18d73ed8b2c70d7e8f57b14967f376ab2b892cbf0d9d6241fca"
+    },
+    {
+      "path": "docs/ask-your-docs.md",
+      "before": "7e6a02bf0771a3dad600607953e37a8f45aa103f8c76723221fa6f9c1cdcdc0d",
+      "sha256": "a1dd290549c2bc09958deb4c1e31bd9406887358b232fff19834276c9fc99a65"
+    },
+    {
+      "path": "docs/context-sharing.md",
+      "before": "53ed12e999247ed8af3101e8dfe7a759e6cfbfc52fc8e0558d7dfdd795216fc7",
+      "sha256": "224c8c746e05449d8a9bebe9a250fc8a63cde09a5d2ed43aea66c54abdda5174"
+    },
+    {
+      "path": "docs/one-answer.md",
+      "before": "2f51bf29add3485901f56512831191d01c93b39b748c259e05ee1f031a872b46",
+      "sha256": "746c094a825f0d674414d5cecf852a001c6e9253cfe17d944f26c803f0b170d1"
+    },
+    {
+      "path": "docs/handoff/one-answer-overview.patch",
+      "before": null,
+      "sha256": "fe94ea5079c2e4ef99e165db90637c5f9dca8356abddf611e08630c29adfca17"
+    }
+  ],
+  "limitations": [
+    "Real Obsidian application live reload not exercised",
+    "Fixed-corpus results do not establish general unchanged quality or provider token savings",
+    "No live provider generation, tracker, deployment, tunnel or outbound integration activated",
+    "Native keyword retrieval and exact cited-source view observed; full semantic/graph/Obsidian quality acceptance remains pending."
+  ],
+  "bundle": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect Studio.app",
+  "bundleEngineSha256": "fb1fa06d7b286395925417c97a1f03add1b736e21c6e00643c65fec728aa7aca",
+  "nativeObservation": "studio-native-observation.json"
+}

@@ -17,13 +17,15 @@ packages/core     pure, shared by the daemon and the browser:
 packages/daemon   supervisor (`acc`):
   store/          SQLite event log (UPDATE/DELETE blocked by triggers), outbox, snapshots, tail offsets
   runner/         detached per-run runner + supervisor (spawn, tail, reattach, kill)
-  adapters/agents claude · codex · cursor · generic · relay  (one VendorAdapter interface)
+  adapters/agents claude · codex · cursor · opencode (+bridge) · generic · relay  (one VendorAdapter interface)
   adapters/trackers local · github (gh) · linear (GraphQL) (one TrackerAdapter interface)
   adapters/vcs    worktrees, diff, hooks, watcher, merge-tree conflicts
   context/        Obsidian vault notes + graphify code graph
   mcp/            the `acc` stdio MCP server every agent run gets
   rules.ts        auto-refill, stall, retry, usage limit, idle
   server/         REST + WebSocket, local auth
+  phone/          remote access gate + tunnel adapters, notifications, Brief & Reports
+  benchmark/      context-quality benchmark (disposable corpus, `acc bench context`)
 packages/web      React UI: Mission Control, Agent Console, Work Board, Agents setup
 ```
 

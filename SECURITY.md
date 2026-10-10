@@ -33,6 +33,7 @@ What it protects:
 | Your unrelated data | Agent runs get only the `acc` MCP server: your personal MCP servers aren't inherited (Claude uses `--strict-mcp-config`; Codex uses `--ignore-user-config`). Only the configured vault folders are readable. |
 | The control API | Binds to `127.0.0.1` only. Every request needs a session cookie (from a one-time code), the install token (`0600`) or a per-run token. Host and Origin headers are checked, which blocks DNS rebinding and cross-site requests. |
 | Evidence | The event log is append-only (SQLite triggers) and stored in a durable app-data directory. Temp directories are refused. |
+| Phone access | Disabled by default. Only a private, authenticated tunnel adapter (never a public listener) after a per-launch Decision with a second confirmation; phones pair with single-use expiring links, get scoped cookies, CSRF/Origin checks, brute-force lock, revocation and audit, and are limited to one project. Real tunnel and device validation is pending. |
 | Runaway agents | The kill switch (UI, API or `acc kill-all`) stops every runner process group, even with the daemon down. |
 
 What it does **not** protect against:
