@@ -5,10 +5,12 @@
 import os from 'node:os';
 import path from 'node:path';
 import type { AuthStatus, BillingInfo, ModelInfo, UsageInfo } from '@acc/core';
+import { ADAPTER_PROFILES } from '@acc/core';
 import { run } from '../../exec.ts';
 import { commandCompleted, endWithoutResult, relPath, stderrLine, summarize, textOf, tryJson } from './common.ts';
 import { classifyFailure } from './failures.ts';
 import { unknownUsage, type LaunchContext, type LaunchSpec, type Parsed, type ProbeEnv, type StreamParser, type VendorAdapter } from './types.ts';
+import { ACC_MCP_PERMISSION_TOOL, accToolPatterns } from '../../mcp/tools.ts';
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 
@@ -33,10 +35,7 @@ export function claudeUsage(info: Record<string, unknown>): UsageInfo {
 
 export const claudeAdapter: VendorAdapter = {
   type: 'claude-headless',
-  displayName: 'Claude Code',
-  installUrl: 'https://docs.claude.com/en/docs/claude-code/setup',
-  loginHint: 'Run `claude auth login` in a terminal and sign in with your Claude account',
-  capabilities: { headless: true, streamingInput: true, resume: true, hostApprovals: true, mcp: true },
+  ...ADAPTER_PROFILES['claude-headless'],
   binaryNames: ['claude'],
   vendorHost: 'api.anthropic.com',
   knownLocations: () => [path.join(os.homedir(), '.local', 'bin', 'claude'), path.join(os.homedir(), '.claude', 'local', 'claude')],
@@ -85,11 +84,11 @@ export const claudeAdapter: VendorAdapter = {
     if (ctx.mcp) {
       const mcpFile = path.join(ctx.runDir, 'claude-mcp.json');
       files.push({ path: mcpFile, content: JSON.stringify({ mcpServers: { acc: { type: 'stdio', command: ctx.mcp.command, args: ctx.mcp.args } } }, null, 2) });
-      args.push('--mcp-config', mcpFile, '--permission-prompt-tool', 'mcp__acc__permission_prompt');
+      args.push('--mcp-config', mcpFile, '--permission-prompt-tool', `mcp__acc__${ACC_MCP_PERMISSION_TOOL}`);
     }
     if (ctx.policies.privacy.strict_mcp) args.push('--strict-mcp-config');
     args.push('--permission-mode', 'default');
-    const allowed = [...ctx.allowedTools, ...(ctx.mcp ? ['get_assignment', 'post_handoff', 'submit_review', 'report_finding', 'ask_human', 'get_brief', 'get_team', 'read_messages', 'send_team_message', 'ack_team_message', 'get_design_system', 'get_design_skill', 'search_context', 'get_project_context', 'ask_project', 'read_note', 'query_graph', 'graph_path', 'explain_node', 'list_skills', 'get_skill', 'register_design_mock', 'record_mock_evidence', 'get_design_mock', 'submit_design_review', 'list_connector_tools', 'call_connector_tool', 'get_connector_tool_result'].map((t) => `mcp__acc__${t}`) : [])];
+    const allowed = [...ctx.allowedTools, ...(ctx.mcp ? accToolPatterns() : [])];
     if (allowed.length) args.push('--allowedTools', allowed.join(','));
     if (ctx.gitCommonDir) args.push('--add-dir', ctx.gitCommonDir);
     return {

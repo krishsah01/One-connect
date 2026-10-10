@@ -2,6 +2,7 @@
 // The one interface a new agent vendor implements. Process supervision, durable logs,
 // redaction, approvals and rules are shared; a vendor adapter only knows how to talk to its CLI.
 import type {
+  AdapterProfile,
   AdapterType,
   AgentConfig,
   AuthStatus,
@@ -86,22 +87,12 @@ export interface ProbeEnv {
   env: NodeJS.ProcessEnv;
 }
 
-export interface VendorAdapter {
+/**
+ * A vendor runtime's behavior. Its user-facing facts (name, install and login hints, capabilities,
+ * whether it runs here) are the shared AdapterProfile in @acc/core, so the web reads the same ones.
+ */
+export interface VendorAdapter extends AdapterProfile {
   readonly type: AdapterType;
-  readonly displayName: string;
-  /** Vendor's install page; we never bundle vendor binaries. */
-  readonly installUrl: string;
-  /** The vendor's own login command/instruction. */
-  readonly loginHint: string;
-  readonly capabilities: {
-    headless: boolean;
-    /** send() reaches the running process; otherwise a follow-up turn resumes the session. */
-    streamingInput: boolean;
-    resume: boolean;
-    /** Tool-permission prompts are routed to the control center (waiting-for-approval). */
-    hostApprovals: boolean;
-    mcp: boolean;
-  };
   readonly binaryNames: string[];
   knownLocations(): string[];
   /** Hosts checked for connectivity before a network-failure retry. */

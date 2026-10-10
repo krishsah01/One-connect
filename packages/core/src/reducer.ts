@@ -7,6 +7,7 @@ import type { EventEnvelope } from './events.ts';
 import { meaningfulSummary } from './events.ts';
 import { applyLibraryEvent } from './libraryReducer.ts';
 import { applyDesignStudioEvent } from './designStudio.ts';
+import { isManualRelay } from './adapterProfiles.ts';
 
 const ACTIVE_RUN: ReadonlySet<RunState> = new Set(['queued', 'starting', 'running', 'waiting-for-approval', 'waiting-for-input', 'stalled']);
 export const isActiveRun = (r: Pick<Run, 'state'>): boolean => ACTIVE_RUN.has(r.state);
@@ -55,7 +56,7 @@ export function deriveAgentStatus(s: ControlState, a: AgentState): AgentStatus {
   if (a.config.enabled === false) return 'offline';
   if (a.limitedUntil) return 'limited';
   if (a.pausedReason) return 'paused';
-  if (a.config.adapter !== 'relay' && (a.auth.state === 'expired' || a.auth.state === 'not_installed')) return 'offline';
+  if (!isManualRelay(a.config) && (a.auth.state === 'expired' || a.auth.state === 'not_installed')) return 'offline';
   const nowAssignment = a.queue.now ? s.assignments[a.queue.now] : null;
   if (nowAssignment) {
     const lastRun = s.workItems[nowAssignment.workItemId]?.runIds.map((id) => s.runs[id]).filter((r) => r && r.assignmentId === nowAssignment.id).at(-1);

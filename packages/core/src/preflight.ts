@@ -5,6 +5,7 @@ import type { AgentState, Assignment, PreflightCheck, PreflightResult, WorkItem 
 import { checkQualityFloor, eligibleModels, isNewest, matchesAny, modelFamilyKey, newestInFamily, selectNewestModel, workCategory, type PickOptions } from './models.ts';
 import { scopesOverlap } from './pathScope.ts';
 import { containsSecret } from './redact.ts';
+import { isManualRelay } from './adapterProfiles.ts';
 
 export const COORDINATION_LABELS = ['coordination', 'planning', 'triage', 'research'];
 
@@ -55,7 +56,7 @@ export function runPreflight(i: PreflightInput): PreflightResult {
   const checks: PreflightCheck[] = [];
   const add = (c: PreflightCheck) => checks.push(c);
   const { item, agent, assignment, policies } = i;
-  const relay = agent?.config.adapter === 'relay';
+  const relay = agent ? isManualRelay(agent.config) : false;
 
   add(i.killSwitch ? { id: 'kill_switch', label: 'Kill switch', status: 'fail', message: 'kill switch is engaged; release it to dispatch' } : { id: 'kill_switch', label: 'Kill switch', status: 'pass', message: 'not engaged' });
 

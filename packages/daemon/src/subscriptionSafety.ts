@@ -3,7 +3,7 @@
 // from detected billing; it never changes an unknown vendor setting into "off".
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
-import { HUMAN, type Actor, type AgentState } from '@acc/core';
+import { HUMAN, type Actor, type AgentState, isManualRelay } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';
 import { sha256 } from './util/hash.ts';
 
@@ -26,7 +26,7 @@ export class SubscriptionSafety {
   status(agentId: string) {
     const a = this.d.state.agents[agentId];
     if (!a) throw new CommandError('Unknown agent', 404);
-    const required = a.config.adapter !== 'relay' && !a.config.metered_opt_in && a.billing.mode === 'subscription' && a.billing.overage === 'unknown';
+    const required = !isManualRelay(a.config) && !a.config.metered_opt_in && a.billing.mode === 'subscription' && a.billing.overage === 'unknown';
     const raw = this.d.store.kvGet(`subscription-confirm:${agentId}`);
     const confirmation = raw ? JSON.parse(raw) as Confirmation : null;
     const valid = Boolean(required && a.auth.state === 'logged_in' && a.binary && confirmation?.session === this.session && confirmation.binding === this.binding(a) && Date.parse(confirmation.expiresAt) > this.d.now().getTime());

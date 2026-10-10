@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { useEffect,useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { ADAPTER_TYPES, AgentConfigSchema, defaultHarnessFor, EFFORTS, LOCAL_PROVIDERS, PAID_PROVIDERS, PROVIDER_HARNESS, PROVIDERS, ROLES, subscriptionGroup, type AgentConfig, type Provider, type ControlState, type DesignSkill, type ProjectSkill } from '@acc/core';
+import { ADAPTER_TYPES, adapterProfile, AgentConfigSchema, defaultHarnessFor, isManualRelay, EFFORTS, LOCAL_PROVIDERS, PAID_PROVIDERS, PROVIDER_HARNESS, PROVIDERS, ROLES, subscriptionGroup, type AgentConfig, type Provider, type ControlState, type DesignSkill, type ProjectSkill } from '@acc/core';
 import { ErrorLine, useAction } from '../components/common';
 import { api,post } from '../lib/api';
 import { HarnessNotes, OllamaPanel } from '../components/ModelSource';
@@ -9,7 +9,6 @@ import { HarnessNotes, OllamaPanel } from '../components/ModelSource';
 const LABELS:Record<string,string>={'codex-cli':'Codex CLI','claude-headless':'Claude Code','cursor-agent-cli':'Cursor agent CLI','generic-cli':'Custom official CLI','relay':'Manual relay (requires another app)','opencode-server':'OpenCode (open source, recommended for API keys and local models)'};
 const SOURCES:Record<string,string>={subscription:'Subscription: official CLI login','ollama':'Ollama local models (free)','ollama-cloud':'Ollama cloud models (Ollama subscription)','lmstudio':'LM Studio local models (free)','anthropic-api':'Anthropic API key (pay per token)','openai-api':'OpenAI API key (pay per token)','openrouter':'OpenRouter API key (pay per token)'};
 const billingFor=(p:Provider):AgentConfig['billing']=>p==='subscription'||p==='ollama-cloud'?'subscription':LOCAL_PROVIDERS.includes(p)?'local':'metered';
-const LOGIN_ADAPTERS=['codex-cli','claude-headless','cursor-agent-cli'];
 
 export function AgentBuilder({state}:{state:ControlState}) {
   const {id}=useParams(),[search]=useSearchParams();
@@ -55,7 +54,7 @@ function BuilderForm({source,editing}:{source?:AgentConfig;editing:boolean}) {
           <label>Model family<input value={cfg.model_family??''} onChange={e=>patch({model_family:e.target.value||undefined})} placeholder="Optional inventory filter"/></label>
           <label>Allowed models<input value={(cfg.allowed_models??[]).join(', ')} onChange={e=>patch({allowed_models:e.target.value.split(',').map(x=>x.trim()).filter(Boolean)})} placeholder="Comma-separated IDs or patterns"/></label>
           <label>Subscription name<input value={cfg.subscription??''} onChange={e=>patch({subscription:e.target.value||undefined})} placeholder="Your existing plan"/></label>
-          <label>Shared subscription group<input pattern="[a-z0-9][a-z0-9-]{0,63}" disabled={(LOGIN_ADAPTERS.includes(cfg.adapter)&&cfg.provider==='subscription')||cfg.provider==='ollama-cloud'} value={((LOGIN_ADAPTERS.includes(cfg.adapter)&&cfg.provider==='subscription')||cfg.provider==='ollama-cloud')?subscriptionGroup(cfg)??'':cfg.subscription_group??''} onChange={e=>patch({subscription_group:e.target.value||undefined})} placeholder={subscriptionGroup(cfg)??'Local provider'}/><span className="small faint">Official CLI agents share their native vendor login. Renaming an agent cannot create more capacity.</span></label>
+          <label>Shared subscription group<input pattern="[a-z0-9][a-z0-9-]{0,63}" disabled={(adapterProfile(cfg.adapter).loginArgs!==null&&cfg.provider==='subscription')||cfg.provider==='ollama-cloud'} value={((adapterProfile(cfg.adapter).loginArgs!==null&&cfg.provider==='subscription')||cfg.provider==='ollama-cloud')?subscriptionGroup(cfg)??'':cfg.subscription_group??''} onChange={e=>patch({subscription_group:e.target.value||undefined})} placeholder={subscriptionGroup(cfg)??'Local provider'}/><span className="small faint">Official CLI agents share their native vendor login. Renaming an agent cannot create more capacity.</span></label>
           <label>Parallel run limit<input type="number" min={1} max={8} required value={cfg.concurrency} onChange={e=>patch({concurrency:Number(e.target.value)})}/></label>
           <label>Pinned CLI binary<input value={cfg.binary??''} onChange={e=>patch({binary:e.target.value||undefined})} placeholder="Optional absolute path"/><span className="small faint">Leave empty to detect official installed tools.</span></label>
         </div>
@@ -81,7 +80,7 @@ function BuilderForm({source,editing}:{source?:AgentConfig;editing:boolean}) {
           </div>
           <p className="small muted">The app stops on recorded usage. In-flight requests and other agents can exceed this threshold; use a provider spending limit for a hard cap. Provider cost takes precedence over these estimates. Prices must match your selected model.</p>
         </div>}
-        {cfg.adapter==='relay'&&<div className="banner tone-warn small">Manual relay requires copying prompts and replies through another app. Choose a CLI runtime for a complete in-app console.</div>}
+        {isManualRelay(cfg)&&<div className="banner tone-warn small">Manual relay requires copying prompts and replies through another app. Choose a CLI runtime for a complete in-app console.</div>}
         <label className="row"><input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/>Enable runtime checks and dispatch</label>
         <div className="row"><button className="btn primary" type="submit">{busy?'Saving…':needsCostApproval?'Review cost approval':editing?'Save settings':cfg.enabled?'Create agent':'Save agent draft'}</button><span className="small faint">Saved only in this project. Existing runs and history keep their identity.</span></div>
       </fieldset>

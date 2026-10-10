@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import type { Actor, AgentState, Approval, ControlState, Run } from './entities.ts';
 import type { MockArtifact, MockRevision } from './mocks.ts';
+import { isManualRelay } from './adapterProfiles.ts';
 
 export const DESIGN_STATES = ['empty', 'loading', 'error', 'success', 'partial', 'permission', 'offline'] as const;
 export const DESIGN_STATE_LABELS: Record<(typeof DESIGN_STATES)[number], string> = {
@@ -172,7 +173,7 @@ export function designAgentEligibility(a: AgentState): AgentEligibility {
   const c = a.config;
   if (c.enabled === false) return { ok: false, paid: false, label: 'disabled', reason: 'Enable this agent in agent settings first.' };
   if (c.mode === 'coordinator-only') return { ok: false, paid: false, label: 'coordinator only', reason: 'Coordinator-only agents do not take assignments.' };
-  if (c.adapter === 'relay') return { ok: false, paid: false, label: 'relay', reason: 'Relay agents need you to work in another app. The studio runs headless harnesses inside One Connect.' };
+  if (isManualRelay(c)) return { ok: false, paid: false, label: 'relay', reason: 'Relay agents need you to work in another app. The studio runs headless harnesses inside One Connect.' };
   if (a.auth.state === 'expired' || a.auth.state === 'not_installed') return { ok: false, paid: false, label: a.auth.state === 'expired' ? 'signed out' : 'not installed', reason: a.auth.detail ?? 'Sign in with the vendor’s own login, then probe the agent again.' };
   if (c.billing === 'local') return { ok: true, paid: false, label: 'local model', reason: 'Runs on this machine at no cost.' };
   if (c.metered_opt_in) return { ok: true, paid: true, label: 'metered (approved)', reason: `This agent has an approved per-token configuration${c.budget_usd_per_day ? ` capped at $${c.budget_usd_per_day}/day` : ''}. It is never used as a fallback.` };

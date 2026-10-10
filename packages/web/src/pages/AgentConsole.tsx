@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import type { ControlState, Handoff, Run } from '@acc/core';
-import { isActiveRun, sharedUsageView } from '@acc/core';
+import { adapterProfile, isActiveRun, isManualRelay, sharedUsageView } from '@acc/core';
 import { ApprovalCard, Badge, BillingBadge, Copy, ErrorLine, Light, UsageMeter, useAction, useTick } from '../components/common';
 import { DiffView } from '../components/DiffView';
 import { RawLog, Transcript } from '../components/Transcript';
@@ -97,7 +97,7 @@ export function AgentConsole({ state }: { state: ControlState }) {
               </div>
             </section>
           )}
-          {run?.adapter === 'relay' && isActiveRun(run) && asg && <RelayBox runId={run.id} prompt={asg.prompt} />}
+          {run && isManualRelay(run) && isActiveRun(run) && asg && <RelayBox runId={run.id} prompt={asg.prompt} />}
           {run?.handoff && <HandoffCard h={run.handoff} run={run} />}
           <section className="card">
             <div className="card-h">
@@ -255,7 +255,7 @@ function RunControls({ run, state }: { run: Run; state: ControlState }) {
 function Composer({ agentId, run, state }: { agentId: string; run: Run | null; state: ControlState }) {
   const { busy, error, run: act } = useAction();
   const active = run ? isActiveRun(run) : false;
-  const canContinue = Boolean(run && !active && run.sessionId && run.adapter !== 'relay');
+  const canContinue = Boolean(run && !active && run.sessionId && !isManualRelay(run));
   const [mode, setMode] = useState<'message' | 'task'>(active || canContinue ? 'message' : 'task');
   const [text, setText] = useState('');
   const [paths, setPaths] = useState('');
@@ -292,7 +292,7 @@ function Composer({ agentId, run, state }: { agentId: string; run: Run | null; s
           </button>
         </div>
         <span className="spacer" />
-        <span className="faint">{effective === 'task' ? `creates an issue in the tracker${agent?.activeRunIds.length ? ' · queued as Next (agent busy)' : ''}` : active ? (run?.adapter === 'claude-headless' ? 'delivered live' : 'delivered as the next turn') : 'resumes the same vendor session'}</span>
+        <span className="faint">{effective === 'task' ? `creates an issue in the tracker${agent?.activeRunIds.length ? ' · queued as Next (agent busy)' : ''}` : active ? (run && adapterProfile(run.adapter).capabilities.streamingInput ? 'delivered live' : 'delivered as the next turn') : 'resumes the same vendor session'}</span>
       </div>
       <textarea
         rows={effective === 'task' ? 3 : 2}

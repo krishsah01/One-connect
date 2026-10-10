@@ -4,7 +4,7 @@
 // Every claim links to where it came from; nothing implies a merge, deploy or passing test
 // without recorded evidence.
 import type { Approval, ControlCenterConfig, ControlState, Run, WorkItem } from '@acc/core';
-import { DEFAULT_ASK_HUMAN_IF, formatHandoff, HANDOFF_TEMPLATE, LIFECYCLE_LABELS, ruleEnabled, RULE_NAMES } from '@acc/core';
+import { DEFAULT_ASK_HUMAN_IF, formatHandoff, HANDOFF_TEMPLATE, LIFECYCLE_LABELS, ruleEnabled, RULE_NAMES, isManualRelay } from '@acc/core';
 import { safeName } from './vault.ts';
 
 export interface NoteLinks {
@@ -103,7 +103,7 @@ export function briefNote(cfg: ControlCenterConfig, s: ControlState, L: NoteLink
     const nowItem = nowA ? s.workItems[nowA.workItemId] : null;
     const run = a.activeRunIds.map((id) => s.runs[id]).find(Boolean);
     const next = a.queue.next.map((id) => s.workItems[s.assignments[id]?.workItemId]?.key).filter(Boolean).join(', ');
-    const model = a.config.adapter === 'relay' ? 'in its app' : (a.models.current ?? (a.config.model === 'newest' ? (a.models.newest ?? `newest ${a.config.model_family ?? ''}`.trim()) : a.config.model));
+    const model = isManualRelay(a.config) ? 'in its app' : (a.models.current ?? (a.config.model === 'newest' ? (a.models.newest ?? `newest ${a.config.model_family ?? ''}`.trim()) : a.config.model));
     lines.push(`| ${a.config.name} | ${a.status}${a.limitedUntil ? ' (usage limit)' : ''}${a.pausedReason ? ` (paused: ${a.pausedReason})` : ''} | ${nowItem ? `${nowItem.key ? L.link(L.issue(nowItem.key), nowItem.key) : ''} ${nowItem.title}${run?.startedAt ? ` (${ago(run.startedAt, now)})` : ''}` : '-'} | ${next || '-'} | ${model} |`);
   }
 

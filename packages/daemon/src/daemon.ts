@@ -40,6 +40,7 @@ import {
   SYSTEM,
   transitionPath,
   type PreflightResult,
+  isManualRelay,
 } from '@acc/core';
 import { createTracker, type TrackerAdapter } from './adapters/trackers/index.ts';
 import { ProjectDocker } from './docker.ts';
@@ -446,7 +447,7 @@ export class Daemon {
     this.commit([{ type: 'agent.probed', agentId, data: r }]);
     const a = this.state.agents[agentId];
     const open = (k: string) => `${agentId}:${k}`;
-    if (a.config.adapter !== 'relay' && (a.auth.state === 'expired' || a.auth.state === 'not_installed')) {
+    if (!isManualRelay(a.config) && (a.auth.state === 'expired' || a.auth.state === 'not_installed')) {
       this.alert({ kind: 'auth', severity: 'critical', agentId, message: `${a.config.name}: ${a.auth.state.replace('_', ' ')}${a.auth.fix ? `: ${a.auth.fix}` : ''}`, dedupeKey: open('auth') });
     } else this.resolveAlerts((x) => x.dedupeKey === open('auth'), 'signed in');
     if (a.billing.mode === 'metered' && !a.config.metered_opt_in) {
@@ -631,7 +632,7 @@ export class Daemon {
     if (!item) throw new CommandError(`unknown work item ${input.workItemId}`, 404);
     const agent = this.state.agents[input.agentId];
     if (!agent) throw new CommandError(`unknown agent ${input.agentId}`, 404);
-    const relay = agent.config.adapter === 'relay';
+    const relay = isManualRelay(agent.config);
     const requiredChecks = input.requiredChecks ?? this.config.project.required_checks ?? Object.keys(this.config.project.checks);
     const a: Assignment = {
       id: newId('as'),
@@ -665,7 +666,7 @@ export class Daemon {
     return this.state.assignments[a.id];
   }
 
-  assignmentText(a: Assignment, relay = this.state.agents[a.agentId]?.config.adapter === 'relay'): string {
+  assignmentText(a: Assignment, relay = isManualRelay(this.state.agents[a.agentId]?.config ?? { adapter: 'relay' })): string {
     const item = this.state.workItems[a.workItemId];
     const agent = this.state.agents[a.agentId];
     if (a.kind === 'review' && a.review) return this.reviewMerge.reviewText(a, relay) + this.designer.prompt(a) + workflowPrompt(a);
@@ -809,7 +810,7 @@ export class Daemon {
         events.push({ type: 'agent.queue_set', actor, agentId: from.id, data: { now: from.queue.now, next: from.queue.next.filter((x) => x !== id) } });
         const patch = { agentId, prompt: '', promptEdited: false, skills: this.skillLib.freeze(agentId, a.workItemId) };
         const moved = { ...a, ...patch };
-        patch.prompt = this.assignmentText(moved, agent.config.adapter === 'relay');
+        patch.prompt = this.assignmentText(moved, isManualRelay(agent.config));
         events.push({ type: 'assignment.updated', actor, assignmentId: id, agentId, workItemId: a.workItemId, data: { patch: { ...patch, preflight: null, model: null } } });
       }
       if (a.position !== 'next') {

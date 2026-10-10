@@ -16,7 +16,7 @@ import type {
   CanvasFrame, CanvasGate, CanvasGraph, CanvasLayout, CanvasShowWhen, CanvasSketch, ControlState, GraphNode, GraphNodeType, PortSpec, PortType, Workflow, WorkflowLink, WorkflowTaskStatus,
 } from '@acc/core';
 import {
-  canvasLinkId, compileSketch, DEFAULT_JEV_EVIDENCE_BYTES, DEFAULT_SHOW_WHEN, deriveGraph, EFFORTS, linkBodyFor, linkMatches, emptyCanvas, frameVisible, isWorkflowLocked, mockGate, NODE_SPECS, NODE_TYPES, nodeData, normalizeGraph, portSpec,
+  canvasLinkId, compileSketch, DEFAULT_JEV_EVIDENCE_BYTES, DEFAULT_SHOW_WHEN, deriveGraph, EFFORTS, isManualRelay, linkBodyFor, linkMatches, emptyCanvas, frameVisible, isWorkflowLocked, mockGate, NODE_SPECS, NODE_TYPES, nodeData, normalizeGraph, portSpec,
   sketchFromWorkflow, stepTaskId, validateWorkflow, workflowAttention, workflowProgress,
 } from '@acc/core';
 import { Badge, ErrorLine, useAction } from '../components/common';
@@ -940,7 +940,7 @@ function NodeEditor({ state, model: m, node: n, editable, patch, onDesign, busy,
     case 'agent': {
       const a = state.agents[String(d.agentId)];
       return <div className="col" style={{ gap: 8 }}>
-        <label className="col"><span className="small muted">Agent</span><select disabled={dis} value={String(d.agentId ?? '')} onChange={e => patch({ agentId: e.target.value })}><option value="">Choose an agent…</option>{Object.values(state.agents).map(x => <option key={x.id} value={x.id} disabled={x.config.enabled === false}>{x.config.name}{x.config.mode === 'coordinator-only' ? ' (plans only)' : ''}{x.config.adapter === 'relay' ? ' (relay)' : ''}</option>)}</select></label>
+        <label className="col"><span className="small muted">Agent</span><select disabled={dis} value={String(d.agentId ?? '')} onChange={e => patch({ agentId: e.target.value })}><option value="">Choose an agent…</option>{Object.values(state.agents).map(x => <option key={x.id} value={x.id} disabled={x.config.enabled === false}>{x.config.name}{x.config.mode === 'coordinator-only' ? ' (plans only)' : ''}{isManualRelay(x.config) ? ' (relay)' : ''}</option>)}</select></label>
         <label className="col"><span className="small muted">Model (empty = the agent's configured model)</span><input disabled={dis} value={String(d.model ?? '')} placeholder={a?.config.model ?? 'default'} onChange={e => patch({ model: e.target.value })} /></label>
         <label className="col"><span className="small muted">Effort</span><select disabled={dis} value={String(d.effort ?? '')} onChange={e => patch({ effort: e.target.value || null })}><option value="">Default</option>{EFFORTS.map(x => <option key={x} value={x}>{x}</option>)}</select></label>
         <span className="small faint">Runs → a step's Agent input. Talks with → another Agent lets them consult each other in this workflow. Skills and connectors plugged in here apply to every step this agent runs.</span>

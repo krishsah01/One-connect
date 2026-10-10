@@ -13,6 +13,7 @@ export * from './reducer.ts';
 export * from './template.ts';
 export * from './testOutput.ts';
 export * from './text.ts';
+export * from './adapterProfiles.ts';
 export * from './analytics.ts';
 export * from './capacity.ts';
 export * from './design.ts';

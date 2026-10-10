@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { useEffect, useState, type ReactNode } from 'react';
 import type { AgentState, Approval, UsageInfo } from '@acc/core';
+import { isManualRelay } from '@acc/core';
 import { post } from '../lib/api';
 import { ago, hue, initials, type Tone } from '../lib/format';
 
@@ -52,7 +53,7 @@ export function UsageMeter({ usage }: { usage: UsageInfo }) {
 }
 
 export function BillingBadge({ agent }: { agent: AgentState }) {
-  if (agent.config.adapter === 'relay') return <Badge tone="idle">relay</Badge>;
+  if (isManualRelay(agent.config)) return <Badge tone="idle">relay</Badge>;
   if (agent.config.billing === 'local') return <Badge tone="ok" title={`${agent.config.provider} on this machine: no cost`}>local model</Badge>;
   if (agent.config.metered_opt_in) return <Badge tone="crit" title={`${agent.config.provider}: pay per token${agent.config.budget_usd_per_day ? `, stop threshold $${agent.config.budget_usd_per_day}/day; in-flight usage can exceed it` : ', no daily stop threshold'}`}>METERED{agent.config.budget_usd_per_day ? ` · threshold $${agent.config.budget_usd_per_day}/day` : ''}</Badge>;
   if (agent.billing.mode === 'metered') return <Badge tone="crit" title={agent.billing.source}>metered: blocked</Badge>;

@@ -4,7 +4,7 @@
 // They never downgrade a model and never enable paid usage.
 import { lookup } from 'node:dns/promises';
 import type { EventEnvelope, Run } from '@acc/core';
-import { isActiveRun, subscriptionPeers, SYSTEM } from '@acc/core';
+import { isActiveRun, subscriptionPeers, SYSTEM, isManualRelay } from '@acc/core';
 import { adapterFor } from './adapters/agents/index.ts';
 import { clampPollSeconds } from './adapters/hosts/webhook.ts';
 import type { Daemon } from './daemon.ts';
@@ -142,7 +142,7 @@ export class Rules {
   private reassignSuggestion(run: Run) {
     const d = this.d;
     const ids = Object.values(d.state.agents)
-      .filter((a) => a.id !== run.agentId && a.config.mode !== 'coordinator-only' && d.agentFree(a.id) && (a.config.adapter === 'relay' || (a.auth.state === 'logged_in' && a.billing.mode === 'subscription')))
+      .filter((a) => a.id !== run.agentId && a.config.mode !== 'coordinator-only' && d.agentFree(a.id) && (isManualRelay(a.config) || (a.auth.state === 'logged_in' && a.billing.mode === 'subscription')))
       .sort((a, b) => a.queue.next.length - b.queue.next.length)
       .map((a) => a.id);
     return { kind: 'reassign' as const, agentIds: ids, note: ids.length ? 'agents with capacity on included usage' : 'no other agent has capacity right now' };

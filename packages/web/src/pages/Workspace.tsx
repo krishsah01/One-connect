@@ -9,7 +9,7 @@ import { DockerWorkbench } from '../components/DockerWorkbench';
 import { shellJoin } from '@acc/core';
 import { isDesktop, useActiveProject } from '../lib/desktop';
 import { post } from '../lib/api';
-import { LOGIN_ARGS, loginBinaryPath, loginBinaryStaleReason } from '../lib/onboarding';
+import { loginArgs, loginBinaryPath, loginBinaryStaleReason } from '../lib/onboarding';
 
 interface Session { id: string; label: string; exited: boolean; exitCode?: number | null; exitSignal?: string | null; outputEnded?: boolean; readFailed?: boolean }
 interface Opening { kind: 'shell' | 'login'; agentId?: string; assignmentId?: string; initialInput?: string; nonce: number }
@@ -70,12 +70,12 @@ export function Workspace({ state, demo = false }: { state: ControlState; demo?:
 export function ProjectTerminals({ state, command, demo }: { state: ControlState; command: Command | null; demo: boolean }) {
   const project = useActiveProject()?.project ?? '';
   const [mode, setMode] = useState<'shell' | 'login'>('shell');
-  const loginAgents = Object.values(state.agents).filter(a => a.config.provider === 'subscription' && a.config.enabled !== false && LOGIN_ARGS[a.config.adapter]);
+  const loginAgents = Object.values(state.agents).filter(a => a.config.provider === 'subscription' && a.config.enabled !== false && loginArgs(a.config.adapter));
   const [agent, setAgent] = useState('');
   const chosenAgent = loginAgents.find(a => a.id === agent) ?? loginAgents[0];
   const loginStale = chosenAgent ? loginBinaryStaleReason(chosenAgent) : null;
   const loginBinary = chosenAgent ? loginBinaryPath(chosenAgent) : null;
-  const loginCommand = chosenAgent && loginBinary ? shellJoin([loginBinary, ...LOGIN_ARGS[chosenAgent.config.adapter]]) : null;
+  const loginCommand = chosenAgent && loginBinary ? shellJoin([loginBinary, ...(loginArgs(chosenAgent.config.adapter) ?? [])]) : null;
   const [assignment, setAssignment] = useState('');
   const worktrees = Object.values(state.assignments).filter(a => a.worktree);
   const chosenAssignment = worktrees.find(a => a.id === assignment);

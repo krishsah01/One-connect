@@ -3,20 +3,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { AgentState, BinaryInfo, BillingInfo, ControlState, Run } from '@acc/core';
-import { RULE_NAMES, ruleEnabled, sharedCapacity } from '@acc/core';
+import { isManualRelay, RULE_NAMES, ruleEnabled, sharedCapacity, shellJoin } from '@acc/core';
 import { Badge, BillingBadge, Copy, ErrorLine, Toggle, UsageMeter, useAction } from '../components/common';
 import { api, post } from '../lib/api';
 import { ago } from '../lib/format';
 import { isDesktop, useActiveProject } from '../lib/desktop';
 import { useOnline } from '../lib/offline';
-import { shellJoin } from '@acc/core';
 import { JevSettings } from '../components/Jev';
 import {
   agentNewerBinary,
   AUTH_LABEL,
   AUTH_TONE,
   connectionGuidance,
-  LOGIN_ARGS,
+  loginArgs,
   loginBinaryPath,
   loginBinaryStaleReason,
   vendorLoginBlockedReason,
@@ -34,7 +33,7 @@ interface Vendor {
 }
 
 function LoginAction({ adapter, binary, project, name, agentId, demo, blocked }: { adapter: string; binary?: string | null; project: string; name: string; agentId?: string; demo?: boolean; blocked?: string | null }) {
-  const args = LOGIN_ARGS[adapter];
+  const args = loginArgs(adapter);
   if (!args) return null;
   if (demo) return <p className="small muted">The offline demo uses sample connections. Add a real project to sign in to your account.</p>;
   if (blocked) return <p className="small muted">{blocked}</p>;
@@ -106,7 +105,7 @@ export function AgentsSetup({ state, tracker, demo = false }: { state: ControlSt
               {a.auth.fix && <><span>Guidance</span><span>{a.auth.fix}</span></>}
               <span>Billing</span><BillingLine b={a.billing} />
               <span>Shared capacity</span><span>{sharedCapacity(state.agents, a.id).group ?? 'Separate API/local connection'}</span>
-              <span>Agent binary</span><span className="mono">{a.binary ? `${a.binary.path} ${a.binary.version ?? ''}` : a.config.adapter === 'relay' ? 'Manual relay' : 'Not checked or not found'}</span>
+              <span>Agent binary</span><span className="mono">{a.binary ? `${a.binary.path} ${a.binary.version ?? ''}` : isManualRelay(a.config) ? 'Manual relay' : 'Not checked or not found'}</span>
               <span>Models</span><span>{a.models.available.filter(m => !m.hidden).length} available · newest <code>{a.models.newest ?? 'not discovered'}</code></span>
             </div>{a.binaryCandidates.filter(c => c.path !== a.binary?.path).map(c => <div key={c.path} className="small mono setup-command">{c.path} {c.version}{c.prerelease && <Badge tone="warn">prerelease</Badge>}</div>)}{a.billing.notes?.map(note => <p key={note} className="small muted">{note}</p>)}</details>
             <div className="row wrap setup-agent-actions"><Link className="btn sm" to={`/agents/${encodeURIComponent(a.id)}`}>Output &amp; approvals</Link>{latest && <Link className="btn sm" to={`/runs/${encodeURIComponent(latest.id)}`}>Full latest output</Link>}{latest && <Link className="small" to={`/board?item=${encodeURIComponent(latest.workItemId)}`}>Work item</Link>}</div>

@@ -2,7 +2,7 @@
 // Onboarding / probe: which vendor binaries exist, which one is pinned, login state, billing
 // mode, model inventory and (where exposed) included usage. Never touches credentials.
 import type { AgentState, BinaryInfo, ControlEventData } from '@acc/core';
-import { selectNewestModel } from '@acc/core';
+import { selectNewestModel, isManualRelay } from '@acc/core';
 import { chooseBinary, detectBinaries, newerCandidate } from './adapters/agents/detect.ts';
 import { meteredVarsPresent, sanitizeEnv } from './adapters/agents/env.ts';
 import { adapterFor } from './adapters/agents/index.ts';
@@ -17,7 +17,7 @@ export async function probeAgent(agent: AgentState, baseEnv: NodeJS.ProcessEnv, 
   const cfg = agent.config;
   const adapter = adapterFor(cfg.adapter);
   const meteredVars = meteredVarsPresent(cfg, baseEnv);
-  if (cfg.adapter === 'relay') {
+  if (isManualRelay(cfg)) {
     return {
       auth: await adapter.authStatus({ binary: '', agent: cfg, env: baseEnv }),
       billing: await adapter.billingMode({ binary: '', agent: cfg, env: baseEnv }),

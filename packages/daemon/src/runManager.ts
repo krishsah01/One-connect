@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Actor, AgentState, Assignment, Evidence, ExitReason, Handoff, NewEvent, Run, RunState, TestCounts } from '@acc/core';
-import { agentActor, branchName, formatHandoff, HUMAN, isActiveRun, newId, outOfScope, parseHandoff, redact, shellQuote, slugify, SYSTEM } from '@acc/core';
+import { agentActor, branchName, formatHandoff, HUMAN, isActiveRun, isManualRelay, newId, outOfScope, parseHandoff, redact, shellQuote, slugify, SYSTEM } from '@acc/core';
 import { CURSOR_MCP_FILE } from './adapters/agents/cursor.ts';
 import { sanitizeEnv } from './adapters/agents/env.ts';
 import { classifyFailure, type Failure } from './adapters/agents/failures.ts';
@@ -110,7 +110,7 @@ export class RunManager {
   }
 
   binaryCheck(agent: AgentState): { status: 'pass' | 'warn' | 'fail'; message: string } | undefined {
-    if (agent.config.adapter === 'relay') return undefined;
+    if (isManualRelay(agent.config)) return undefined;
     if (!agent.binary) return { status: 'fail', message: 'no vendor binary found; install the official CLI and re-probe' };
     if (!fs.existsSync(agent.binary.path)) return { status: 'fail', message: `pinned binary ${agent.binary.path} no longer exists; re-probe` };
     if (agent.config.adapter === 'opencode-server') {
@@ -204,7 +204,7 @@ export class RunManager {
       t.outbox,
     );
 
-    if (agent.config.adapter === 'relay') {
+    if (isManualRelay(agent.config)) {
       d.commit([{ type: 'run.state', ...refs, data: { state: 'waiting-for-input', reason: 'paste the prompt into the app, then paste its reply back' } }]);
       return runId;
     }
@@ -631,7 +631,7 @@ export class RunManager {
     const ctx = this.getCtx(run);
     ctx.stopRequested = { reason, kind, pause };
     this.d.commit([{ type: 't.system', actor, agentId: run.agentId, runId, workItemId: run.workItemId, assignmentId: run.assignmentId, data: { text: `${pause ? 'pause' : kind === 'killed' ? 'kill' : 'stop'} requested by ${actor.id}: ${reason}` } }]);
-    if (run.adapter === 'relay' || !this.supervisor.info(runId)) {
+    if (isManualRelay(run) || !this.supervisor.info(runId)) {
       await this.finalize(runId, { code: null, signal: null });
       return;
     }
@@ -710,7 +710,7 @@ export class RunManager {
   /** Relay agents: the human pastes the app's reply; it must contain a handoff block. */
   async relayResult(runId: string, text: string, actor: Actor = HUMAN): Promise<Handoff> {
     const run = this.d.state.runs[runId];
-    if (!run || run.adapter !== 'relay') throw new CommandError('not a relay run', 400);
+    if (!run || !isManualRelay(run)) throw new CommandError('not a relay run', 400);
     if (!isActiveRun(run)) throw new CommandError('run already ended', 409);
     const handoff = parseHandoff(text, 'relay_paste');
     if (!handoff) throw new CommandError('no handoff block found in the pasted reply (it needs at least a "Done:" line under "### Handoff")', 422);
@@ -763,7 +763,7 @@ export class RunManager {
   recoverAll(): void {
     for (const run of Object.values(this.d.state.runs)) {
       if (!isActiveRun(run)) continue;
-      if (run.adapter === 'relay') continue; // waiting for a paste; nothing to reattach
+      if (isManualRelay(run)) continue; // waiting for a paste; nothing to reattach
       const mcpFile = path.join(this.supervisor.runDir(run.id), 'mcp.json');
       try {
         const { token } = JSON.parse(fs.readFileSync(mcpFile, 'utf8')) as { token: string };

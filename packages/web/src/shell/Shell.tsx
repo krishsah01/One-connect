@@ -10,6 +10,7 @@ import { post } from '../lib/api';
 import { canMutate } from '../lib/remote';
 import { useOnline } from '../lib/offline';
 import { isDesktop } from '../lib/desktop';
+import { needsAgentConnection } from '../lib/onboarding';
 import { BrowserNotifier, OfflineBanner } from '../components/PhoneShell';
 import { Icon, type IconName } from './icons';
 import { BottomPanel, readPanelPrefs, savePanelPrefs, type PanelPrefs } from './BottomPanel';
@@ -114,7 +115,7 @@ export function Shell({ state, meta, conn, projectSwitcher }: { state: ControlSt
   const critical = Object.values(state.alerts).filter(a => !a.resolvedAt && a.severity === 'critical').length;
   const inbox = approvals + decisions + critical;
   const enabledAgents = Object.values(state.agents).filter(a => a.config.enabled !== false);
-  const needsConnection = enabledAgents.length === 0 || enabledAgents.some(a => a.config.provider === 'subscription' && a.config.adapter !== 'relay' && a.auth.state !== 'logged_in');
+  const needsConnection = needsAgentConnection(Object.values(state.agents));
   const name = state.project?.name ?? 'this project';
 
   return (

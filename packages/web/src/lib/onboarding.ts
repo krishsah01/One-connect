@@ -1,15 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Shared onboarding guidance for Agents setup and the project terminal. Keeps login argv and
 // connection copy in one place so the UI never executes vendor auth.fix strings automatically.
-import type { AgentState, AuthStatus, BinaryInfo } from '@acc/core';
-import { compareVersions } from '@acc/core';
+import type { AdapterProfile, AgentState, AuthStatus, BinaryInfo } from '@acc/core';
+import { ADAPTER_PROFILES, compareVersions, isManualRelay } from '@acc/core';
 
-/** Official vendor login argv only. Never route arbitrary auth.fix text into a terminal. */
-export const LOGIN_ARGS: Record<string, string[]> = {
-  'codex-cli': ['login'],
-  'claude-headless': ['auth', 'login'],
-  'cursor-agent-cli': ['login'],
-};
+/**
+ * Official vendor login argv only (from the shared adapter profile), or null. Never route
+ * arbitrary auth.fix text into a terminal.
+ */
+export function loginArgs(adapter: string): readonly string[] | null {
+  const profiles: Readonly<Record<string, AdapterProfile>> = ADAPTER_PROFILES;
+  return Object.hasOwn(profiles, adapter) ? profiles[adapter].loginArgs : null;
+}
+
+/** Enabled agents are missing, or a subscription agent that runs here is not signed in. */
+export function needsAgentConnection(agents: readonly AgentState[]): boolean {
+  const enabled = agents.filter((a) => a.config.enabled !== false);
+  return enabled.length === 0 || enabled.some((a) => a.config.provider === 'subscription' && !isManualRelay(a.config) && a.auth.state !== 'logged_in');
+}
 
 export const AUTH_TONE: Record<AuthStatus['state'], 'ok' | 'crit' | 'warn'> = {
   logged_in: 'ok',
@@ -53,7 +61,7 @@ export function connectionGuidance(agent: AgentState): string {
   if (newer) {
     return `A newer CLI is installed at ${newer.path}${newer.version ? ` (${newer.version})` : ''}. Re-check this agent or pin that binary in Edit agent before signing in or dispatching.`;
   }
-  if (agent.config.adapter === 'relay') {
+  if (isManualRelay(agent.config)) {
     return 'Manual relay uses another app. Choose an official CLI in Edit agent to keep supported runs and output inside One Connect.';
   }
   if (agent.config.provider !== 'subscription') {
@@ -76,7 +84,7 @@ export function connectionGuidance(agent: AgentState): string {
 
 /** Why an installed-tool login action is unavailable before agent setup. */
 export function vendorLoginBlockedReason(vendor: { adapter: string; candidates: BinaryInfo[]; configuredAgents: string[] }): string | null {
-  if (!LOGIN_ARGS[vendor.adapter]) return 'This adapter has no native login command.';
+  if (!loginArgs(vendor.adapter)) return 'This adapter has no native login command.';
   if (!vendor.candidates.length) return 'Install this runtime using the official vendor guide, then scan installed tools again.';
   if (!vendor.configuredAgents.length) {
     return 'No agent uses this runtime yet. Create an agent and select its binary in Edit agent before preparing sign-in.';

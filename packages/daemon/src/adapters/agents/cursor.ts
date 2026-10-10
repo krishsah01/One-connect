@@ -5,6 +5,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import type { AuthStatus, BillingInfo, ModelInfo } from '@acc/core';
+import { ADAPTER_PROFILES } from '@acc/core';
 import { run } from '../../exec.ts';
 import { commandCompleted, endWithoutResult, relPath, stderrLine, summarize, textOf, tryJson } from './common.ts';
 import { classifyFailure } from './failures.ts';
@@ -18,10 +19,7 @@ export const CURSOR_MCP_FILE = '.cursor/mcp.json';
 
 export const cursorAdapter: VendorAdapter = {
   type: 'cursor-agent-cli',
-  displayName: 'Cursor Agent CLI',
-  installUrl: 'https://cursor.com/cli',
-  loginHint: 'Run `cursor-agent login` in a terminal and sign in with your Cursor account',
-  capabilities: { headless: true, streamingInput: false, resume: true, hostApprovals: false, mcp: true },
+  ...ADAPTER_PROFILES['cursor-agent-cli'],
   binaryNames: ['cursor-agent'],
   vendorHost: 'api2.cursor.sh',
   knownLocations: () => [path.join(os.homedir(), '.local', 'bin', 'cursor-agent')],
