@@ -18,7 +18,7 @@ packages/desktop/src-tauri/resources/
 .integration-backups/
 
 # Raw agent session logs and run status from delegated workers: local evidence only, never published.
-docs/verification/delegation/*.jsonl
-docs/verification/delegation/*.status.json
+docs/verification/delegation/**/*.jsonl
+docs/verification/delegation/**/*.status.json
 docs/verification/delegation/registry.json
 docs/verification/delegation/parallel-worker-workspaces.json

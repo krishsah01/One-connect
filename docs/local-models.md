@@ -22,6 +22,6 @@ The files are downloaded once into `.desktop-cache/models/` (ignored by git), pi
 
 1. `tar xzf .desktop-cache/models/llama-b11540-bin-macos-arm64.tar.gz -C .desktop-cache/models/llama` (create the `llama` folder first)
 2. `node scripts/desktop-models.mjs` verifies the files and stages them into `packages/desktop/src-tauri/resources/models/`.
-3. Build with a resources map that adds `resources/models/` next to `resources/engine.tar.gz` (see `CLAUDE_CANVAS_UI_HANDOFF.md`).
+3. Build with a resources map that adds `resources/models/` next to `resources/engine.tar.gz` (see `docs/verification/delegation/CLAUDE_CANVAS_UI_HANDOFF.md`).
 
 To use the embedding model for One Ask's semantic search, set the project's `context.docs` to `endpoint: http://127.0.0.1:11435` and `embedding_model: qwen3-embedding:0.6b`, then turn semantic search on.
