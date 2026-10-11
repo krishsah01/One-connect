@@ -3,6 +3,7 @@
 // and every other tool in a side drawer, the Settings dialog or the command palette. Existing
 // routes keep working; they now open over the canvas instead of replacing it.
 import { FirstRun } from '../components/FirstRun';
+import { UpdateBanner } from '../components/UpdateBanner';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { playSound } from '../lib/sounds';
 import { Link, matchPath, Route, Routes, useLocation, useNavigate } from 'react-router';
@@ -164,6 +165,7 @@ export function Shell({ state, meta, conn, projectSwitcher }: { state: ControlSt
       {meta.demo && <div className="shell-note tone-info">Offline demo · scripted agents and sample models · no subscription usage or live tracker connections</div>}
       {kill && <div className="shell-note tone-crit" role="status">Kill switch engaged{state.killSwitch.by ? ` by ${state.killSwitch.by}` : ''}: all runs stopped, dispatch blocked.</div>}
       {needsConnection && !meta.demo && <div className="shell-note tone-warn"><span><b>{enabledAgents.length ? 'An agent connection needs attention.' : 'Connect your first agent.'}</b> Choose an official runtime, sign in and check its connection before assigning work.</span><Link className="btn sm" to="/setup">Open agent setup</Link></div>}
+      <UpdateBanner />
       <OfflineBanner />
       <BrowserNotifier />
       <ErrorLine error={error} />

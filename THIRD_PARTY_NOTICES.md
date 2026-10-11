@@ -339,6 +339,7 @@ This conservative inventory includes build-time crates. Each crate retains its o
 | [chrono](https://crates.io/crates/chrono/0.4.45) | 0.4.45 | MIT OR Apache-2.0 |
 | [cookie](https://crates.io/crates/cookie/0.18.2) | 0.18.2 | MIT OR Apache-2.0 |
 | [core-foundation](https://crates.io/crates/core-foundation/0.10.1) | 0.10.1 | MIT OR Apache-2.0 |
+| [core-foundation](https://crates.io/crates/core-foundation/0.9.4) | 0.9.4 | MIT OR Apache-2.0 |
 | [core-foundation-sys](https://crates.io/crates/core-foundation-sys/0.8.7) | 0.8.7 | MIT OR Apache-2.0 |
 | [core-graphics](https://crates.io/crates/core-graphics/0.25.0) | 0.25.0 | MIT OR Apache-2.0 |
 | [core-graphics-types](https://crates.io/crates/core-graphics-types/0.2.0) | 0.2.0 | MIT OR Apache-2.0 |
@@ -375,9 +376,11 @@ This conservative inventory includes build-time crates. Each crate retains its o
 | [embed-resource](https://crates.io/crates/embed-resource/3.0.12) | 3.0.12 | MIT |
 | [equivalent](https://crates.io/crates/equivalent/1.0.2) | 1.0.2 | Apache-2.0 OR MIT |
 | [erased-serde](https://crates.io/crates/erased-serde/0.4.10) | 0.4.10 | MIT OR Apache-2.0 |
+| [errno](https://crates.io/crates/errno/0.3.14) | 0.3.14 | MIT OR Apache-2.0 |
 | [fastrand](https://crates.io/crates/fastrand/2.5.0) | 2.5.0 | Apache-2.0 OR MIT |
 | [fdeflate](https://crates.io/crates/fdeflate/0.3.7) | 0.3.7 | MIT OR Apache-2.0 |
 | [filedescriptor](https://crates.io/crates/filedescriptor/0.8.3) | 0.8.3 | MIT |
+| [filetime](https://crates.io/crates/filetime/0.2.29) | 0.2.29 | MIT/Apache-2.0 |
 | [find-msvc-tools](https://crates.io/crates/find-msvc-tools/0.1.14) | 0.1.14 | MIT OR Apache-2.0 |
 | [flate2](https://crates.io/crates/flate2/1.1.10) | 1.1.10 | MIT OR Apache-2.0 |
 | [fnv](https://crates.io/crates/fnv/1.0.7) | 1.0.7 | Apache-2.0 / MIT |
@@ -440,6 +443,7 @@ This conservative inventory includes build-time crates. Each crate retains its o
 | [markup5ever](https://crates.io/crates/markup5ever/0.39.0) | 0.39.0 | MIT OR Apache-2.0 |
 | [memchr](https://crates.io/crates/memchr/2.8.3) | 2.8.3 | Unlicense OR MIT |
 | [mime](https://crates.io/crates/mime/0.3.17) | 0.3.17 | MIT OR Apache-2.0 |
+| [minisign-verify](https://crates.io/crates/minisign-verify/0.3.0) | 0.3.0 | MIT |
 | [miniz_oxide](https://crates.io/crates/miniz_oxide/0.8.9) | 0.8.9 | MIT OR Zlib OR Apache-2.0 |
 | [miniz_oxide](https://crates.io/crates/miniz_oxide/0.9.1) | 0.9.1 | MIT OR Zlib OR Apache-2.0 |
 | [mio](https://crates.io/crates/mio/1.2.4) | 1.2.4 | MIT |
@@ -456,10 +460,12 @@ This conservative inventory includes build-time crates. Each crate retains its o
 | [objc2-exception-helper](https://crates.io/crates/objc2-exception-helper/0.1.1) | 0.1.1 | Zlib OR Apache-2.0 OR MIT |
 | [objc2-foundation](https://crates.io/crates/objc2-foundation/0.3.2) | 0.3.2 | MIT |
 | [objc2-io-surface](https://crates.io/crates/objc2-io-surface/0.3.2) | 0.3.2 | Zlib OR Apache-2.0 OR MIT |
+| [objc2-osa-kit](https://crates.io/crates/objc2-osa-kit/0.3.2) | 0.3.2 | Zlib OR Apache-2.0 OR MIT |
 | [objc2-quartz-core](https://crates.io/crates/objc2-quartz-core/0.3.2) | 0.3.2 | Zlib OR Apache-2.0 OR MIT |
 | [objc2-web-kit](https://crates.io/crates/objc2-web-kit/0.3.2) | 0.3.2 | Zlib OR Apache-2.0 OR MIT |
 | [once_cell](https://crates.io/crates/once_cell/1.21.4) | 1.21.4 | MIT OR Apache-2.0 |
 | [option-ext](https://crates.io/crates/option-ext/0.2.0) | 0.2.0 | MPL-2.0 |
+| [osakit](https://crates.io/crates/osakit/0.3.1) | 0.3.1 | MIT OR Apache-2.0 |
 | [parking_lot](https://crates.io/crates/parking_lot/0.12.5) | 0.12.5 | MIT OR Apache-2.0 |
 | [parking_lot_core](https://crates.io/crates/parking_lot_core/0.9.12) | 0.9.12 | MIT OR Apache-2.0 |
 | [percent-encoding](https://crates.io/crates/percent-encoding/2.3.2) | 2.3.2 | MIT OR Apache-2.0 |
@@ -492,11 +498,14 @@ This conservative inventory includes build-time crates. Each crate retains its o
 | [regex-automata](https://crates.io/crates/regex-automata/0.4.18) | 0.4.18 | MIT OR Apache-2.0 |
 | [regex-syntax](https://crates.io/crates/regex-syntax/0.8.11) | 0.8.11 | MIT OR Apache-2.0 |
 | [reqwest](https://crates.io/crates/reqwest/0.12.28) | 0.12.28 | MIT OR Apache-2.0 |
+| [reqwest](https://crates.io/crates/reqwest/0.13.5) | 0.13.5 | MIT OR Apache-2.0 |
 | [ring](https://crates.io/crates/ring/0.17.14) | 0.17.14 | Apache-2.0 AND ISC |
 | [rustc_version](https://crates.io/crates/rustc_version/0.4.1) | 0.4.1 | MIT OR Apache-2.0 |
 | [rustc-hash](https://crates.io/crates/rustc-hash/2.1.3) | 2.1.3 | Apache-2.0 OR MIT |
+| [rustix](https://crates.io/crates/rustix/1.1.5) | 1.1.5 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT |
 | [rustls](https://crates.io/crates/rustls/0.23.45) | 0.23.45 | Apache-2.0 OR ISC OR MIT |
 | [rustls-pki-types](https://crates.io/crates/rustls-pki-types/1.15.1) | 1.15.1 | MIT OR Apache-2.0 |
+| [rustls-platform-verifier](https://crates.io/crates/rustls-platform-verifier/0.7.1) | 0.7.1 | MIT OR Apache-2.0 |
 | [rustls-webpki](https://crates.io/crates/rustls-webpki/0.103.15) | 0.103.15 | ISC |
 | [ryu](https://crates.io/crates/ryu/1.0.23) | 1.0.23 | Apache-2.0 OR BSL-1.0 |
 | [same-file](https://crates.io/crates/same-file/1.0.6) | 1.0.6 | Unlicense/MIT |
@@ -505,6 +514,8 @@ This conservative inventory includes build-time crates. Each crate retains its o
 | [schemars](https://crates.io/crates/schemars/1.2.2) | 1.2.2 | MIT |
 | [schemars_derive](https://crates.io/crates/schemars_derive/0.8.22) | 0.8.22 | MIT |
 | [scopeguard](https://crates.io/crates/scopeguard/1.2.0) | 1.2.0 | MIT OR Apache-2.0 |
+| [security-framework](https://crates.io/crates/security-framework/3.7.0) | 3.7.0 | MIT OR Apache-2.0 |
+| [security-framework-sys](https://crates.io/crates/security-framework-sys/2.17.0) | 2.17.0 | MIT OR Apache-2.0 |
 | [selectors](https://crates.io/crates/selectors/0.38.0) | 0.38.0 | MPL-2.0 |
 | [semver](https://crates.io/crates/semver/1.0.28) | 1.0.28 | MIT OR Apache-2.0 |
 | [serde](https://crates.io/crates/serde/1.0.229) | 1.0.229 | MIT OR Apache-2.0 |
@@ -540,15 +551,21 @@ This conservative inventory includes build-time crates. Each crate retains its o
 | [syn](https://crates.io/crates/syn/3.0.6) | 3.0.6 | MIT OR Apache-2.0 |
 | [sync_wrapper](https://crates.io/crates/sync_wrapper/1.0.2) | 1.0.2 | Apache-2.0 |
 | [synstructure](https://crates.io/crates/synstructure/0.14.0) | 0.14.0 | MIT |
+| [system-configuration](https://crates.io/crates/system-configuration/0.7.0) | 0.7.0 | MIT OR Apache-2.0 |
+| [system-configuration-sys](https://crates.io/crates/system-configuration-sys/0.6.0) | 0.6.0 | MIT OR Apache-2.0 |
 | [tao](https://crates.io/crates/tao/0.37.1) | 0.37.1 | Apache-2.0 |
+| [tar](https://crates.io/crates/tar/0.4.46) | 0.4.46 | MIT OR Apache-2.0 |
 | [tauri](https://crates.io/crates/tauri/2.12.1) | 2.12.1 | Apache-2.0 OR MIT |
 | [tauri-build](https://crates.io/crates/tauri-build/2.7.1) | 2.7.1 | Apache-2.0 OR MIT |
 | [tauri-codegen](https://crates.io/crates/tauri-codegen/2.7.1) | 2.7.1 | Apache-2.0 OR MIT |
 | [tauri-macros](https://crates.io/crates/tauri-macros/2.7.1) | 2.7.1 | Apache-2.0 OR MIT |
+| [tauri-plugin](https://crates.io/crates/tauri-plugin/2.7.1) | 2.7.1 | Apache-2.0 OR MIT |
+| [tauri-plugin-updater](https://crates.io/crates/tauri-plugin-updater/2.13.3) | 2.13.3 | Apache-2.0 OR MIT |
 | [tauri-runtime](https://crates.io/crates/tauri-runtime/2.12.1) | 2.12.1 | Apache-2.0 OR MIT |
 | [tauri-runtime-wry](https://crates.io/crates/tauri-runtime-wry/2.12.1) | 2.12.1 | Apache-2.0 OR MIT |
 | [tauri-utils](https://crates.io/crates/tauri-utils/2.10.1) | 2.10.1 | Apache-2.0 OR MIT |
 | [tauri-winres](https://crates.io/crates/tauri-winres/0.3.6) | 0.3.6 | MIT |
+| [tempfile](https://crates.io/crates/tempfile/3.27.0) | 3.27.0 | MIT OR Apache-2.0 |
 | [tendril](https://crates.io/crates/tendril/0.5.1) | 0.5.1 | MIT OR Apache-2.0 |
 | [thiserror](https://crates.io/crates/thiserror/1.0.69) | 1.0.69 | MIT OR Apache-2.0 |
 | [thiserror](https://crates.io/crates/thiserror/2.0.21) | 2.0.21 | MIT OR Apache-2.0 |
@@ -561,6 +578,7 @@ This conservative inventory includes build-time crates. Each crate retains its o
 | [tinyvec](https://crates.io/crates/tinyvec/1.13.3) | 1.13.3 | Zlib OR Apache-2.0 OR MIT |
 | [tokio](https://crates.io/crates/tokio/1.53.2) | 1.53.2 | MIT |
 | [tokio-rustls](https://crates.io/crates/tokio-rustls/0.26.6) | 0.26.6 | MIT OR Apache-2.0 |
+| [tokio-util](https://crates.io/crates/tokio-util/0.7.19) | 0.7.19 | MIT |
 | [toml](https://crates.io/crates/toml/1.1.6+spec-1.1.0) | 1.1.6+spec-1.1.0 | MIT OR Apache-2.0 |
 | [toml_datetime](https://crates.io/crates/toml_datetime/1.1.1+spec-1.1.0) | 1.1.1+spec-1.1.0 | MIT OR Apache-2.0 |
 | [toml_parser](https://crates.io/crates/toml_parser/1.1.3+spec-1.1.0) | 1.1.3+spec-1.1.0 | MIT OR Apache-2.0 |
@@ -591,6 +609,7 @@ This conservative inventory includes build-time crates. Each crate retains its o
 | [winnow](https://crates.io/crates/winnow/1.0.4) | 1.0.4 | MIT |
 | [writeable](https://crates.io/crates/writeable/0.6.4) | 0.6.4 | Unicode-3.0 |
 | [wry](https://crates.io/crates/wry/0.57.0) | 0.57.0 | Apache-2.0 OR MIT |
+| [xattr](https://crates.io/crates/xattr/1.6.1) | 1.6.1 | MIT OR Apache-2.0 |
 | [yoke](https://crates.io/crates/yoke/0.8.3) | 0.8.3 | Unicode-3.0 |
 | [yoke-derive](https://crates.io/crates/yoke-derive/0.8.4) | 0.8.4 | Unicode-3.0 |
 | [zerofrom](https://crates.io/crates/zerofrom/0.1.8) | 0.1.8 | Unicode-3.0 |
@@ -621,6 +640,14 @@ Selected Open Design resources are pinned at [53231d40b778d88eba23f35547bf99485d
 | Typography and content | 1 | Apache-2.0 |
 | Design system implementation | 1 | Apache-2.0 |
 | Visual critique | 1 | Apache-2.0 |
+| Structured design | 1 | Apache-2.0 |
+| Visual direction | 1 | Apache-2.0 |
+| Component architecture | 1 | Apache-2.0 |
+| Responsive layouts | 1 | Apache-2.0 |
+| Prototyping and motion | 1 | Apache-2.0 |
+| Forms, navigation and data | 1 | Apache-2.0 |
+| Localization readiness | 1 | Apache-2.0 |
+| React implementation | 1 | Apache-2.0 |
 
 ### Taste Skill upstream notice
 

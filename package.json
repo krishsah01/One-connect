@@ -27,6 +27,7 @@
     "desktop:prepare": "pnpm build && node scripts/desktop-prepare.mjs",
     "desktop:dev": "cd packages/desktop && tauri dev",
     "desktop:build": "pnpm desktop:prepare && cd packages/desktop && tauri build",
+    "desktop:dmg": "pnpm desktop:prepare && cd packages/desktop && tauri build --bundles app,dmg",
     "desktop:check": "cargo check --manifest-path packages/desktop/src-tauri/Cargo.toml --locked"
   },
   "devDependencies": {

@@ -1,22 +1,36 @@
 # SPDX-License-Identifier: Apache-2.0
-# Builds the macOS app and, when a release tag is given, attaches the zip to that GitHub Release.
-# Run it from the Actions tab. The bundle carries no vendor tools or credentials; it is unsigned, so
-# first launch needs right-click → Open (or `xattr -dr com.apple.quarantine "One Connect.app"`).
+# Builds the macOS app and its DMG installer, signs and notarizes them when the Apple secrets exist,
+# signs the auto-update bundle, and publishes everything to the GitHub Release for the tag.
+#
+#   Release: push a tag that matches the app version, e.g. `git tag v0.2.0 && git push origin v0.2.0`.
+#   Dry run: run this workflow from the Actions tab on a branch; the build is kept as an artifact.
+#
+# Secrets (all optional; see docs/release.md). Without the Apple ones the app is ad-hoc signed and
+# macOS asks the user to approve it once. Without the updater key no update feed is published.
+#   APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY (optional)
+#   APPLE_API_KEY (key ID), APPLE_API_ISSUER (issuer ID), APPLE_API_KEY_P8 (the .p8 file's text)
+#   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD (optional)
 name: Release
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Existing release tag to attach the build to (leave empty to only keep an artifact)'
-        required: false
-        default: ''
+      prerelease:
+        description: 'Mark the GitHub Release as a pre-release (only when run on a tag); pre-releases are not offered as updates'
+        type: boolean
+        default: true
 permissions:
   contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   macos:
     runs-on: macos-latest
     env:
-      RELEASE_TAG: ${{ inputs.tag }}
+      PRERELEASE: ${{ inputs.prerelease || false }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -25,21 +39,116 @@ jobs:
           node-version: 24
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm desktop:build
-      - name: Zip the app
+
+      - name: Version must match the tag
         run: |
-          cd packages/desktop/src-tauri/target/release/bundle/macos
-          ditto -c -k --sequesterRsrc --keepParent "One Connect.app" "One-Connect-macOS-$(uname -m).zip"
-          shasum -a 256 "One-Connect-macOS-$(uname -m).zip" > "One-Connect-macOS-$(uname -m).zip.sha256"
+          VERSION=$(node -p "require('./packages/desktop/src-tauri/tauri.conf.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match the app version $VERSION in tauri.conf.json"
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Signing setup
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          API_KEY: ${{ secrets.APPLE_API_KEY }}
+          API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          UPDATER_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$CERT" ]; then
+            KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+            KPASS=$(openssl rand -hex 24)
+            printf '%s' "$CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+            security create-keychain -p "$KPASS" "$KEYCHAIN"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN"
+            security unlock-keychain -p "$KPASS" "$KEYCHAIN"
+            security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+            rm -f "$RUNNER_TEMP/cert.p12"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KPASS" "$KEYCHAIN" >/dev/null
+            security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+            if [ -z "$IDENTITY" ]; then
+              IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | sed -nE 's/.*"(Developer ID Application:[^"]*)".*/\1/p' | head -1)
+            fi
+            if [ -z "$IDENTITY" ]; then echo "::error::No Developer ID Application identity in the imported certificate"; exit 1; fi
+            { echo "APPLE_SIGNING_IDENTITY=$IDENTITY"; echo "SIGNED=true"; } >> "$GITHUB_ENV"
+          else
+            echo "::warning::No Apple certificate secret: the app is ad-hoc signed and not notarized."
+            { echo "APPLE_SIGNING_IDENTITY=-"; echo "SIGNED=false"; } >> "$GITHUB_ENV"
+          fi
+          if [ -n "$CERT" ] && [ -n "$API_KEY_P8" ]; then
+            KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+            printf '%s\n' "$API_KEY_P8" > "$KEY_PATH"
+            chmod 600 "$KEY_PATH"
+            { echo "APPLE_API_KEY=$API_KEY"; echo "APPLE_API_ISSUER=$API_ISSUER"; echo "APPLE_API_KEY_PATH=$KEY_PATH"; echo "NOTARIZE=true"; } >> "$GITHUB_ENV"
+          else
+            echo "NOTARIZE=false" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$UPDATER_KEY" ]; then
+            { echo "TAURI_SIGNING_PRIVATE_KEY=$UPDATER_KEY"; echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATER_KEY_PASSWORD"; echo "UPDATER=true"; } >> "$GITHUB_ENV"
+          else
+            echo "::warning::No updater key secret: no update bundle or feed is published."
+            echo "UPDATER=false" >> "$GITHUB_ENV"
+          fi
+
+      - run: pnpm desktop:prepare
+
+      - name: Build the app and DMG
+        working-directory: packages/desktop
+        env:
+          # Lay out the DMG window (background, icon positions) on the CI runner too.
+          TAURI_BUNDLER_DMG_IGNORE_CI: 'true'
+        run: |
+          CONFIG='{}'
+          if [ "$UPDATER" = true ]; then CONFIG='{"bundle":{"createUpdaterArtifacts":true}}'; fi
+          ../../node_modules/.bin/tauri build --bundles app,dmg --config "$CONFIG"
+
+      - name: Sign, notarize and staple the DMG
+        if: env.SIGNED == 'true' && env.NOTARIZE == 'true'
+        run: |
+          DMG=$(ls packages/desktop/src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+          codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$DMG"
+          xcrun notarytool submit "$DMG" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" --wait
+          xcrun stapler staple "$DMG"
+          spctl -a -t open --context context:primary-signature -vv "$DMG"
+
+      - name: Collect release files
+        run: |
+          B=packages/desktop/src-tauri/target/release/bundle
+          mkdir -p out
+          cp "$(ls "$B"/dmg/*.dmg | head -1)" out/One-Connect-macOS-arm64.dmg
+          if [ "$UPDATER" = true ]; then
+            cp "$B/macos/One Connect.app.tar.gz" out/One-Connect-macOS-arm64.app.tar.gz
+            cp "$B/macos/One Connect.app.tar.gz.sig" out/One-Connect-macOS-arm64.app.tar.gz.sig
+          fi
+          (cd out && shasum -a 256 * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+
       - uses: actions/upload-artifact@v4
         with:
-          name: One-Connect-macOS
-          path: packages/desktop/src-tauri/target/release/bundle/macos/One-Connect-macOS-*.zip
-      - uses: softprops/action-gh-release@v2
-        if: env.RELEASE_TAG != ''
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          files: |
-            packages/desktop/src-tauri/target/release/bundle/macos/One-Connect-macOS-*.zip
-            packages/desktop/src-tauri/target/release/bundle/macos/One-Connect-macOS-*.zip.sha256
+          name: One-Connect-macOS-${{ env.VERSION }}
+          path: out/*
+
+      - name: Publish the GitHub Release
+        if: github.ref_type == 'tag'
+        run: |
+          FLAG=""
+          if [ "$PRERELEASE" = true ]; then FLAG="--prerelease"; fi
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "One Connect $VERSION" --generate-notes --verify-tag $FLAG
+          gh release upload "$GITHUB_REF_NAME" out/* --clobber
+
+      - name: Publish the update feed
+        if: github.ref_type == 'tag' && env.UPDATER == 'true' && env.PRERELEASE != 'true'
+        run: |
+          export SIG="$(cat out/One-Connect-macOS-arm64.app.tar.gz.sig)"
+          export URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/One-Connect-macOS-arm64.app.tar.gz"
+          export NOTES="https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME"
+          node -e 'const e=process.env;console.log(JSON.stringify({version:e.VERSION,notes:`Release notes: ${e.NOTES}`,pub_date:new Date().toISOString(),platforms:{"darwin-aarch64":{signature:e.SIG,url:e.URL}}},null,2))' > latest.json
+          cat latest.json
+          gh release view updates >/dev/null 2>&1 || gh release create updates --title "Update feed" --notes "Machine-readable update feed for the One Connect Mac app. Download the app from the latest release instead." --prerelease
+          gh release upload updates latest.json --clobber

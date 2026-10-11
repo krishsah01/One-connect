@@ -380,9 +380,34 @@ fn shutdown_all(state: &Desktop) {
     let deadline = Instant::now() + Duration::from_secs(5);
     for mut e in engines { while Instant::now() < deadline && e.child.try_wait().ok().flatten().is_none() { std::thread::sleep(Duration::from_millis(100)); } }
 }
+/// What an available update offers, for the dashboard's update banner.
+#[derive(serde::Serialize)]
+struct UpdateInfo { version: String, current: String, notes: Option<String>, date: Option<String> }
+
+/// Ask the signed update feed for a newer build. `None` when this build is current.
+#[tauri::command]
+async fn update_check(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
+    Ok(update.map(|u| UpdateInfo { version: u.version.clone(), current: u.current_version.clone(), notes: u.body.clone(), date: u.date.map(|d| d.to_string()) }))
+}
+
+/// Download, verify against the bundled public key, install, stop every project engine
+/// gracefully, then relaunch into the new version.
+#[tauri::command]
+async fn update_install(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?
+        .ok_or_else(|| "This build is already current.".to_string())?;
+    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+    if let Some(state) = app.try_state::<Desktop>() { shutdown_all(&state); }
+    app.restart();
+}
+
 fn main() {
     #[cfg(unix)] mock_file::run_mode();
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(mock_preview::Previews::default())
         .register_uri_scheme_protocol(mock_preview::SCHEME, mock_preview::response)
         .invoke_handler(|invoke: tauri::ipc::Invoke<tauri::Wry>| {
@@ -391,7 +416,7 @@ fn main() {
             if !mock_preview::dashboard_caller(invoke.message.webview_ref().label()) {
                 invoke.resolver.reject("Preview IPC denied"); return true;
             }
-            let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![mock_preview::open_mock_preview, desktop_bootstrap, daemon_request, projects_list, project_choose_folder, project_inspect, project_add, project_activate, project_start, project_stop, project_remove, projects_kill_all, project_clone_plan, project_clone_approve, project_init_plan, project_init_approve, choose_project, choose_vault, terminal::terminal_open, terminal::terminal_list, terminal::terminal_attach, terminal::terminal_write, terminal::terminal_resize, terminal::terminal_close];
+            let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![mock_preview::open_mock_preview, desktop_bootstrap, daemon_request, projects_list, project_choose_folder, project_inspect, project_add, project_activate, project_start, project_stop, project_remove, projects_kill_all, project_clone_plan, project_clone_approve, project_init_plan, project_init_approve, choose_project, choose_vault, terminal::terminal_open, terminal::terminal_list, terminal::terminal_attach, terminal::terminal_write, terminal::terminal_resize, terminal::terminal_close, update_check, update_install];
             handler(invoke)
         })
         .setup(|app| {

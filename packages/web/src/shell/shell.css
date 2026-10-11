@@ -107,3 +107,4 @@
 .shell .react-flow__controls-button { width: 32px; height: 32px; }
 .shell-label { font-weight: 600; }
 @media (max-width: 1100px) { .shell-label { display: none; } }
+.update-note .update-error { color: var(--crit-text); font-size: 12px; }

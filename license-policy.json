@@ -81,5 +81,9 @@
       "MPL-2.0"
     ]
   },
+  "additions": [
+    "LLVM-exception"
+  ],
+  "$additions": "SPDX license exceptions that only grant extra permissions to their base license (used as \"<license> WITH <exception>\"). LLVM-exception: rustix via tauri-plugin-updater, reviewed 2026-10-11.",
   "exceptions": []
 }

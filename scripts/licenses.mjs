@@ -35,11 +35,16 @@ function allowed(license, pkgName) {
   if (!allow) return { ok: false, why: `no compatibility list for project license ${own} in license-policy.json` };
   // Cargo also contains legacy slash-separated alternatives. AND requires every term;
   // grouping is preserved so permissive alternatives cannot mask an incompatible clause.
-  const tokens = license.replaceAll('/', ' OR ').match(/\(|\)|AND|OR|[\w.+-]+/g) ?? [];
+  const tokens = license.replaceAll('/', ' OR ').match(/\(|\)|AND|OR|WITH|[\w.+-]+/g) ?? [];
+  // "<license> WITH <exception>" only adds permissions to the base license, so it passes when the
+  // base license is allowed and the exception is on the reviewed list in license-policy.json.
+  const additions = policy.additions ?? [];
   let pos = 0;
   function term() {
     if (tokens[pos] === '(') { pos++; const v = or(); if (tokens[pos++] !== ')') throw new Error('Unclosed expression'); return v; }
-    return allow.includes(tokens[pos++]);
+    const base = allow.includes(tokens[pos++]);
+    if (tokens[pos] === 'WITH') { pos++; return additions.includes(tokens[pos++]) && base; }
+    return base;
   }
   function and() { let v = term(); while (tokens[pos] === 'AND') { pos++; const r = term(); v = v && r; } return v; }
   function or() { let v = and(); while (tokens[pos] === 'OR') { pos++; const r = and(); v = v || r; } return v; }

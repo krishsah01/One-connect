@@ -8,7 +8,7 @@ A local-first control center that runs a team of AI coding agents from different
 
 **[Website](https://krishsah01.github.io/One-connect/)** · **[Download for Mac](https://github.com/krishsah01/One-connect/releases/latest)** (Apple silicon, development preview) · [Docs](docs/) · [Design system](design/README.md)
 
-The download is unsigned for now: on first launch, right-click the app and choose Open. Nothing is installed on your behalf; the app's setup flow asks before preparing any vendor download, and you run each command yourself in the built-in terminal.
+Install it like any Mac app: open the DMG and drag One Connect into Applications. Installed copies update themselves after you confirm a restart. Until the app is signed and notarized, macOS blocks the first launch; open System Settings → Privacy & Security and choose **Open Anyway** once. Nothing is installed on your behalf: the app's setup flow asks before preparing any vendor download, and you run each command yourself in the built-in terminal. Maintainers: see [docs/release.md](docs/release.md).
 
 > **Status: development preview.** The daemon, event store, agent consoles, trackers, shared context, review/merge, Decisions and Release Cockpit have implementations and fixture coverage. Full live provider, phone, design and deployment acceptance remains in progress. See [current preview](docs/verification/current-preview.md) for the exact bundle and evidence, and [local engine checks](docs/verification/local-engines.md) for real Graphify, Docker and browser verification.
 

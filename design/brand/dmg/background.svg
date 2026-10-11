@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="420" viewBox="0 0 660 420">
+  <!-- DMG window background. Icons sit at (180,210) and (480,210); Finder draws their labels. -->
+  <rect width="660" height="420" fill="#f2f8f8"/>
+  <rect x="0" y="0" width="660" height="6" fill="#36dede"/>
+  <g transform="translate(286 52) scale(0.085) translate(-256 -256)">
+    <path d="M168 256 L344 136 M168 256 L344 376" stroke="#0f2b31" stroke-width="30" stroke-linecap="round" fill="none"/>
+    <circle cx="168" cy="256" r="66" fill="#36dede" stroke="#0f2b31" stroke-width="18"/>
+    <circle cx="344" cy="136" r="48" fill="#ffcf53" stroke="#0f2b31" stroke-width="18"/>
+    <circle cx="344" cy="376" r="48" fill="#fd736d" stroke="#0f2b31" stroke-width="18"/>
+  </g>
+  <text x="312" y="60" font-family="Avenir Next, Helvetica Neue, sans-serif" font-weight="700" font-size="20" letter-spacing="-0.4" fill="#0f2b31">One Connect</text>
+  <path d="M262 206 C 300 184, 360 184, 398 206" stroke="#0f2b31" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M386 196 L400 207 L384 214" stroke="#0f2b31" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="330" y="330" text-anchor="middle" font-family="Avenir Next, Helvetica Neue, sans-serif" font-weight="500" font-size="15" fill="#3e5a60">Drag One Connect into Applications</text>
+  <text x="330" y="354" text-anchor="middle" font-family="Avenir Next, Helvetica Neue, sans-serif" font-size="12" fill="#5d777c">Then open it from Launchpad or Spotlight.</text>
+</svg>

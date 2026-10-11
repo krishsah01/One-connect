@@ -3,10 +3,68 @@
   "productName": "One Connect",
   "version": "0.1.0",
   "identifier": "dev.agentcontrolcenter.desktop",
-  "build": { "frontendDist": "../../web/dist" },
-  "app": {
-    "windows": [{ "label": "main", "title": "One Connect", "width": 1440, "height": 900, "minWidth": 760, "minHeight": 560 }],
-    "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self' data:; object-src 'none'; frame-src 'none'" }
+  "build": {
+    "frontendDist": "../../web/dist"
   },
-  "bundle": { "active": true, "targets": ["app"], "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"], "resources": ["resources/engine.tar.gz"], "macOS": { "minimumSystemVersion": "12.0" } }
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "One Connect",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 760,
+        "minHeight": 560
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self' data:; object-src 'none'; frame-src 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [
+      "resources/engine.tar.gz"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "hardenedRuntime": true,
+      "dmg": {
+        "background": "dmg/background.png",
+        "windowSize": {
+          "width": 660,
+          "height": 420
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 210
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 210
+        }
+      }
+    },
+    "category": "DeveloperTool",
+    "shortDescription": "Run your AI coding agents as a team on your own subscriptions.",
+    "copyright": "Copyright 2026 The Agent Control Center Authors"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVFMUM4NTE3NEZFN0FBRjYKUldUMnF1ZFBGNFVjN3YxZkdjU3cvNk5kSFUvVFZWdE1KdWZkb2w4OG9jei9TSlkvZk9UV1EvV24K",
+      "endpoints": [
+        "https://github.com/krishsah01/One-connect/releases/download/updates/latest.json"
+      ]
+    }
+  }
 }
