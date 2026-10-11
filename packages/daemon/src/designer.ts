@@ -12,6 +12,7 @@ import {
 } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';
 import { DesignStudio } from './designStudio.ts';
+import { DesignDocuments } from './designDocuments.ts';
 
 const ROOT = fileURLToPath(new URL('../resources/designer/', import.meta.url));
 interface Skill extends DesignSkill { files: { path: string; sha256: string }[] }
@@ -30,7 +31,7 @@ const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 export const DESIGN_LABEL = /^(design|ui|mock|frontend|branding)$/i;
 /** Built-in sets for design work other than mock generation. Design-labelled tasks get the whole library. */
 export const SKILL_SETS = {
-  implementation: ['design-system-implementation', 'design-system-contract', 'accessible-product-ui', 'web-design-guidelines', 'playwright-cli'],
+  implementation: ['design-system-implementation', 'react-design-export', 'design-system-contract', 'accessible-product-ui', 'web-design-guidelines', 'playwright-cli'],
   review: ['visual-critique', 'accessible-product-ui', 'web-design-guidelines', 'playwright-cli', 'design-system-contract'],
 } as const;
 /** What each built-in is for, in one line, so the studio can explain a task's selection. */
@@ -46,6 +47,14 @@ export const SKILL_PURPOSE: Record<string, string> = {
   'typography-content': 'Hierarchy, scanning, labels and microcopy for product screens.',
   'design-system-implementation': 'Implement an approved contract and mock in application code.',
   'visual-critique': 'Independent review of one exact mock revision with honest evidence.',
+  'structured-design': 'Read structured designs in sections and propose typed changes for a person to apply.',
+  'visual-direction': 'Direction, palette, type, spacing, shape and motion foundations.',
+  'component-architecture': 'Reusable components with variants, states, props and slots, changed safely.',
+  'responsive-layouts': 'Flow layouts and breakpoint overrides for phone, tablet and desktop.',
+  'interaction-prototyping': 'Prototype flows, overlays, validation, sample data and motion.',
+  'forms-navigation-data': 'Forms, navigation, tables, lists and charts with complete states.',
+  'localization-readiness': 'Copy and layouts that survive translation and regional formats.',
+  'react-design-export': 'Implement an approved structured release with its React/TypeScript package.',
 };
 const DRAFT_KEY = /^(?:system|brief|refine:[A-Za-z0-9_-]{1,64}|review:[A-Za-z0-9_-]{1,64}:[0-9]{1,6}|source:[A-Za-z0-9_-]{1,64}:[A-Za-z0-9._/-]{1,200})$/;
 const DRAFT_BYTES = 600 * 1024;
@@ -57,14 +66,16 @@ export interface DesignDraft { key: string; value: unknown; savedAt: string; bas
 export class Designer {
   readonly d: Daemon;
   readonly studio: DesignStudio;
-  constructor(d: Daemon) { this.d = d; this.studio = new DesignStudio(d); }
+  readonly documents: DesignDocuments;
+  constructor(d: Daemon) { this.d = d; this.studio = new DesignStudio(d); this.documents = new DesignDocuments(d); }
 
   skills(): DesignSkill[] { return manifest.skills.map(({ files: _files, ...meta }) => meta); }
   hasSkill(id: string) { return manifest.skills.some(s => s.id === id); }
   /** Built-in skill ids a work item receives by its labels. */
   defaultSkillIds(item: Pick<WorkItem, 'labels'> | undefined): string[] {
     const labels = item?.labels ?? [];
-    const set = labels.some(l => /^design-implementation$/i.test(l)) ? SKILL_SETS.implementation : labels.some(l => /^design-review$/i.test(l)) ? SKILL_SETS.review : labels.some(l => DESIGN_LABEL.test(l)) ? manifest.skills.map(s => s.id) : [];
+    // Structured design requests get a focused set chosen per request (see DesignDocuments.aiJob).
+    const set = labels.some(l => /^design-implementation$/i.test(l)) ? SKILL_SETS.implementation : labels.some(l => /^design-review$/i.test(l)) ? SKILL_SETS.review : labels.some(l => /^design-document$/i.test(l)) ? ['structured-design', 'design-system-contract'] : labels.some(l => DESIGN_LABEL.test(l)) ? manifest.skills.map(s => s.id) : [];
     return set.filter(id => this.hasSkill(id));
   }
   selected(a: Assignment): DesignSkill[] {
@@ -145,7 +156,7 @@ export class Designer {
   /** Compact export for agents (MCP) and the legacy route. */
   exports(hash?: string) {
     const r = this.revision(hash);
-    return r ? { revision: r, markdown: designMarkdown(r), css: designCss(r.system), checks: designChecks(r.system), schema: isLegacyDesign(r.system) ? 1 : 2 } : null;
+    return r ? { revision: r, markdown: designMarkdown(r), css: designCss(r.system), checks: designChecks(r.system), schema: isLegacyDesign(r.system) ? 1 : r.system.schema } : null;
   }
   /** Everything generated from one revision, for the studio and handoff bundles. */
   fullExports(hash?: string) {

@@ -27,6 +27,8 @@ export interface PreflightInput {
   providerCheck?: { status: 'pass' | 'warn' | 'fail'; message: string };
   /** Human confirmation for paid settings the official CLI cannot expose, verified by the daemon. */
   subscriptionConfirmation?: { valid: boolean; message: string };
+  /** For assignments bound to an approved design: whether that exact approval still holds now. */
+  designBinding?: { status: 'pass' | 'fail'; message: string };
 }
 
 export function pickOptions(agent: AgentState, policies: Policy): PickOptions {
@@ -58,6 +60,7 @@ export function runPreflight(i: PreflightInput): PreflightResult {
   const relay = agent?.config.adapter === 'relay';
 
   add(i.killSwitch ? { id: 'kill_switch', label: 'Kill switch', status: 'fail', message: 'kill switch is engaged; release it to dispatch' } : { id: 'kill_switch', label: 'Kill switch', status: 'pass', message: 'not engaged' });
+  if (i.designBinding) add({ id: 'design_binding', label: 'Approved design', ...i.designBinding });
 
   if (!item) add({ id: 'issue', label: 'Issue exists', status: 'fail', message: 'no work item: no issue, no dispatch' });
   else if (!item.key || !item.trackerId) {

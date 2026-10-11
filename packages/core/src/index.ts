@@ -28,3 +28,7 @@ export * from './phone.ts';
 export * from './reports.ts';
 export * from './benchmark.ts';
 export * from './release.ts';
+export * from './designDocument.ts';
+export * from './designStarters.ts';
+export * from './designExport.ts';
+export * from './designImport.ts';

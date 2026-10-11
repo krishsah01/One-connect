@@ -81,6 +81,7 @@ export type DesignHandoff = z.infer<typeof DesignHandoffSchema>;
 
 export type MockOrigin = 'agent' | 'capture' | 'auto' | 'edit';
 export interface MockRevision {
+  document?: { id: string; version: number; hash: string; releaseHash: string };
   rev: number;
   hash: string;
   entry: string;

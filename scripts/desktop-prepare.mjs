@@ -32,7 +32,7 @@ try {
   fs.chmodSync(path.join(out, 'runtime/node'), 0o755);
   fs.copyFileSync(path.join(nodeSource, 'LICENSE'), path.join(out, 'runtime/LICENSE'));
 } finally { fs.rmSync(nodeExtract, { recursive: true, force: true }); }
-for (const sub of ['packages/core', 'packages/daemon', 'examples', 'scripts/demo.mjs', 'packages/web/dist']) {
+for (const sub of ['packages/core', 'packages/daemon', 'examples', 'scripts/demo.mjs', 'packages/web/dist', 'packages/web/src/components/designer/workspace/DocumentRenderer.tsx']) {
   fs.cpSync(path.join(root, sub), path.join(out, sub), { recursive: true, filter: p => {
     const parts = path.relative(path.join(root, sub), p).split(path.sep);
     return !parts.some(x => ['node_modules', '.git'].includes(x)) && !(sub.startsWith('packages/') && parts.includes('test'));

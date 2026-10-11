@@ -3,6 +3,7 @@
 // machine-readable tokens, DESIGN.md, the component specimen and readable diffs. Saved revisions are
 // immutable; schema 1 revisions stay readable and render exactly as they did when they were frozen.
 import { z } from 'zod';
+import { DesignContentGuideSchema, DesignFoundationsSchema, DesignSettingsSchema, designId, foundationSections, resolveToken, tokenCss, validTokenValue } from './designFoundations.ts';
 
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use a six-digit hex color').transform(s => s.toLowerCase());
 
@@ -37,7 +38,13 @@ export const DARK_PALETTE: Palette = {
 };
 
 export const DesignSystemSchema = z.object({
-  schema: z.literal(2).default(2),
+  schema: z.union([z.literal(2), z.literal(3)]).default(2),
+  /** Schema 3: the typed token system published from Designer, with its layout settings and content guide. */
+  foundations: DesignFoundationsSchema.optional(),
+  foundationSettings: DesignSettingsSchema.optional(),
+  content: DesignContentGuideSchema.optional(),
+  /** Schema 3: tokens removed from the system and the token designs should use instead. */
+  replacements: z.record(designId(), designId()).refine(r => Object.keys(r).length <= 500, 'Too many replacements').optional(),
   name: z.string().trim().min(1).max(100),
   direction: z.string().trim().min(1).max(1200),
   /** Light only, dark only, or both following the viewer's system preference. */
@@ -65,7 +72,7 @@ export interface LegacyDesignSystem {
   typography: 'system' | 'editorial'; spacing: 'compact' | 'comfortable'; radius: number; motion: 'reduced' | 'subtle'; rules: string;
 }
 export type AnyDesignSystem = DesignSystem | LegacyDesignSystem;
-export const isLegacyDesign = (s: AnyDesignSystem): s is LegacyDesignSystem => (s as { schema?: number }).schema !== 2;
+export const isLegacyDesign = (s: AnyDesignSystem): s is LegacyDesignSystem => ![2, 3].includes((s as { schema?: number }).schema ?? 1);
 
 export interface DesignRevision {
   version: number;
@@ -105,7 +112,7 @@ export const DEFAULT_DESIGN: DesignSystem = {
 export function upgradeDesignInput(input: unknown): unknown {
   if (!input || typeof input !== 'object') return input;
   const o = input as Record<string, unknown>;
-  if (o.schema === 2 || typeof o.typography !== 'string') return input;
+  if (o.schema === 2 || o.schema === 3 || typeof o.typography !== 'string') return input;
   const c = (o.colors ?? {}) as Record<string, string>;
   return {
     schema: 2, name: o.name, direction: o.direction, appearance: 'light',
@@ -219,6 +226,18 @@ export function designTokens(s: DesignSystem): DesignToken[] {
   out.push({ key: 'motion.ease', css: '--design-ease', value: 'cubic-bezier(.2, 0, 0, 1)', group: 'motion', description: 'Standard easing.' });
   out.push({ key: 'a11y.target', css: '--design-target', value: `${s.accessibility.targetSize}px`, group: 'accessibility', description: 'Minimum pointer target size.' });
   out.push({ key: 'a11y.focus-width', css: '--design-focus-width', value: `${s.accessibility.focusWidth}px`, group: 'accessibility', description: 'Focus outline width.' });
+  if (s.schema === 3 && s.foundations) {
+    const f = s.foundations;
+    const group = (t: { type: string; category?: string }): TokenGroup => t.type === 'color' ? 'color' : ['font', 'fontWeight', 'lineHeight', 'letterSpacing'].includes(t.type) || t.category === 'type-scale' ? 'typography'
+      : t.type === 'shadow' ? 'elevation' : t.type === 'duration' || t.type === 'easing' ? 'motion' : t.category === 'radius' || t.category === 'border' ? 'shape' : 'space';
+    for (const [key, entry] of Object.entries(f)) {
+      for (const mode of entry.type === 'color' ? (['light', 'dark'] as const) : (['light'] as const)) {
+        const v = resolveToken(f, key, mode === 'dark');
+        if (v === undefined || !validTokenValue(entry.type, v)) continue;
+        out.push({ key: `foundation.${key}`, css: `--ds-${key}`, value: tokenCss(entry.type, v), group: group(entry), ...(entry.type === 'color' ? { mode } : {}), description: entry.description });
+      }
+    }
+  }
   return out;
 }
 const controlHeight = (s: DesignSystem) => Math.max(s.density === 'compact' ? 32 : 40, s.accessibility.targetSize === 44 ? 40 : s.accessibility.targetSize);
@@ -264,7 +283,7 @@ export function designTokensJson(r: DesignRevision): Record<string, unknown> {
   }
   return {
     $description: `${s.name}: design contract v${r.version}. Generated; edit the contract in One Connect.`,
-    $extensions: { 'one-connect': { contract: { version: r.version, hash: r.hash, schema: legacy ? 1 : 2 }, appearance: s.appearance, ...(legacy ? { note: 'Schema 1 contract: roles it did not define use schema 2 defaults here. tokens.css holds the frozen values.' } : {}) } },
+    $extensions: { 'one-connect': { contract: { version: r.version, hash: r.hash, schema: legacy ? 1 : s.schema }, appearance: s.appearance, ...(legacy ? { note: 'Schema 1 contract: roles it did not define use schema 2 defaults here. tokens.css holds the frozen values.' } : {}) } },
     ...out,
   };
 }
@@ -285,6 +304,29 @@ function flatten(s: DesignSystem): Record<string, [string, string]> {
   for (const r of COLOR_ROLES) {
     f[`colors.${r}`] = [`${COLOR_ROLE_INFO[r].label} (light)`, s.colors[r]];
     f[`dark.${r}`] = [`${COLOR_ROLE_INFO[r].label} (dark)`, s.dark[r]];
+  }
+  if (s.schema === 3) {
+    const tokens = s.foundations ?? {};
+    for (const [key, t] of Object.entries(tokens)) {
+      const show = (dark: boolean) => { const v = resolveToken(tokens, key, dark); return v === undefined ? 'unresolved' : tokenCss(t.type, v); };
+      const ref = [t.alias && `→ ${t.alias}`, t.darkAlias && `dark → ${t.darkAlias}`].filter(Boolean).join(', ');
+      f[`foundations.${key}`] = [`Token ${key}`, `${show(false)}${t.type === 'color' ? ` / dark ${show(true)}` : ''}${ref ? ` (${ref})` : ''}`];
+    }
+    const st = s.foundationSettings;
+    if (st) {
+      f['foundationSettings.breakpoints'] = ['Breakpoints', `phone < ${st.breakpoints.phone}px, tablet < ${st.breakpoints.tablet}px`];
+      f['foundationSettings.density'] = ['Layout density', st.density];
+      f['foundationSettings.container'] = ['Container width', `${st.container}px`];
+      f['foundationSettings.grid'] = ['Grid', `${st.grid.columns} columns, ${st.grid.gutter}px gutter`];
+      f['foundationSettings.motion'] = ['Motion preference', st.motion];
+    }
+    if (s.content) {
+      f['content.voice'] = ['Voice', s.content.voice];
+      f['content.terms'] = ['Preferred terms', s.content.terms.map(t => `${t.use} (not ${t.avoid})`).join('; ')];
+      f['content.formats'] = ['Formats', `${s.content.formats.date}; ${s.content.formats.number}; ${s.content.formats.currency}`];
+      for (const [k, v] of Object.entries(s.content.states)) f[`content.states.${k}`] = [`${k[0].toUpperCase()}${k.slice(1)} state copy`, v];
+    }
+    for (const [from, to] of Object.entries(s.replacements ?? {})) f[`replacements.${from}`] = [`Replace ${from}`, to];
   }
   return f;
 }
@@ -319,7 +361,7 @@ export function designMarkdown(r: DesignRevision): string {
   const colorRows = COLOR_ROLES.map(role => `| ${COLOR_ROLE_INFO[role].label} | \`${s.colors[role]}\` | \`${s.dark[role]}\` | \`--design-${kebab(role)}\` | ${COLOR_ROLE_INFO[role].use} |`).join('\n');
   return `# ${s.name}
 
-Design contract v${r.version} · SHA-256 ${r.hash} · schema 2
+Design contract v${r.version} · SHA-256 ${r.hash} · schema ${s.schema}
 
 ${s.direction}
 
@@ -373,7 +415,7 @@ ${s.components.trim() ? `\n### Project component notes\n\n${s.components.trim()}
 ## Project rules
 
 ${s.rules.trim() || 'None recorded.'}
-
+${s.schema === 3 && s.foundations ? foundationsMarkdown(s) : ''}
 ## Measured contrast
 
 | Pair | Ratio | Required | Result |
@@ -384,6 +426,21 @@ ${checks.map(c => `| ${c.name} | ${c.ratio.toFixed(2)}:1 | ${c.required}:1 | ${c
 
 Implement against this revision only. Copy \`tokens.css\` (or map \`tokens.json\`) into the application's styling layer, build the recipes above as shared components, and keep every literal color, size and duration in tokens. For each screen, implement the empty, loading, error and success states shown in the approved mock. Report keyboard, focus, phone/tablet/desktop and project check results with the exact commands. An approved mock is a reference, not a passing implementation.
 `;
+}
+
+/** Schema 3: the published token system, layout settings and content guide. */
+function foundationsMarkdown(s: DesignSystem): string {
+  const f = s.foundations ?? {};
+  const value = (key: string, dark: boolean) => { const v = resolveToken(f, key, dark); return v === undefined ? 'unresolved' : tokenCss(f[key].type, v); };
+  const sections = foundationSections(f).map(sec => `### ${sec.label}\n\n| Token | CSS variable | Light | Dark | Use |\n|---|---|---|---|---|\n${sec.ids.map(k => `| ${k} | \`--ds-${k}\` | \`${value(k, false)}\` | ${f[k].type === 'color' ? `\`${value(k, true)}\`` : '—'} | ${f[k].description.replace(/\|/g, '/')} |`).join('\n')}`).join('\n\n');
+  const st = s.foundationSettings, c = s.content;
+  return `
+## Foundations
+
+Use these \`--ds-*\` variables in components and screens. Semantic roles alias the primitive palette; components should use roles, not palette steps.
+
+${sections}
+${st ? `\n### Layout settings\n\nPhone below ${st.breakpoints.phone}px, tablet below ${st.breakpoints.tablet}px. ${st.density[0].toUpperCase()}${st.density.slice(1)} density. Content width up to ${st.container}px on a ${st.grid.columns}-column grid with ${st.grid.gutter}px gutters. Motion: ${st.motion === 'reduced' ? 'reduced (opacity changes only)' : 'full, with reduced-motion alternatives'}.\n` : ''}${c ? `\n### Content guide\n\n${c.voice}\n\n${c.terms.length ? `Preferred terms: ${c.terms.map(t => `**${t.use}** (not ${t.avoid})`).join(', ')}.\n\n` : ''}Formats: dates like ${c.formats.date}, numbers like ${c.formats.number}, currency like ${c.formats.currency}. Helper text: ${c.helperText} Errors: ${c.errorText}\n\nState copy: empty “${c.states.empty}”, loading “${c.states.loading}”, error “${c.states.error}”, no access “${c.states.permission}”, offline “${c.states.offline}”.\n` : ''}${Object.keys(s.replacements ?? {}).length ? `\n### Removed tokens\n\n${Object.entries(s.replacements!).map(([a, b]) => `- \`${a}\` was removed; use \`${b}\`.`).join('\n')}\n` : ''}`;
 }
 
 /** A self-contained, static component and state specimen generated from the contract. */

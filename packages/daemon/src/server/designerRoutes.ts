@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { HUMAN, REVIEW_CHECKLIST } from '@acc/core';
 import { CommandError, type Daemon } from '../daemon.ts';
 import { SKILL_PURPOSE, SKILL_SETS } from '../designer.ts';
+import { registerDesignDocumentRoutes } from './designDocumentRoutes.ts';
 
 type R<P = Record<string, string>, B = unknown, Q = Record<string, string | undefined>> = FastifyRequest<{ Params: P; Body: B; Querystring: Q }>;
 const num = (v: string | undefined, label = 'revision'): number => {
@@ -16,12 +17,13 @@ const num = (v: string | undefined, label = 'revision'): number => {
 const revOf = (v: string | undefined): number | 'latest' => (v === undefined || v === 'latest' ? 'latest' : num(v));
 
 export function registerDesignerRoutes(app: FastifyInstance, d: Daemon): void {
+  registerDesignDocumentRoutes(app, d);
   const studio = () => d.designer.studio;
 
   // ---- contract --------------------------------------------------------------------------------
   app.get('/api/designer/contract', async () => ({
     current: d.designer.fullExports(),
-    history: d.designer.history().map(r => ({ version: r.version, hash: r.hash, createdAt: r.createdAt, by: r.by ?? null, parent: r.parent ?? null, note: r.note ?? null, schema: (r.system as { schema?: number }).schema === 2 ? 2 : 1 })),
+    history: d.designer.history().map(r => ({ version: r.version, hash: r.hash, createdAt: r.createdAt, by: r.by ?? null, parent: r.parent ?? null, note: r.note ?? null, schema: (r.system as { schema?: number }).schema ?? 1 })),
     draft: d.designer.draft('system'),
     skills: d.designer.skills().map(s => ({ ...s, purpose: SKILL_PURPOSE[s.id] ?? s.description })),
     skillSets: { design: d.designer.defaultSkillIds({ labels: ['design'] }), implementation: SKILL_SETS.implementation, review: SKILL_SETS.review },

@@ -43,6 +43,7 @@ import type { NotificationChannel, NotificationConfig, NotificationRecord, Remot
 import type { CodeHostSnapshot, InfraHealthReport, ReleasePlan } from './release.ts';
 
 export interface ControlEventData {
+  'design.document_changed': { id: string; version: number; name: string; action: string };
   'design.system_saved':{revision:DesignRevision};
   'skill.draft_saved': { id: string; name: string; description: string; hash: string };
   'skill.version_published': { version: SkillVersion };

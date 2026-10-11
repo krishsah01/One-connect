@@ -704,6 +704,7 @@ export class Daemon {
       denylist: this.denylist(),
       spentTodayUsd: agent ? this.spentToday(agent.id) : 0,
       subscriptionConfirmation: agent ? this.subscriptionSafety.status(agent.id) : undefined,
+      designBinding: this.designer.documents.bindingCheck(a),
     });
     if (record) this.commit([{ type: 'assignment.updated', assignmentId, agentId: a.agentId, workItemId: a.workItemId, data: { patch: { preflight: result } } }]);
     return result;

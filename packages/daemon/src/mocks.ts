@@ -271,6 +271,9 @@ export class DesignMocks {
     return out;
   }
 
+  /** Internal trusted generator only; never exposed as an arbitrary file-write API. */
+  storeStructuredBlob(content: string): string { return this.putBlob(Buffer.from(content)); }
+
   private putBlob(content: Buffer): string {
     const h = sha(content);
     const file = path.join(this.blobDir(), h);
@@ -549,7 +552,7 @@ export class DesignMocks {
     };
     const evidenceImages = r.evidence.filter(e => e.screenshot?.stored === 'evidence').map(e => ({ evidenceId: e.id, path: e.screenshot!.path, sha256: e.screenshot!.sha256, encoding: 'base64' as const, content: this.blobBySha(e.screenshot!.sha256, e.screenshot!.path).toString('base64') }));
     const handoffMd = this.handoffMarkdown(a, r, manifest, design);
-    return { manifest, files, preview: this.assemble(r, r.entry), designMarkdown: design ? designMarkdown(design) : null, tokensCss: design ? designCss(design.system) : null, tokensJson: design ? designTokensJson(design) : null, specimenHtml: design ? designSpecimenHtml(design) : null, evidenceImages, handoffMd, exportedAt: this.d.nowIso() };
+    return { ...(r.document ? { structuredRelease: this.d.designer.documents.releaseBundle(id, r.rev) } : {}), manifest, files, preview: this.assemble(r, r.entry), designMarkdown: design ? designMarkdown(design) : null, tokensCss: design ? designCss(design.system) : null, tokensJson: design ? designTokensJson(design) : null, specimenHtml: design ? designSpecimenHtml(design) : null, evidenceImages, handoffMd, exportedAt: this.d.nowIso() };
   }
 
   private handoffMarkdown(a: MockArtifact, r: MockRevision, m: { gate: string; approval: unknown; issue: string }, design: DesignRevision | null): string {
@@ -649,8 +652,15 @@ export class DesignMocks {
     if (binding?.artifactId === id) {
       if (binding.rev !== r.rev || binding.hash !== r.hash) throw new CommandError('Read only the approved workflow design revision', 403);
     } else if (!this.d.designer.studio.reviewJobFor(assignmentId, a.id)) this.assertAgentAccess(a, assignmentId);
-    const meta = { artifactId: a.id, title: a.title, dir: a.dir, rev: r.rev, hash: r.hash, designRevision: r.designRevision, files: r.files.map(f => ({ path: f.path, kind: f.kind, bytes: f.bytes, sha256: f.sha256 })), findings: r.findings.filter(f => f.severity !== 'info').map(f => `${f.rule}: ${f.message}`).slice(0, 20), handoff: r.handoff ?? null };
+    const meta = { ...(r.document ? { document: r.document, sourceFiles: this.d.designer.documents.release(a.id, r.rev).manifest.files.map(f => `source/${f.path}`), note: 'Structured release: read the design with get_design_document (documentId above) and its React package under source/.' } : {}), artifactId: a.id, title: a.title, dir: a.dir, rev: r.rev, hash: r.hash, designRevision: r.designRevision, files: r.files.map(f => ({ path: f.path, kind: f.kind, bytes: f.bytes, sha256: f.sha256 })), findings: r.findings.filter(f => f.severity !== 'info').map(f => `${f.rule}: ${f.message}`).slice(0, 20), handoff: r.handoff ?? null };
     if (!o.path) return meta;
+    if (r.document && o.path.startsWith('source/')) {
+      const file = this.d.designer.documents.releaseFile(a.id, r.rev, o.path.slice(7));
+      if (file.kind === 'binary') return { ...meta, path: o.path, content: null, note: 'Binary asset; its hash is in the release manifest.' };
+      const text = this.d.redactText(file.data.toString('utf8'));
+      const offset = Number.isSafeInteger(o.offset) ? Math.max(0, o.offset!) : 0, budget = Number.isFinite(o.budget) ? Math.min(12000, Math.max(1000, Math.floor(o.budget!))) : 6000;
+      return { ...meta, path: o.path, content: text.slice(offset, offset + budget), nextOffset: Math.min(text.length, offset + budget), more: offset + budget < text.length };
+    }
     const f = r.files.find(x => x.path === o.path);
     if (!f) throw new CommandError('Not a file of this mock revision', 404);
     if (!TEXT_KINDS.has(f.kind)) return { ...meta, path: f.path, content: null, note: 'Binary file; only its hash and size are available.' };

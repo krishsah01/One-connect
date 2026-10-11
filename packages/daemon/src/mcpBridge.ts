@@ -3,7 +3,7 @@
 // authenticated by a per-run token, so a tool call always knows which run, agent and issue it is.
 import path from 'node:path';
 import type { Approval, EventEnvelope, Run } from '@acc/core';
-import { agentActor, inScope, newId, parseHandoff } from '@acc/core';
+import { agentActor, applyDesignOperations, designDocumentFindings, inScope, newId, parseHandoff } from '@acc/core';
 import { CommandError, type Daemon } from './daemon.ts';
 
 const DANGEROUS: { re: RegExp; what: string }[] = [
@@ -118,6 +118,25 @@ export class McpBridge {
       }
       case 'get_brief':
         return { brief: d.context.brief() };
+      case 'get_design_document':
+        return d.designer.documents.agentRead(String(args.documentId ?? ''), run.assignmentId, {
+          section: typeof args.section === 'string' ? args.section : undefined, screenId: typeof args.screenId === 'string' ? args.screenId : undefined,
+          componentId: typeof args.componentId === 'string' ? args.componentId : undefined, assetId: typeof args.assetId === 'string' ? args.assetId : undefined,
+          offset: Number(args.offset ?? 0), budget: Number(args.budget ?? 10000),
+        });
+      case 'get_design_components':
+        return d.designer.documents.agentComponents(String(args.documentId ?? ''), run.assignmentId);
+      case 'validate_design_document': {
+        let document = d.designer.documents.assignedDocument(String(args.documentId ?? ''), run.assignmentId);
+        if (Array.isArray(args.operations) && args.operations.length) {
+          try { document = applyDesignOperations(document, args.operations); }
+          catch (e) { return { ok: false, error: `The operations can’t be applied: ${(e as Error).message}` }; }
+        }
+        const findings = designDocumentFindings(document);
+        return { ok: true, version: document.version, errors: findings.filter(f => f.severity === 'error').length, warnings: findings.filter(f => f.severity === 'warning').length, findings: findings.slice(0, 100), note: 'Checks are necessary, not sufficient. They never approve a design.' };
+      }
+      case 'propose_design_changes':
+        return { proposal: d.designer.documents.agentPropose(String(args.documentId ?? ''), run.assignmentId, run.id, run.agentId, Number(args.expectedVersion), String(args.summary ?? ''), args.operations) };
       case 'get_design_system': {
         const a=d.state.assignments[run.assignmentId];
         const mocks=d.mocks.list({workItemId:run.workItemId}).map(m=>({id:m.id,title:m.title,dir:m.dir,revision:m.revisions.at(-1)!.rev,hash:m.revisions.at(-1)!.hash,gate:m.revisions.at(-1)!.gate.state,openFindings:m.revisions.at(-1)!.gate.open.map(f=>`${f.rule}: ${f.message}`).slice(0,12)}));

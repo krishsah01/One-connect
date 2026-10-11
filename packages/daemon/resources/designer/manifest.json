@@ -179,6 +179,118 @@
           "sha256": "c2a27b67e14c6765377d301229b828d53699e2401f5bc6ccbdb1f6603d569161"
         }
       ]
+    },
+    {
+      "id": "structured-design",
+      "name": "Structured design",
+      "description": "Read structured designs in sections and propose typed changes for a person to apply.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "6b5c546bff20738070f154899bb1559d0a2cc6cafdca766db27aad0c70f3fbfb"
+        }
+      ]
+    },
+    {
+      "id": "visual-direction",
+      "name": "Visual direction",
+      "description": "Direction, palette, semantic colors, type, spacing, shape and motion foundations.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "cf217940e4926e9be8fad493ec18e4fd8ab3529ae01ceb69a89c975949b6cf1a"
+        }
+      ]
+    },
+    {
+      "id": "component-architecture",
+      "name": "Component architecture",
+      "description": "Reusable components with variants, states, props and slots, changed safely.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "18da766cc9d1aa85c495f12a4f93da6e017715064340a424ed2a5903831055a4"
+        }
+      ]
+    },
+    {
+      "id": "responsive-layouts",
+      "name": "Responsive layouts",
+      "description": "Flow layouts, grids and breakpoint overrides for phone, tablet and desktop.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "c5e304b3b73899ef236b2ac7fe915623481e1fabbddda6d3256e9bde382ab21f"
+        }
+      ]
+    },
+    {
+      "id": "interaction-prototyping",
+      "name": "Prototyping and motion",
+      "description": "Flows, overlays, validation, sample data and motion in prototypes.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "12dd059f96a10660ed0c728a759e1e8b63a6f66e9d61feae398bc1fa90e44238"
+        }
+      ]
+    },
+    {
+      "id": "forms-navigation-data",
+      "name": "Forms, navigation and data",
+      "description": "Forms, navigation, tables, lists and charts with complete states.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "e59726531adbb654c7cb399f43c2c2bdb7b1524d0dc3e42c22e4c76905c07f86"
+        }
+      ]
+    },
+    {
+      "id": "localization-readiness",
+      "name": "Localization readiness",
+      "description": "Copy and layouts that survive translation, scripts and regional formats.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "ce005535e9643a34a48b4af933f414e907a1f85ea703e6af2b215b1e801404cb"
+        }
+      ]
+    },
+    {
+      "id": "react-design-export",
+      "name": "React implementation",
+      "description": "Implement an approved structured release with its React/TypeScript package.",
+      "license": "Apache-2.0",
+      "source": "One Connect",
+      "version": "1",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "35977c4f8ee45c334a368dc0bec16e0be33526e78be334b2878c21685c126cd0"
+        }
+      ]
     }
   ]
 }

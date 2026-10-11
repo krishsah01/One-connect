@@ -89,7 +89,7 @@ export const claudeAdapter: VendorAdapter = {
     }
     if (ctx.policies.privacy.strict_mcp) args.push('--strict-mcp-config');
     args.push('--permission-mode', 'default');
-    const allowed = [...ctx.allowedTools, ...(ctx.mcp ? ['get_assignment', 'post_handoff', 'submit_review', 'report_finding', 'ask_human', 'get_brief', 'get_team', 'read_messages', 'send_team_message', 'ack_team_message', 'get_design_system', 'get_design_skill', 'search_context', 'get_project_context', 'ask_project', 'read_note', 'query_graph', 'graph_path', 'explain_node', 'list_skills', 'get_skill', 'register_design_mock', 'record_mock_evidence', 'get_design_mock', 'submit_design_review', 'list_connector_tools', 'call_connector_tool', 'get_connector_tool_result'].map((t) => `mcp__acc__${t}`) : [])];
+    const allowed = [...ctx.allowedTools, ...(ctx.mcp ? ['get_assignment', 'post_handoff', 'submit_review', 'report_finding', 'ask_human', 'get_brief', 'get_team', 'read_messages', 'send_team_message', 'ack_team_message', 'get_design_document', 'get_design_components', 'validate_design_document', 'propose_design_changes', 'get_design_system', 'get_design_skill', 'search_context', 'get_project_context', 'ask_project', 'read_note', 'query_graph', 'graph_path', 'explain_node', 'list_skills', 'get_skill', 'register_design_mock', 'record_mock_evidence', 'get_design_mock', 'submit_design_review', 'list_connector_tools', 'call_connector_tool', 'get_connector_tool_result'].map((t) => `mcp__acc__${t}`) : [])];
     if (allowed.length) args.push('--allowedTools', allowed.join(','));
     if (ctx.gitCommonDir) args.push('--add-dir', ctx.gitCommonDir);
     return {

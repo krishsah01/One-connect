@@ -197,7 +197,7 @@ export interface Assignment {
   consults?: string[];
   workflowContext?: string | null;
   pickup?: string | null;
-  mockBinding?: { artifactId: string; rev: number; hash: string };
+  mockBinding?: { artifactId: string; rev: number; hash: string; releaseHash?: string; documentHash?: string };
   preflight: PreflightResult | null;
   createdAt: string;
   dispatchedAt: string | null;
