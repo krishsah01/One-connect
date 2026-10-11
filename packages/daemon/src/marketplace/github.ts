@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
-import { createHash } from 'node:crypto';
 import YAML from 'yaml';
 import { containsSecret, SKILL_REFERENCE_RE, type SkillDraft } from '@acc/core';
-import { CommandError } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
 import { previewSkillImport } from '../skillImport.ts';
 import { ARCHIVE_LIMITS, readTarGzip } from './archive.ts';
 import { jsonResponse, readBounded, shaPattern, type MarketplaceFetch } from './transport.ts';
-export const hash = (s: string | Buffer) => createHash('sha256').update(s).digest('hex');
+import { sha256 } from '../util/hash.ts';
 export interface GitHubSource { url: string; repo: string; ref: string | null; path: string }
 export function githubSource(raw: unknown): GitHubSource {
   if (typeof raw !== 'string' || raw.length > 500) throw new CommandError('Enter a GitHub HTTPS repository URL');
@@ -57,12 +56,12 @@ export async function githubPreview(rawUrl: unknown, fetcher: MarketplaceFetch, 
     const directory = filePath === 'SKILL.md' ? '' : filePath.slice(0, -9), prefix = directory ? directory + '/' : '';
     const nested = [...files.keys()].filter(p => p !== filePath && p.endsWith('/SKILL.md') && p.startsWith(prefix)).map(p => p.slice(0,-8));
     const skillFiles = [...files].filter(([p]) => p === filePath || (p.startsWith(prefix) && !nested.some(dir => p.startsWith(dir))));
-    const manifest = skillFiles.map(([p,b]) => ({ path: p, sha256: hash(b), bytes: b.length }));
+    const manifest = skillFiles.map(([p,b]) => ({ path: p, sha256: sha256(b), bytes: b.length }));
     if (manifest.reduce((n,f) => n + f.bytes, 0) > 512000) throw new CommandError('Skill exceeds aggregate byte limits', 413);
     const original = text(content);
     if (containsSecret(original, { denylist }).length) throw new CommandError('Skill contains credentials; import refused');
     const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/.exec(original);
-    const row: MarketplaceSkill = { path: filePath, sha256: hash(content), name: directory.split('/').at(-1) ?? 'skill', description: '', files: manifest, draft: null, problems: [], omittedMetadata: [] };
+    const row: MarketplaceSkill = { path: filePath, sha256: sha256(content), name: directory.split('/').at(-1) ?? 'skill', description: '', files: manifest, draft: null, problems: [], omittedMetadata: [] };
     try {
       if (!match) throw new CommandError('Skill needs YAML frontmatter');
       const doc = YAML.parseDocument(match[1], { uniqueKeys: true });
@@ -82,7 +81,7 @@ export async function githubPreview(rawUrl: unknown, fetcher: MarketplaceFetch, 
       const localLicense = skillFiles.find(([p]) => /^(?:LICENSE|LICENCE)(?:\.(?:md|txt))?$/i.test(p.slice(prefix.length)));
       const skillLicense = localLicense ? detectLicense(text(localLicense[1])) : license;
       const normalized = `---\n${YAML.stringify({ name: row.name, description: row.description })}---\n${match[2]}`;
-      const id = `gh-${hash(src.repo + ':' + filePath).slice(0,16)}`;
+      const id = `gh-${sha256(src.repo + ':' + filePath).slice(0,16)}`;
       row.draft = previewSkillImport({ files: { id, skillMd: normalized, references: refs, source: `https://github.com/${src.repo}/blob/${commit}/${filePath}`, license: skillLicense } }).draft;
     } catch (e) {
       if (containsSecret((e as Error).message, { denylist }).length || /credential/.test((e as Error).message)) throw new CommandError('Skill contains credentials; import refused');
@@ -90,5 +89,5 @@ export async function githubPreview(rawUrl: unknown, fetcher: MarketplaceFetch, 
     }
     skills.push(row);
   }
-  return { url: src.url, repo: src.repo, commit, license, licenseSha256: licenseEntry ? hash(licenseEntry[1]) : null, licensePath: licenseEntry?.[0] ?? null, licenseText: licenseText || null, archiveSha256: hash(archive), skills, untrusted: true };
+  return { url: src.url, repo: src.repo, commit, license, licenseSha256: licenseEntry ? sha256(licenseEntry[1]) : null, licensePath: licenseEntry?.[0] ?? null, licenseText: licenseText || null, archiveSha256: sha256(archive), skills, untrusted: true };
 }

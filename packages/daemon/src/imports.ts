@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Preview is read-only. Imported items live in the local tracker with immutable source identity.
 import { newId, HUMAN, type WorkItem } from '@acc/core';
-import { GitHubTracker, LinearTracker, type TrackerIssue } from './adapters/trackers/index.ts';
+import { GitHubTracker, LinearTracker, type TrackerIssue, type TrackerAdapter } from './adapters/trackers/index.ts';
 import { getSecret } from './secrets.ts';
-import type { Daemon } from './daemon.ts';
+import type { Kernel, WorkCommands } from './kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type IssueImportsDeps = Kernel & Pick<WorkCommands, 'createIssue'> & { readonly tracker: TrackerAdapter };
 
 export interface ImportSource {
   id: string;
@@ -22,8 +25,8 @@ const example = (type: string, n: number, title: string): TrackerIssue => ({
 });
 export class IssueImports {
   private previews = new Map<string, { source: ImportSource; issues: TrackerIssue[]; at: number }>();
-  readonly d: Daemon;
-  constructor(d: Daemon) { this.d = d; }
+  readonly d: IssueImportsDeps;
+  constructor(d: IssueImportsDeps) { this.d = d; }
   sources(): ImportSource[] {
     const configured = this.d.config.import_sources;
     return [

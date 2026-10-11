@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Shared helpers for vendor stream parsers.
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { looksLikeTestCommand, parseTestOutput } from '@acc/core';
@@ -83,4 +84,16 @@ export function endWithoutResult(sawResult: boolean, exit: { code: number | null
     out.push({ kind: 'result', ok: false, text: lastText });
   }
   return out;
+}
+
+/** Opaque fingerprint of a signed-in identity: binds confirmations to one login without storing it. */
+export function accountFingerprint(vendor: string, ...parts: (string | null | undefined)[]): string | undefined {
+  const id = parts.filter((p): p is string => Boolean(p && p.trim())).map((p) => p.trim().toLowerCase());
+  return id.length ? createHash('sha256').update(JSON.stringify([vendor, ...id])).digest('hex').slice(0, 24) : undefined;
+}
+
+/** "krish@example.com" → "kr…@example.com"; display only. */
+export function maskEmail(email: string | null | undefined): string | undefined {
+  const m = /^([^@\s]{1,2})[^@\s]*(@[^@\s]+)$/.exec((email ?? '').trim());
+  return m ? `${m[1]}…${m[2]}` : undefined;
 }

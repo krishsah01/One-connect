@@ -3,12 +3,13 @@
 // advisory-only Jev connection. Registered on the main app, so they inherit its Host/Origin checks
 // and session/install-token authentication.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { defaultHarnessFor, HUMAN, PROVIDER_HARNESS, PROVIDERS, type Provider } from '@acc/core';
+import { defaultHarnessFor, HUMAN, PAID_PROVIDERS, PROVIDER_HARNESS, PROVIDERS, type Provider } from '@acc/core';
 import { detectBinaries } from '../adapters/agents/detect.ts';
 import { VENDOR_ADAPTERS } from '../adapters/agents/index.ts';
 import { ollamaStatus } from '../adapters/agents/ollama.ts';
 import { checkVersion, OPENCODE_PROTOCOL, supportedSeries, SUPPORTED_VERSIONS } from '../adapters/agents/opencode/protocol.ts';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import { EgressDenied } from '../egress.ts';
 import type { JevConfirm } from '../jev.ts';
 import { hasSecret, providerSecretFor } from '../secrets.ts';
@@ -19,6 +20,7 @@ const PROVIDER_LABEL: Record<Provider, string> = {
   subscription: 'Subscription (official CLI login)',
   'anthropic-api': 'Anthropic API key (pay per token)',
   'openai-api': 'OpenAI API key (pay per token)',
+  'cursor-api': 'Cursor API key (Cursor CLI, billed by Cursor)',
   openrouter: 'OpenRouter API key (pay per token)',
   ollama: 'Ollama, local models (free)',
   'ollama-cloud': 'Ollama cloud models (Ollama subscription)',
@@ -57,7 +59,7 @@ export async function harnessCatalog(d: Daemon) {
       billing: p === 'ollama' || p === 'lmstudio' ? 'local' : p === 'ollama-cloud' ? 'subscription' : 'metered',
       secret: secret?.secret ?? null,
       keyStored: secret ? await hasSecret(secret.secret, env) : null,
-      needsOptIn: ['anthropic-api', 'openai-api', 'openrouter'].includes(p),
+      needsOptIn: PAID_PROVIDERS.includes(p),
     };
   }));
   return {

@@ -4,22 +4,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { ListRootsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { containsSecret, HUMAN, isActiveRun, newId, type Actor, type Connector, type EventEnvelope } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { containsSecret, HUMAN, isActiveRun, newId, type Actor, type Connector, type EventEnvelope, canonicalJson } from '@acc/core';
+import { CommandError } from './errors.ts';
+import type { ConnectorsDeps, Connectors } from './connectors.ts';
 import type { AnswerOptions } from './decisions.ts';
-import type { Connectors } from './connectors.ts';
+import { sha256 } from './util/hash.ts';
 
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
-function stable(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
-  if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${stable(v)}`).join(',')}}`;
-  return JSON.stringify(value) ?? 'null';
-}
 const utf8Bytes = (s: string) => Buffer.byteLength(s, 'utf8');
 
 const TOOL_CALL_TTL_MS = 15 * 60_000;
@@ -110,7 +104,7 @@ export class ConnectorToolActions {
     this.d.bus.on('events', this.onEvents);
   }
 
-  private get d(): Daemon {
+  private get d(): ConnectorsDeps {
     return this.connectors.d;
   }
 
@@ -137,7 +131,7 @@ export class ConnectorToolActions {
   private projectHash(): string {
     const project = this.d.config.project;
     const settingsDecisionId = Object.values(this.d.state.decisions).filter(decision => decision.kind === 'settings' && decision.answer === 'save' && decision.answeredAt).at(-1)?.id ?? null;
-    return sha(stable({ projectRepo: path.resolve(project.repo), projectName: project.name, tracker: this.d.config.tracker, settingsDecisionId }));
+    return sha256(canonicalJson({ projectRepo: path.resolve(project.repo), projectName: project.name, tracker: this.d.config.tracker, settingsDecisionId }));
   }
 
   /** Read descriptors, never getters/toJSON, and bound bytes while serializing (including DAGs). */
@@ -215,7 +209,7 @@ export class ConnectorToolActions {
   private actionHash(binding: ToolCallBinding): string {
     // Mutable consumption state is the only field excluded from the immutable action.
     const { consumed: _consumed, ...action } = binding;
-    return sha(stable(action));
+    return sha256(canonicalJson(action));
   }
 
   private assertRequester(binding: Pick<ToolCallBinding, 'runId' | 'assignmentId' | 'workItemId' | 'requesterId' | 'requesterType'>): void {
@@ -239,7 +233,7 @@ export class ConnectorToolActions {
     // action hash carries this request's expiry independently of the fresh nonce's shorter TTL.
     if (!action || action.kind !== 'connector_tool' || action.connectorId !== binding.connectorId || action.tool !== binding.tool || action.hash !== this.actionHash(binding) || decision.workItemId !== binding.workItemId) throw new CommandError('Approval binding does not match this request', 409);
     if (req.id !== binding.requestId || req.decisionId !== decisionId || req.connectorId !== binding.connectorId || req.configHash !== binding.configHash || req.tool !== binding.tool || req.argumentsHash !== binding.argumentsHash || req.runId !== binding.runId || req.assignmentId !== binding.assignmentId || req.workItemId !== binding.workItemId || req.requesterId !== binding.requesterId || req.requesterType !== binding.requesterType) throw new CommandError('Approval binding does not match this request', 409);
-    if (sha(binding.argumentsCanonical) !== binding.argumentsHash) throw new CommandError('Arguments do not match this request', 409);
+    if (sha256(binding.argumentsCanonical) !== binding.argumentsHash) throw new CommandError('Arguments do not match this request', 409);
     try {
       if (this.canonicalArguments(JSON.parse(binding.argumentsCanonical)) !== binding.argumentsCanonical) throw new Error('noncanonical');
     } catch {
@@ -248,7 +242,7 @@ export class ConnectorToolActions {
   }
 
   private recheckDenied(binding: ToolCallBinding): void {
-    const blob = stable({ command: binding.command, argv: binding.argv, args: binding.argumentsCanonical });
+    const blob = canonicalJson({ command: binding.command, argv: binding.argv, args: binding.argumentsCanonical });
     if (containsSecret(blob, { denylist: this.d.denylist() }).length) throw new CommandError('Tool arguments contain a credential', 400);
   }
 
@@ -312,8 +306,8 @@ export class ConnectorToolActions {
     const cfg = c.config;
     if (!cfg.tools.includes(tool)) throw new CommandError(`${tool} is not one of the approved tools (${cfg.tools.join(', ')})`, 403);
     const activationDecisionId = c.approvals.execute!.decisionId;
-    const argumentsCanonical = stable(validated);
-    const argumentsHash = sha(argumentsCanonical);
+    const argumentsCanonical = canonicalJson(validated);
+    const argumentsHash = sha256(argumentsCanonical);
     const requestId = newId('toolreq');
     const now = this.d.nowIso();
     const expires = this.d.now().getTime() + TOOL_CALL_TTL_MS;

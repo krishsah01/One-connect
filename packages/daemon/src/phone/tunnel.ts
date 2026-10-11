@@ -2,10 +2,10 @@
 // Private tunnel adapters for phone access. An adapter only plans and (after a recorded human
 // Decision) starts a PRIVATE, authenticated path to the loopback daemon. Planning never executes
 // anything that changes a network. Public listeners (for example Tailscale Funnel) are refused.
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { whichAll } from '../adapters/agents/detect.ts';
 import { run, type ExecResult } from '../exec.ts';
+import { sha256 } from '../util/hash.ts';
 
 export type TunnelState = 'down' | 'starting' | 'up' | 'reconnecting' | 'error';
 
@@ -52,7 +52,7 @@ export interface TunnelAdapter {
 
 export type Exec = (command: string, args: readonly string[], o?: { timeoutMs?: number }) => Promise<ExecResult>;
 
-const digest = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
+const digest = (v: unknown) => sha256(JSON.stringify(v));
 
 /** The only private-access shapes One Connect will ever run. Anything else, and any public listener, is refused. */
 export function assertPrivatePlan(plan: Pick<TunnelPlan, 'start' | 'teardown' | 'port'>): void {

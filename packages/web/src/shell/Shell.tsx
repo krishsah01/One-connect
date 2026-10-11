@@ -3,13 +3,14 @@
 // and every other tool in a side drawer, the Settings dialog or the command palette. Existing
 // routes keep working; they now open over the canvas instead of replacing it.
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, matchPath, useLocation, useNavigate } from 'react-router';
+import { Link, matchPath, Route, Routes, useLocation, useNavigate } from 'react-router';
 import type { ControlState } from '@acc/core';
 import { ApprovalCard, Badge, ErrorLine, useAction, useTick } from '../components/common';
 import { post } from '../lib/api';
 import { canMutate } from '../lib/remote';
 import { useOnline } from '../lib/offline';
 import { isDesktop } from '../lib/desktop';
+import { needsAgentConnection } from '../lib/onboarding';
 import { BrowserNotifier, OfflineBanner } from '../components/PhoneShell';
 import { Icon, type IconName } from './icons';
 import { BottomPanel, readPanelPrefs, savePanelPrefs, type PanelPrefs } from './BottomPanel';
@@ -114,7 +115,7 @@ export function Shell({ state, meta, conn, projectSwitcher }: { state: ControlSt
   const critical = Object.values(state.alerts).filter(a => !a.resolvedAt && a.severity === 'critical').length;
   const inbox = approvals + decisions + critical;
   const enabledAgents = Object.values(state.agents).filter(a => a.config.enabled !== false);
-  const needsConnection = enabledAgents.length === 0 || enabledAgents.some(a => a.config.provider === 'subscription' && a.config.adapter !== 'relay' && a.auth.state !== 'logged_in');
+  const needsConnection = needsAgentConnection(Object.values(state.agents));
   const name = state.project?.name ?? 'this project';
 
   return (
@@ -193,6 +194,10 @@ function Drawer({ title, wide, onClose, children }: { title: string; wide?: bool
   );
 }
 
+/**
+ * Drawers are opened from the URL without a page route, so pages that read `:id` with useParams
+ * (agent console, run output, mocks) get their own route context here.
+ */
 function DrawerBody({ body, state, meta }: { body: Extract<Surface, { kind: 'drawer' }>['body']; state: ControlState; meta: ShellMeta }) {
   switch (body) {
     case 'inbox': return <Inbox state={state} />;
@@ -200,11 +205,11 @@ function DrawerBody({ body, state, meta }: { body: Extract<Surface, { kind: 'dra
     case 'insights': return <Insights state={state} />;
     case 'docs': return <Docs state={state} />;
     case 'designer': return <Designer state={state} />;
-    case 'mocks': return <Mocks state={state} />;
-    case 'agent': return <AgentDrawer state={state} />;
+    case 'mocks': return <Routes><Route path="/mocks" element={<Mocks state={state} />} /><Route path="/mocks/:id" element={<Mocks state={state} />} /></Routes>;
+    case 'agent': return <Routes><Route path="/agents/:id" element={<AgentDrawer state={state} />} /></Routes>;
     case 'team': return <Team state={state} />;
     case 'workspace': return <Workspace state={state} demo={meta.demo} />;
-    case 'run': return <RunView state={state} />;
+    case 'run': return <Routes><Route path="/runs/:id" element={<RunView state={state} />} /></Routes>;
     case 'workflows': return <Workflows state={state} />;
   }
 }

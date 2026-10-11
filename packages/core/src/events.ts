@@ -31,6 +31,7 @@ import type {
   DictionaryStatus,
 } from './entities.ts';
 import type { BlockedOn, LifecycleState } from './lifecycle.ts';
+import { ellipsize } from './text.ts';
 import type { DesignRevision } from './design.ts';
 import type { Workflow, WorkflowStatus, WorkflowTaskState } from './workflows.ts';
 import type { WorkflowLink } from './workflowLinks.ts';
@@ -119,6 +120,11 @@ export interface ControlEventData {
   'agent.limited': { until: string | null; message: string };
   'agent.unlimited': { reason: string };
   'agent.subscription_confirmed': { binding: string; expiresAt: string; scope: 'daemon-session'; note: string };
+  /** Owner attests own-account, unshared, unmodified use under the vendor terms reviewed at `termsRevision`. */
+  'agent.terms_acknowledged': { adapter: string; termsRevision: string; account: string | null; statements: string[]; expiresAt: string };
+  'agent.terms_revoked': { adapter: string; reason: string };
+  /** API key stored, replaced or removed. Never carries the key. */
+  'connection.key_changed': { connection: string; action: 'stored' | 'removed' };
   'agent.paused': { reason: string };
   'agent.resumed': Record<string, never>;
   'agent.model_changed': { model: string };
@@ -234,7 +240,7 @@ export const agentActor = (id: string): Actor => ({ type: 'agent', id });
 /** Summary line used for "last meaningful event"; null for noise (usage, raw, reasoning). */
 export function meaningfulSummary(e: { type: string; data: unknown }): string | null {
   const d = e.data as Record<string, unknown>;
-  const clip = (s: string, n = 140) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+  const clip = (s: string, n = 140) => ellipsize(s, n);
   switch (e.type) {
     case 't.message':
       return d.role === 'assistant' ? clip(String(d.text).replace(/\s+/g, ' ').trim()) : null;

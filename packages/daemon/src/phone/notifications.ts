@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Durable local alerts. JSON gateway/chat deliveries each need a human Decision for the exact
 // payload, URL and configuration. Endpoint reviews never authorize messages or add egress hosts.
-import { createHash, randomBytes } from 'node:crypto';
-import type { Actor, Decision, EventEnvelope, NotificationCandidate, NotificationChannel, NotificationConfig, NotificationRecord } from '@acc/core';
-import { candidatesFromEvents, candidatesFromTick, defaultNotificationConfig, HUMAN, infraFailuresRecovered, inQuietHours, isInfraFailureFingerprint, newId, NOTIFICATION_CHANNEL_LABEL, NotificationConfigSchema, SYSTEM, validTimezone, type InfraHealthReport } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { randomBytes } from 'node:crypto';
+import type { InfraHealthReport, Actor, Decision, EventEnvelope, NotificationCandidate, NotificationChannel, NotificationConfig, NotificationRecord } from '@acc/core';
+import { candidatesFromEvents, candidatesFromTick, defaultNotificationConfig, HUMAN, infraFailuresRecovered, inQuietHours, isInfraFailureFingerprint, newId, NOTIFICATION_CHANNEL_LABEL, NotificationConfigSchema, SYSTEM, validTimezone } from '@acc/core';
+import { CommandError } from '../errors.ts';
 import { projectNamespace } from '../context/vault.ts';
 import { run } from '../exec.ts';
+import { MAX_LIST } from '../store/eventStore.ts';
+import { sha256 } from '../util/hash.ts';
+import type { Kernel } from '../kernel.ts';
+import type { Decisions } from '../decisions.ts';
+import type { Egress } from '../egress.ts';
 
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
+/** What this service needs from the daemon (see kernel.ts). */
+export type NotificationsDeps = Kernel & { readonly decisions: Decisions };
+
 const DECISION_TTL_MS = 10 * 60_000;
 const MAX_SUPPRESSION_KEYS = 2000;
 const SUPPRESSION_RETENTION_MS = 7 * 24 * 3_600_000;
@@ -36,16 +43,16 @@ export class NativeAdapter implements NotificationAdapter {
 /** A JSON POST, not native encrypted Web Push. No endpoint is read again after approval. */
 export class JsonEndpointAdapter implements NotificationAdapter {
   readonly id: OutboundChannel;
-  private d: Daemon;
-  constructor(d: Daemon, id: OutboundChannel) { this.d = d; this.id = id; }
+  private readonly deps: { readonly egress: Egress; readonly permits: Pick<Notifications, 'issueEgressPermit'> };
+  constructor(deps: JsonEndpointAdapter['deps'], id: OutboundChannel) { this.deps = deps; this.id = id; }
   async deliver(p: ExternalPayload, context?: DeliveryContext): Promise<DeliveryResult> {
     if (!context || context.body !== JSON.stringify(p)) return { ok: false, detail: 'An exact single-message approval is required.' };
     try {
       const init = { method: 'POST', headers: { 'content-type': 'application/json' }, body: context.body, redirect: 'error' as const, signal: AbortSignal.timeout(8000) };
-      const notificationPermit = this.d.notifications.issueEgressPermit(context.decisionId, this.id, context.endpoint, init);
+      const notificationPermit = this.deps.permits.issueEgressPermit(context.decisionId, this.id, context.endpoint, init);
       // Shared egress can redeem this exact one-use permit instead of granting an entire host.
       // Until that wiring is present, unconfigured hosts remain denied by the existing guard.
-      const r = await this.d.egress.fetch(context.endpoint, { ...init, notificationPermit } as RequestInit);
+      const r = await this.deps.egress.fetch(context.endpoint, { ...init, notificationPermit } as RequestInit);
       await r.body?.cancel().catch(() => undefined);
       return r.ok ? { ok: true, detail: `Endpoint accepted the payload (HTTP ${r.status}); receipt by a person is unverified.` } : { ok: false, detail: `Endpoint rejected the payload (HTTP ${r.status}).` };
     } catch {
@@ -85,7 +92,7 @@ function endpointHost(url: string): { host: string; loopback: boolean } {
 }
 
 export class Notifications {
-  readonly d: Daemon;
+  readonly d: NotificationsDeps;
   private config: NotificationConfig;
   private revision: number;
   private readonly boot = randomBytes(24).toString('hex');
@@ -98,7 +105,7 @@ export class Notifications {
   private last: Partial<Record<NotificationChannel, { at: string; ok: boolean; detail: string }>> = {};
   private onEvents = (events: EventEnvelope[]) => this.fromEvents(events);
 
-  constructor(d: Daemon) {
+  constructor(d: NotificationsDeps) {
     this.d = d;
     this.config = this.read('notify:config', x => NotificationConfigSchema.parse(x)) ?? defaultNotificationConfig();
     this.revision = this.read('notify:revision', x => typeof x === 'number' && Number.isSafeInteger(x) ? x : 0) ?? 0;
@@ -114,7 +121,7 @@ export class Notifications {
     this.pruneSuppression();
     this.d.store.kvSet('notify:seen', JSON.stringify(this.seen));
     this.d.store.kvSet('notify:acked', JSON.stringify(this.acked));
-    this.adapters = { native: new NativeAdapter(), webpush: new JsonEndpointAdapter(d, 'webpush'), chat: new JsonEndpointAdapter(d, 'chat') };
+    this.adapters = { native: new NativeAdapter(), webpush: new JsonEndpointAdapter({ egress: d.egress, permits: this }, 'webpush'), chat: new JsonEndpointAdapter({ egress: d.egress, permits: this }, 'chat') };
   }
   private projectScope(): string {
     const repo = this.d.state.project?.repo ?? this.d.config.project.repo ?? '';
@@ -186,9 +193,9 @@ export class Notifications {
     });
   }
   private save(id: string, p: PendingNotification) { this.d.store.kvSet(`notify:decision:${id}`, JSON.stringify(p)); }
-  private configHash() { return sha(JSON.stringify(this.config)); }
+  private configHash() { return sha256(JSON.stringify(this.config)); }
   private actionHash(p: Omit<PendingNotification, 'actionHash' | 'consumed' | 'state' | 'transportUsed'>) {
-    return sha(JSON.stringify([p.version, p.type, p.channel, p.urlHash, p.configHash, p.revision, p.boot, p.notificationId, p.payloadHash, p.expires]));
+    return sha256(JSON.stringify([p.version, p.type, p.channel, p.urlHash, p.configHash, p.revision, p.boot, p.notificationId, p.payloadHash, p.expires]));
   }
   useAdapter(a: NotificationAdapter): void { this.adapters[a.id] = a; }
   getConfig(): NotificationConfig { return structuredClone(this.config); }
@@ -283,7 +290,7 @@ export class Notifications {
       const p = this.pending(dec.id);
       if (p && !dec.answeredAt && !dec.consumedAt && p.state === 'pending' && p.channel === channel && p.notificationId === notificationId && !this.problem(dec.id, p)) return dec;
     }
-    const base = { version: 2 as const, type: payload ? 'delivery' as const : 'endpoint' as const, channel, endpoint, urlHash: sha(endpoint), host, configHash: this.configHash(), revision: this.revision, boot: this.boot, notificationId, payload, payloadHash: sha(JSON.stringify(payload)), expires: this.d.now().getTime() + DECISION_TTL_MS };
+    const base = { version: 2 as const, type: payload ? 'delivery' as const : 'endpoint' as const, channel, endpoint, urlHash: sha256(endpoint), host, configHash: this.configHash(), revision: this.revision, boot: this.boot, notificationId, payload, payloadHash: sha256(JSON.stringify(payload)), expires: this.d.now().getTime() + DECISION_TTL_MS };
     const pending: PendingNotification = { ...base, actionHash: this.actionHash(base), consumed: false, state: 'pending', transportUsed: false };
     return this.d.decisions.createBound({
       question: payload ? `Send this one ${payload.kind} message to ${host} (${NOTIFICATION_CHANNEL_LABEL[channel]})?` : `Review ${host} as the configured ${NOTIFICATION_CHANNEL_LABEL[channel]} endpoint? This sends nothing; each message needs its own Decision.`,
@@ -307,7 +314,7 @@ export class Notifications {
     if (p.boot !== this.boot) return 'daemon restarted; request a fresh Decision';
     if (p.expires <= this.d.now().getTime()) return 'message approval expired';
     if (p.revision !== this.revision || p.configHash !== this.configHash() || this.config.channels[p.channel].endpoint !== p.endpoint) return 'notification settings changed';
-    if (sha(p.endpoint) !== p.urlHash || sha(JSON.stringify(p.payload)) !== p.payloadHash || this.actionHash(p) !== p.actionHash || !this.d.state.decisions[id]?.evidence?.some(e => e.label === 'Action SHA-256' && e.detail === p.actionHash)) return 'exact payload or URL binding changed';
+    if (sha256(p.endpoint) !== p.urlHash || sha256(JSON.stringify(p.payload)) !== p.payloadHash || this.actionHash(p) !== p.actionHash || !this.d.state.decisions[id]?.evidence?.some(e => e.label === 'Action SHA-256' && e.detail === p.actionHash)) return 'exact payload or URL binding changed';
     if (p.type === 'delivery' && (!p.payload || p.payload.id !== p.notificationId || !this.config.channels[p.channel].enabled || !this.config.kinds[p.payload.kind as NotificationCandidate['kind']])) return 'channel or alert kind disabled';
     if (p.type === 'delivery' && inQuietHours(this.config.quietHours, this.d.now())) return 'quiet hours';
     return null;
@@ -395,7 +402,8 @@ export class Notifications {
     return this.getConfig();
   }
   list(limit = 100): NotificationRecord[] {
-    const evs = this.d.store.list({ types: ['notification.emitted', 'notification.acked', 'notification.delivered'], limit: 10_000 });
+    // Newest events, replayed oldest-first: acks and deliveries always follow their notification.
+    const evs = this.d.store.list({ types: ['notification.emitted', 'notification.acked', 'notification.delivered'], limit: MAX_LIST, order: 'desc' }).reverse();
     const byId = new Map<string, NotificationRecord>();
     for (const e of evs) {
       if (e.type === 'notification.emitted') byId.set(e.data.notification.id, structuredClone(e.data.notification));

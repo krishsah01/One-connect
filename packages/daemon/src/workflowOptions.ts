@@ -3,7 +3,16 @@ import type { Actor, Assignment, DesignJob, Handoff, NewEvent, Run, WorkflowTask
 import { containsSecret, isActiveRun, mockGate, newId, SYSTEM } from '@acc/core';
 import { adapterFor } from './adapters/agents/index.ts';
 import { revParse } from './adapters/vcs/git.ts';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import type { Kernel, WorkCommands } from './kernel.ts';
+import type { Designer } from './designer.ts';
+import type { DesignMocks } from './mocks.ts';
+import type { RunManager } from './runManager.ts';
+import type { SkillLibrary } from './skills.ts';
+import type { WorkflowEngine } from './workflows.ts';
+
+/** What workflow step options read and change. */
+export type WorkflowOptionsDeps = Kernel & Pick<WorkCommands, 'assignmentText'> & { readonly designer: Designer; readonly mocks: DesignMocks; readonly runs: RunManager; readonly skillLib: SkillLibrary; readonly workflows: WorkflowEngine };
 
 export function workflowPrompt(a: Assignment): string {
   const sections: string[] = [];
@@ -14,7 +23,7 @@ export function workflowPrompt(a: Assignment): string {
   return sections.length ? '\n\n' + sections.join('\n\n') : '';
 }
 
-export function applyWorkflowOptions(d: Daemon, a: Assignment, t: WorkflowTaskDef): Assignment {
+export function applyWorkflowOptions(d: WorkflowOptionsDeps, a: Assignment, t: WorkflowTaskDef): Assignment {
   const checked = d.workflows.validate({ name: 'step options', tasks: [ { ...t, kind: 'code', reviewOf: null, dependsOn: [] } ] });
   const optionCodes = new Set(['task_options', 'unknown_skill', 'unknown_connector', 'unknown_artifact', 'unknown_revision', 'revision_not_approved', 'consult_self', 'secret', 'unknown_agent']);
   const errors = checked.issues.filter(i => optionCodes.has(i.code));
@@ -46,7 +55,7 @@ export function applyWorkflowOptions(d: Daemon, a: Assignment, t: WorkflowTaskDe
   return d.state.assignments[a.id];
 }
 
-export function projectConnectorDefaults(d: Daemon): string[] {
+export function projectConnectorDefaults(d: WorkflowOptionsDeps): string[] {
   const raw = d.store.kvGet('workflow:default-connectors');
   if (!raw) return [];
   const value: unknown = JSON.parse(raw);
@@ -54,7 +63,7 @@ export function projectConnectorDefaults(d: Daemon): string[] {
   return value;
 }
 
-export function saveWorkflowDefaults(d: Daemon, raw: unknown, actor: Actor): string[] {
+export function saveWorkflowDefaults(d: WorkflowOptionsDeps, raw: unknown, actor: Actor): string[] {
   if (actor.type !== 'human' || /^jev$/i.test(actor.id)) throw new CommandError('Only the owner can configure workflow defaults', 403);
   if (!Array.isArray(raw) || raw.length > 32 || raw.some(id => typeof id !== 'string' || !d.state.connectors?.[id] || d.state.connectors[id].disabled)) throw new CommandError('Choose up to 32 existing enabled connector ids');
   const connectors = [...new Set(raw)] as string[];
@@ -62,7 +71,7 @@ export function saveWorkflowDefaults(d: Daemon, raw: unknown, actor: Actor): str
   return connectors;
 }
 
-async function requestPickup(d: Daemon, run: Run, timeoutMs: number): Promise<Handoff | null> {
+async function requestPickup(d: WorkflowOptionsDeps, run: Run, timeoutMs: number): Promise<Handoff | null> {
   const adapter = adapterFor(run.adapter);
   if (!isActiveRun(run) || !adapter.capabilities.streamingInput || !adapter.encodeMessage) return d.runs.stagedHandoff(run.id);
   const initial = d.runs.stagedHandoff(run.id);
@@ -78,7 +87,7 @@ async function requestPickup(d: Daemon, run: Run, timeoutMs: number): Promise<Ha
   });
 }
 
-export async function terminateWithPickup(d: Daemon, id: string, actor: Actor, timeoutMs = 60_000): Promise<Record<string, string | null>> {
+export async function terminateWithPickup(d: WorkflowOptionsDeps, id: string, actor: Actor, timeoutMs = 60_000): Promise<Record<string, string | null>> {
   const w = d.workflows.get(id);
   if (w.status === 'draft' || w.status === 'completed' || w.status === 'canceled') throw new CommandError(`Cannot terminate a ${w.status} workflow`, 409);
   if (w.status !== 'paused') await d.workflows.pause(id, actor);

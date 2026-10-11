@@ -1,0 +1,255 @@
+--- a/packages/core/src/entities.ts
++++ b/packages/core/src/entities.ts
+@@ -8,6 +8,7 @@
+ import type { ProjectSkill, SkillRef } from './skills.ts';
+ import type { Connector } from './connectors.ts';
+ import type { MockArtifact } from './mocks.ts';
++import type { DesignStudioState } from './designStudio.ts';
+ import type { CodeHostSnapshot, InfraHealthReport, ReleaseAction, ReleasePlan } from './release.ts';
+ 
+ export type Actor = { type: 'human' | 'agent' | 'system'; id: string };
+@@ -553,6 +554,8 @@
+   skills?: Record<string, ProjectSkill>;
+   connectors?: Record<string, Connector>;
+   mocks?: Record<string, MockArtifact>;
++  /** Designer studio jobs and capture attempts. Absent until the first studio event. */
++  designStudio?: DesignStudioState;
+ }
+ 
+ export function emptyState(): ControlState {
+--- a/packages/core/src/events.ts
++++ b/packages/core/src/events.ts
+@@ -37,6 +37,7 @@
+ import type { SkillVersion } from './skills.ts';
+ import type { Connector, ConnectorAction, ConnectorAvailability } from './connectors.ts';
+ import type { MockArtifact, MockEvidence, MockException, MockReview, MockRevision } from './mocks.ts';
++import type { DesignStudioEvent } from './designStudio.ts';
+ import type { NotificationChannel, NotificationConfig, NotificationRecord, RemoteConfig, RemoteScope } from './phone.ts';
+ import type { CodeHostSnapshot, InfraHealthReport, ReleasePlan } from './release.ts';
+ 
+@@ -62,6 +63,8 @@
+   'design.mock_exception': { artifactId: string; rev: number; exception: MockException };
+   'design.mock_reviewed': { artifactId: string; rev: number; review: MockReview };
+   'design.mock_evidence': { artifactId: string; rev: number; evidence: MockEvidence };
++  /** Designer studio jobs and capture attempts (one discriminated event type owned by designStudio.ts). */
++  'design.studio': DesignStudioEvent;
+   'team.message_sent': { message: TeamMessage };
+   'team.message_acknowledged': { messageId: string; recipientId: string };
+   'team.message_notified': { messageId: string; targetRunId: string };
+--- a/packages/core/src/index.ts
++++ b/packages/core/src/index.ts
+@@ -20,6 +20,7 @@
+ export * from './skills.ts';
+ export * from './connectors.ts';
+ export * from './mocks.ts';
++export * from './designStudio.ts';
+ export * from './libraryReducer.ts';
+ export * from './phone.ts';
+ export * from './reports.ts';
+--- a/packages/core/src/reducer.ts
++++ b/packages/core/src/reducer.ts
+@@ -6,6 +6,7 @@
+ import type { EventEnvelope } from './events.ts';
+ import { meaningfulSummary } from './events.ts';
+ import { applyLibraryEvent } from './libraryReducer.ts';
++import { applyDesignStudioEvent } from './designStudio.ts';
+ 
+ const ACTIVE_RUN: ReadonlySet<RunState> = new Set(['queued', 'starting', 'running', 'waiting-for-approval', 'waiting-for-input', 'stalled']);
+ export const isActiveRun = (r: Pick<Run, 'state'>): boolean => ACTIVE_RUN.has(r.state);
+@@ -118,6 +119,9 @@
+     }
+     case 'design.system_saved':
+       s.design=e.data.revision;
++      break;
++    case 'design.studio':
++      s.designStudio = applyDesignStudioEvent(s.designStudio, e.data);
+       break;
+     case 'skill.draft_saved': case 'skill.version_published': case 'skill.disabled': case 'skill.exported':
+     case 'connector.saved': case 'connector.disabled': case 'connector.activation_requested': case 'connector.activated':
+--- a/packages/daemon/src/server/http.ts
++++ b/packages/daemon/src/server/http.ts
+@@ -18,6 +18,7 @@
+ import { onboardingReport } from '../onboarding.ts';
+ import { registerProjectRoutes } from './project-routes.ts';
+ import { registerLibraryRoutes } from './libraryRoutes.ts';
++import { registerDesignerRoutes } from './designerRoutes.ts';
+ import { registerHarnessRoutes } from './harnessRoutes.ts';
+ import { remoteGate, remotePrincipal } from '../phone/gate.ts';
+ import { registerPhoneHooks, registerPhoneRoutes } from '../phone/routes.ts';
+@@ -204,6 +205,7 @@
+   app.post('/api/settings/request', async (req:FastifyRequest<{Body:{settings:import('../settings.ts').SettingsDraft;expected:string}}>) => ({decision:d.settings.request(req.body?.settings,req.body?.expected)}));
+ 
+   registerLibraryRoutes(app, d);
++  registerDesignerRoutes(app, d);
+   registerHarnessRoutes(app, d);
+   registerPhoneRoutes(app, d);
+ 
+--- a/packages/daemon/src/skills.ts
++++ b/packages/daemon/src/skills.ts
+@@ -21,7 +21,6 @@
+ 
+ const exec = promisify(execFile);
+ const sha = (s: string) => createHash('sha256').update(s).digest('hex');
+-const DESIGN_LABEL = /^(design|ui|mock|frontend|branding)$/i;
+ 
+ /** Where each harness discovers repository skills. Relay runs have no worktree. */
+ export const SKILL_EXPORT_DIRS: Record<AdapterType, string | null> = {
+@@ -220,7 +219,7 @@
+   freeze(agentId: string, workItemId: string): SkillRef[] {
+     const cfg = this.d.state.agents[agentId]?.config, item = this.d.state.workItems[workItemId];
+     const ids = new Set(cfg?.skills ?? []);
+-    if (item?.labels.some(l => DESIGN_LABEL.test(l))) for (const s of this.d.designer.skills()) ids.add(s.id);
++    for (const id of this.d.designer.defaultSkillIds(item)) ids.add(id);
+     const refs: SkillRef[] = [];
+     for (const id of ids) {
+       if (this.d.designer.hasSkill(id)) { refs.push(this.builtinRef(id)); continue; }
+--- a/packages/daemon/src/mcp/server.ts
++++ b/packages/daemon/src/mcp/server.ts
+@@ -95,8 +95,11 @@
+ server.registerTool('get_design_system',{description:'Read the exact versioned project design contract frozen for your assignment, with tokens, DESIGN.md and contrast checks.',inputSchema:{}},async a=>text(await call('get_design_system',a)));
+ server.registerTool('list_skills',{description:'List the skills frozen for your assignment: id, exact version, description and reference names only. Load one with get_skill when it applies.',inputSchema:{}},async a=>text(await call('list_skills',a)));
+ server.registerTool('get_skill',{description:'Read SKILL.md or one listed reference of a skill frozen for your assignment, in bounded pages. Page with nextOffset when more is true.',inputSchema:{id:z.string(),file:z.string().optional(),offset:z.number().int().nonnegative().optional(),budget:z.number().int().min(1000).max(12000).optional()}},async a=>text(await call('get_skill',a)));
+-server.registerTool('register_design_mock',{description:'Capture design/<slug>/ (index.html plus local css/js/svg/png, no remote URLs) from your worktree as an immutable, reviewable mock revision. Returns static findings; fix errors and register again.',inputSchema:{dir:z.string().regex(/^design\/[a-z0-9][a-z0-9-]{0,63}$/),title:z.string().max(120).optional()}},async a=>text(await call('register_design_mock',a)));
+-server.registerTool('record_mock_evidence',{description:'Attach check evidence to your mock revision. Set executed only for checks you actually ran; commands are verified against this run’s transcript. Screenshots must be image files inside the captured mock folder.',inputSchema:{artifactId:z.string(),revision:z.number().int().positive().optional(),kind:z.enum(['command','screenshot','viewport']),summary:z.string().min(1).max(500),executed:z.boolean(),status:z.enum(['passed','failed','not_run']),command:z.string().max(1000).optional(),exitCode:z.number().int().nullable().optional(),viewport:z.object({name:z.string().max(40).optional(),width:z.number().int(),height:z.number().int()}).optional(),screenshot:z.string().optional()}},async a=>text(await call('record_mock_evidence',a)));
++const designHandoff=z.object({summary:z.string().max(2000).optional(),pages:z.array(z.object({path:z.string().max(120),title:z.string().max(120).optional(),purpose:z.string().max(300).optional()})).max(20).optional(),states:z.array(z.string().max(60)).max(30).optional(),interactions:z.array(z.string().max(200)).max(30).optional(),checks:z.array(z.object({name:z.string().max(120),status:z.enum(['passed','failed','not_run']),command:z.string().max(500).optional(),detail:z.string().max(300).optional()})).max(30).optional(),limitations:z.array(z.string().max(300)).max(20).optional(),questions:z.array(z.string().max(300)).max(10).optional(),designHash:z.string().optional()}).describe('Structured design handoff. Stored as your claim; One Connect compares it with the captured files and frozen contract.');
++server.registerTool('register_design_mock',{description:'Capture design/<slug>/ (index.html plus local css/js/svg/png, no remote URLs) from your worktree as an immutable, reviewable mock revision, with a structured handoff. Returns static findings; fix errors and register again. design/<slug>/evidence/ is not captured.',inputSchema:{dir:z.string().regex(/^design\/[a-z0-9][a-z0-9-]{0,63}$/),title:z.string().max(120).optional(),handoff:designHandoff.optional()}},async a=>text(await call('register_design_mock',a)));
++server.registerTool('record_mock_evidence',{description:'Attach check evidence to your mock revision. Set executed only for checks you actually ran; commands are verified against this run’s transcript. Screenshots: an image in the captured mock, or evidence/<name>.png (≤512 KiB) inside your mock folder. Say what you did (action), with which tool and on which page.',inputSchema:{artifactId:z.string(),revision:z.number().int().positive().optional(),kind:z.enum(['command','screenshot','viewport']),summary:z.string().min(1).max(500),executed:z.boolean(),status:z.enum(['passed','failed','not_run']),command:z.string().max(1000).optional(),exitCode:z.number().int().nullable().optional(),viewport:z.object({name:z.string().max(40).optional(),width:z.number().int(),height:z.number().int()}).optional(),screenshot:z.string().optional(),action:z.string().max(300).optional(),tool:z.string().max(120).optional(),page:z.string().max(120).optional()}},async a=>text(await call('record_mock_evidence',a)));
++server.registerTool('get_design_mock',{description:'Read a captured mock revision you produced, continue or were asked to review: file list, findings and handoff, or one file in bounded pages. Page with nextOffset when more is true.',inputSchema:{artifactId:z.string(),revision:z.number().int().positive().optional(),path:z.string().max(200).optional(),offset:z.number().int().nonnegative().optional(),budget:z.number().int().min(1000).max(12000).optional()}},async a=>text(await call('get_design_mock',a)));
++server.registerTool('submit_design_review',{description:'Submit your independent review of the exact mock revision your review assignment names. Every checklist item needs a result and its basis: static (you inspected source) or browser (an executed check observed in this run). A human makes the final approval.',inputSchema:{artifactId:z.string(),revision:z.number().int().positive(),verdict:z.enum(['approve','request_changes']),summary:z.string().min(1).max(2000),checklist:z.array(z.object({id:z.enum(['responsive','keyboard','contrast','states','tokens']),result:z.enum(['pass','fail','not_checked']),basis:z.enum(['static','browser']),evidenceIds:z.array(z.string()).max(20).optional(),note:z.string().max(500).optional()})).max(5)}},async a=>text(await call('submit_design_review',a)));
+ server.registerTool('list_connector_tools',{description:'List local tool connections a human approved for this project and the exact tools each allows.',inputSchema:{}},async a=>text(await call('list_connector_tools',a)));
+ server.registerTool('call_connector_tool',{description:'Request one exact tool call on a human-approved local MCP connection. Creates a Decision; nothing runs until the owner approves the exact arguments. Poll get_connector_tool_result for status.',inputSchema:{connector:z.string(),tool:z.string(),arguments:z.record(z.string(),z.unknown()).optional()}},async a=>text(await call('call_connector_tool',a)));
+ server.registerTool('get_connector_tool_result',{description:'Poll the durable result of a connector tool request created by call_connector_tool. Repeated polls never re-execute.',inputSchema:{requestId:z.string()}},async a=>text(await call('get_connector_tool_result',a)));
+--- a/packages/daemon/src/mcpBridge.ts
++++ b/packages/daemon/src/mcpBridge.ts
+@@ -128,15 +128,21 @@
+       case 'get_skill':
+         return d.skillLib.readFor(d.state.assignments[run.assignmentId], String(args.id ?? ''), { file: typeof args.file === 'string' ? args.file : undefined, offset: typeof args.offset === 'number' ? args.offset : undefined, budget: typeof args.budget === 'number' ? args.budget : undefined });
+       case 'register_design_mock': {
+-        const r = await d.mocks.capture(run.assignmentId, String(args.dir ?? ''), agentActor(run.agentId), { title: typeof args.title === 'string' ? args.title : undefined, runId: run.id });
++        const r = await d.mocks.capture(run.assignmentId, String(args.dir ?? ''), agentActor(run.agentId), { title: typeof args.title === 'string' ? args.title : undefined, runId: run.id, handoff: args.handoff });
+         const g = r.artifact.revisions.at(-1)!.gate;
+         return { ok: true, artifactId: r.artifact.id, revision: r.revision.rev, hash: r.revision.hash, unchanged: r.unchanged, gate: g.state, findings: r.revision.findings.map(f => ({ id: f.id, severity: f.severity, rule: f.rule, message: f.message, file: f.file, line: f.line })) };
+       }
+       case 'record_mock_evidence': {
+         const art = d.mocks.get(String(args.artifactId ?? ''));
+-        if (art.assignmentId !== run.assignmentId) throw new CommandError('This mock belongs to another assignment', 403);
++        d.mocks.assertAgentAccess(art, run.assignmentId);
+         const ev = d.mocks.addEvidence(art.id, typeof args.revision === 'number' ? args.revision : 'latest', args, agentActor(run.agentId), run.id);
+         return { ok: true, evidence: ev, note: ev.verified ? 'Matched a command recorded in this run.' : 'Recorded as reported; One Connect did not observe this check.' };
++      }
++      case 'get_design_mock':
++        return d.mocks.agentRead(String(args.artifactId ?? ''), typeof args.revision === 'number' ? args.revision : 'latest', run.assignmentId, { path: typeof args.path === 'string' ? args.path : undefined, offset: typeof args.offset === 'number' ? args.offset : undefined, budget: typeof args.budget === 'number' ? args.budget : undefined });
++      case 'submit_design_review': {
++        const review = d.mocks.agentReview(String(args.artifactId ?? ''), Number(args.revision), args, agentActor(run.agentId), run.id);
++        return { ok: true, decision: review.decision, independent: review.independent, note: 'Recorded as an independent, advisory review. A human makes the final approval.' };
+       }
+       case 'list_connector_tools':
+         return { connectors: d.connectors.toolsForAgents() };
+--- a/packages/web/src/lib/store.ts
++++ b/packages/web/src/lib/store.ts
+@@ -37,6 +37,14 @@
+   private gen = 0;
+   /** Bumped when phone authority changes; stale socket callbacks are ignored. */
+   private authGen = 0;
++  /**
++   * Control events are deduplicated by sequence, not by "older than the newest seen": a daemon
++   * listener can commit while an earlier batch is still being broadcast, so a later sequence may
++   * arrive first. Everything at or below `baseSeq` came with the snapshot.
++   */
++  private baseSeq = 0;
++  private applied = new Set<number>();
++  private rebase(seq: number) { this.baseSeq = seq; this.applied.clear(); }
+   private loading: { gen: number; pending: Promise<void> } | null = null;
+   private reloadRequested = false;
+   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+@@ -143,6 +151,7 @@
+       const r = await api<{ state: ControlState; demo?: boolean; tracker: Meta['tracker']; outbox: Meta['outbox'] }>('/api/state');
+       if (gen !== this.gen || authGen !== this.authGen) return;
+       this.state = r.state;
++      this.rebase(r.state.seq);
+       this.meta = { demo: Boolean(r.demo), tracker: r.tracker, outbox: r.outbox };
+       this.loadError = '';
+       await this.connect(gen, authGen);
+@@ -255,7 +264,7 @@
+       this.emit();
+       return;
+     }
+-    if (m.type === 'snapshot' && m.state) this.state = m.state;
++    if (m.type === 'snapshot' && m.state) { this.state = m.state; this.rebase(m.state.seq); }
+     else if (m.type === 'events' && m.events) { this.ingest(m.events); for (const l of this.eventListeners) l(m.events); }
+     else if (m.type === 'run_events' && m.runId && m.events) {
+       if (this.runEvents.has(m.runId)) {
+@@ -280,7 +289,10 @@
+     let s = this.state;
+     const touchedRuns = new Set<string>();
+     for (const e of events) {
+-      if (e.kind === 'control' && e.seq <= s.seq) continue;
++      if (e.kind === 'control') {
++        if (e.seq <= this.baseSeq || this.applied.has(e.seq)) continue;
++        this.applied.add(e.seq);
++      }
+       s = applyEvent(s, e);
+       if (e.runId && this.runEvents.has(e.runId)) {
+         const list = this.runEvents.get(e.runId)!;
+@@ -296,6 +308,7 @@
+       }
+     }
+     this.state = s;
++    if (this.applied.size > 20_000) for (const seq of this.applied) if (seq < s.seq - 10_000) this.applied.delete(seq);
+     for (const r of touchedRuns) this.notifyRun(r);
+   }
+ 
+--- a/packages/daemon/test/mocks.test.ts
++++ b/packages/daemon/test/mocks.test.ts
+@@ -3,7 +3,7 @@
+ import path from 'node:path';
+ import { createHash } from 'node:crypto';
+ import { beforeAll, afterEach, describe, expect, it } from 'vitest';
+-import { agentActor, DEFAULT_DESIGN, designCss, HUMAN, mockGate, MOCK_PREVIEW_CSP, SYSTEM } from '@acc/core';
++import { agentActor, DEFAULT_DESIGN, designCss, HUMAN, mockGate, MOCK_PREVIEW_CSP, REVIEW_CHECKLIST, SYSTEM } from '@acc/core';
+ import { git, makeConfig, makeRepo, startDaemon, tmpDir, waitFor, type Harness } from './helpers.ts';
+ 
+ import { ensureNativeMockHelper } from './mock-file-helper.ts';
+@@ -187,7 +187,8 @@
+     expect(p.html.indexOf('Content-Security-Policy')).toBeLessThan(p.html.indexOf('<h3>'));
+     expect(p.html).toContain('src="data:image/svg+xml;base64,');
+     expect(p.html).toContain('<style data-src="tokens.css">');
+-    expect(p.html).toContain('window.open=()=>null');
++    // window.open still returns null; the guard now also tells the preview shell why nothing opened.
++    expect(p.html).toContain("window.open=(...a)=>{block('popup',a[0]);return null}");
+     expect(p.html).not.toMatch(/loc\.assign=loc\.replace|Object\.defineProperty\(loc/);
+     expect(p.shell).toContain("frame-src 'none'");
+     expect(p.execution).toBe('native-isolated');
+@@ -223,7 +224,18 @@
+     // Finding ids survive event-log redaction unchanged.
+     expect(d.state.mocks![id].revisions.map(r => r.findings)).toEqual([rev1.findings, r2.revision.findings]);
+     expect(d.mocks.addException(id, 2, [off2], 'Heading accent approved by design lead').revisions[1].gate.state).toBe('excepted');
+-    expect(d.mocks.review(id, 2, 'approved', 'Looks right at phone and desktop').revisions[1].gate.state).toBe('approved');
++    // Approval needs a passing checklist with a rendered basis, and the author cannot be the only approver.
++    const passAll = REVIEW_CHECKLIST.map(c => ({ id: c.id, result: 'pass' as const, basis: c.id === 'contrast' ? 'static' as const : 'human' as const }));
++    expect(() => d.mocks.review(id, 2, 'approved', 'ok')).toThrow(/checklist item must pass/);
++    expect(() => d.mocks.review(id, 2, 'approved', 'ok', HUMAN, { checklist: passAll.map(c => ({ ...c, basis: 'static' })) })).toThrow(/Static checks cannot pass/);
++    expect(() => d.mocks.review(id, 2, 'approved', 'ok', HUMAN, { checklist: passAll.map(c => c.id === 'keyboard' ? { ...c, basis: 'browser' } : c) })).toThrow(/browser basis needs passed, executed evidence/);
++    expect(r2.revision.authoredBy).toEqual(HUMAN);
++    const selfApproved = d.mocks.review(id, 2, 'approved', 'Looks right at phone and desktop', HUMAN, { checklist: passAll }).revisions[1];
++    expect(selfApproved.gate.state).toBe('needs_independent_review');
++    expect(selfApproved.reviews.at(-1)).toMatchObject({ independent: false, hash: r2.revision.hash, designHash: v1.hash });
++    // An independent agent review (recorded by submit_design_review in a review run) completes it.
++    d.commit([{ type: 'design.mock_reviewed', actor: agentActor('claude'), agentId: 'claude', data: { artifactId: id, rev: 2, review: { decision: 'approved', note: 'Independent static review', by: agentActor('claude'), at: new Date().toISOString(), hash: r2.revision.hash, designHash: v1.hash, independent: true, checklist: passAll.map(c => ({ ...c, basis: 'static', evidenceIds: [] })) } } }]);
++    expect(d.mocks.view(d.mocks.get(id)).revisions[1].gate.state).toBe('approved');
+ 
+     // A newer contract is drift: a visible review gate until a human records an exception.
+     const v2 = d.designer.save({ ...DEFAULT_DESIGN, radius: 12 }, v1.hash);
+--- a/THIRD_PARTY_NOTICES.md
++++ b/THIRD_PARTY_NOTICES.md
+@@ -594,6 +594,10 @@
+ | Accessible product UI | 1 | Apache-2.0 |
+ | Responsive mocks | 1 | Apache-2.0 |
+ | [Playwright CLI checks](https://github.com/microsoft/playwright-cli) | one-connect-guide-1 | Apache-2.0 |
++| Product UI patterns | 1 | Apache-2.0 |
++| Typography and content | 1 | Apache-2.0 |
++| Design system implementation | 1 | Apache-2.0 |
++| Visual critique | 1 | Apache-2.0 |
+ 
+ ### Taste Skill upstream notice
+ 

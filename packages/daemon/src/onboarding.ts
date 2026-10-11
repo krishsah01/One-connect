@@ -5,6 +5,7 @@ import type { BinaryInfo } from '@acc/core';
 import { chooseBinary, detectBinaries, newerCandidate } from './adapters/agents/detect.ts';
 import { VENDOR_ADAPTERS } from './adapters/agents/index.ts';
 import type { Daemon } from './daemon.ts';
+import { harnessEntry, type HarnessEntry } from './harnessCatalog.ts';
 
 export interface DetectedVendor {
   adapter: string;
@@ -15,6 +16,8 @@ export interface DetectedVendor {
   pinned: BinaryInfo | null;
   newer: BinaryInfo | null;
   configuredAgents: string[];
+  /** Official install commands, terms and the API-key route for this harness. */
+  catalog: HarnessEntry | null;
 }
 
 export async function detectVendors(configured: { adapter: string; id: string }[]): Promise<DetectedVendor[]> {
@@ -32,6 +35,7 @@ export async function detectVendors(configured: { adapter: string; id: string }[
       pinned,
       newer: newerCandidate(pinned, candidates),
       configuredAgents: configured.filter((c) => c.adapter === a.type).map((c) => c.id),
+      catalog: harnessEntry(a.type) ?? null,
     });
   }
   return out;
@@ -65,7 +69,8 @@ export async function onboardingReport(d: Daemon) {
       models: a.models,
       usage: a.usage,
       probedAt: a.probedAt,
+      compliance: d.accounts.status(a.id),
     };
   });
-  return { vendors, agents, tracker: { type: d.tracker.type, target: d.tracker.target, live: d.tracker.live } };
+  return { vendors, agents, accounts: d.config.policies.accounts, tracker: { type: d.tracker.type, target: d.tracker.target, live: d.tracker.live } };
 }

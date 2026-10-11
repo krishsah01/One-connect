@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { AuthStatus, BillingInfo, Effort, ModelInfo, UsageInfo, UsageWindow } from '@acc/core';
-import { EFFORTS } from '@acc/core';
+import { ADAPTER_PROFILES, EFFORTS } from '@acc/core';
 import { run } from '../../exec.ts';
 import { commandCompleted, endWithoutResult, relPath, stderrLine, summarize, tryJson } from './common.ts';
 import { classifyFailure } from './failures.ts';
@@ -64,10 +64,7 @@ export function usageFromRateLimits(rl: Record<string, unknown>, source: string)
 
 export const codexAdapter: VendorAdapter = {
   type: 'codex-cli',
-  displayName: 'Codex CLI',
-  installUrl: 'https://developers.openai.com/codex/cli',
-  loginHint: 'Run `codex login` in a terminal and choose "Sign in with ChatGPT"',
-  capabilities: { headless: true, streamingInput: false, resume: true, hostApprovals: false, mcp: true },
+  ...ADAPTER_PROFILES['codex-cli'],
   binaryNames: ['codex'],
   vendorHost: 'chatgpt.com',
   knownLocations: () => [

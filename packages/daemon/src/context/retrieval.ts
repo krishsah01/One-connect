@@ -6,8 +6,8 @@
 //   4. near-duplicates and overlapping passages are removed, at most N passages per source;
 //   5. passages are packed into a hard character budget.
 // Evidence sufficiency is computed from the selected excerpts only — never from model output.
-import { createHash } from 'node:crypto';
 import type { DocEvidence } from '@acc/core';
+import { sha256 } from '../util/hash.ts';
 
 export const STOP_WORDS=new Set('a an and are as at be been but by can could do does did for from had has have how i if in into is it its may more my need of on or our should that the their them then there these they this those to was we were what when where which who whom why will with would you your again about any each per much many most long often does done use used using'.split(' '));
 /** Query terms for keyword search (stop words removed, bounded). */
@@ -48,7 +48,7 @@ export function evidence(query:string,excerpts:string[],threshold=0.6):DocEviden
 }
 
 const norm=(s:string)=>s.replace(/\s+/g,' ').trim().toLowerCase();
-const digest=(s:string)=>createHash('sha256').update(norm(s)).digest('hex');
+const digest=(s:string)=>sha256(norm(s));
 
 export interface SelectOptions { limit:number; budget:number; perSource:number; }
 /**

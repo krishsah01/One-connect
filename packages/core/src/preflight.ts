@@ -5,6 +5,7 @@ import type { AgentState, Assignment, PreflightCheck, PreflightResult, WorkItem 
 import { checkQualityFloor, eligibleModels, isNewest, matchesAny, modelFamilyKey, newestInFamily, selectNewestModel, workCategory, type PickOptions } from './models.ts';
 import { scopesOverlap } from './pathScope.ts';
 import { containsSecret } from './redact.ts';
+import { isManualRelay } from './adapterProfiles.ts';
 
 export const COORDINATION_LABELS = ['coordination', 'planning', 'triage', 'research'];
 
@@ -29,6 +30,10 @@ export interface PreflightInput {
   subscriptionConfirmation?: { valid: boolean; message: string };
   /** For assignments bound to an approved design: whether that exact approval still holds now. */
   designBinding?: { status: 'pass' | 'fail'; message: string };
+  /** Own-account / vendor-terms confirmation for subscription logins, evaluated by the daemon. */
+  accountTerms?: { required: boolean; valid: boolean; message: string };
+  /** Vendor code signature of the subscription CLI binary (macOS). */
+  signature?: { state: string; detail: string };
 }
 
 export function pickOptions(agent: AgentState, policies: Policy): PickOptions {
@@ -57,7 +62,7 @@ export function runPreflight(i: PreflightInput): PreflightResult {
   const checks: PreflightCheck[] = [];
   const add = (c: PreflightCheck) => checks.push(c);
   const { item, agent, assignment, policies } = i;
-  const relay = agent?.config.adapter === 'relay';
+  const relay = agent ? isManualRelay(agent.config) : false;
 
   add(i.killSwitch ? { id: 'kill_switch', label: 'Kill switch', status: 'fail', message: 'kill switch is engaged; release it to dispatch' } : { id: 'kill_switch', label: 'Kill switch', status: 'pass', message: 'not engaged' });
   if (i.designBinding) add({ id: 'design_binding', label: 'Approved design', ...i.designBinding });
@@ -106,6 +111,12 @@ export function runPreflight(i: PreflightInput): PreflightResult {
       add({ id: 'billing', label: 'Billing', status: confirmed ? 'pass' : 'fail', message: b.overage === 'on' ? 'paid overage is on; turn it off or opt in' : b.overage === 'unknown' ? i.subscriptionConfirmation?.message ?? 'The CLI cannot verify paid settings. Confirm overage, purchased credits and auto-recharge are off in Agents & subscriptions before dispatch.' : `included subscription usage (${b.source}); paid overage off` });
     }
     else add({ id: 'billing', label: 'Billing', status: 'fail', message: 'billing mode is unknown; dispatch requires a confirmed subscription or explicit per-agent paid opt-in' });
+
+    if (i.accountTerms?.required) add({ id: 'account', label: 'Own account & vendor terms', status: i.accountTerms.valid ? 'pass' : 'fail', message: i.accountTerms.message });
+    if (i.signature && i.signature.state !== 'not_expected') {
+      const st = i.signature.state;
+      add({ id: 'signature', label: 'Official vendor binary', status: st === 'verified' ? 'pass' : st === 'mismatch' || st === 'invalid' ? 'fail' : 'warn', message: i.signature.detail });
+    }
 
     if (agent.limitedUntil || agent.usage.status==='limited' || agent.usage.windows.some(w=>w.usedPercent!==null && w.usedPercent>=100)) add({ id: 'usage', label: 'Usage', status: 'fail', message: `usage limit reached${agent.limitedUntil && agent.limitedUntil !== 'unknown' ? ` until ${agent.limitedUntil}` : ''}` });
     else add({ id: 'usage', label: 'Usage', status: agent.usage.status === 'near_limit' ? 'warn' : 'pass', message: agent.usage.status === 'unknown' ? 'included usage not exposed by vendor' : `usage ${agent.usage.status}` });

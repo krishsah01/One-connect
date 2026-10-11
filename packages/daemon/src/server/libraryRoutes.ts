@@ -3,7 +3,8 @@
 // so they inherit its Host/Origin checks and session/install-token authentication.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { HUMAN } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 
 type R<P = Record<string, string>, B = unknown, Q = Record<string, string | undefined>> = FastifyRequest<{ Params: P; Body: B; Querystring: Q }>;
 const revOf = (v: string | undefined): number | 'latest' => {

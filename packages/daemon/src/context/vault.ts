@@ -13,6 +13,7 @@ import path from 'node:path';
 import type { KnowledgeConfig, VaultStatus } from '@acc/core';
 import { run } from '../exec.ts';
 import { whichAll } from '../adapters/agents/detect.ts';
+import { sha256 } from '../util/hash.ts';
 
 export interface SearchHit {
   path: string;
@@ -23,13 +24,12 @@ export interface SearchHit {
 const MAX_FILES = 6000;
 const MAX_BYTES = 1024 * 1024;
 const PROJECT_MARKER='.one-connect-project',GENERATED_MARKER='.one-connect-generated';
-const digest=(text:string|Buffer)=>createHash('sha256').update(text).digest('hex');
 interface Generated {version:2;owner:string|null;notes:Record<string,string>;}
 
 /** Same canonical repository binding that the native registry validates. No display-name input. */
 export function projectNamespace(repo:string):string {
   let canonical:string;try{canonical=fs.realpathSync(repo);}catch{canonical=path.resolve(repo);}
-  return digest(canonical);
+  return sha256(canonical);
 }
 
 export function safeName(s: string): string {
@@ -201,7 +201,7 @@ export class Vault {
     const prior=this.generated(abs),extra=fs.existsSync(abs)?fs.readdirSync(abs).filter(name=>name!==marker&&!Object.hasOwn(prior!.notes,name)):[];
     if(extra.some(name=>Object.hasOwn(notes,name)))throw new Error('Generated notes would overwrite an unowned note');
     fs.mkdirSync(path.dirname(abs),{recursive:true});fs.rmSync(stage,{recursive:true,force:true});fs.mkdirSync(stage,{mode:0o700});
-    const manifest:Generated={version:2,owner:this.owner,notes:Object.fromEntries(Object.entries(notes).map(([name,content])=>[name,digest(content)]))};
+    const manifest:Generated={version:2,owner:this.owner,notes:Object.fromEntries(Object.entries(notes).map(([name,content])=>[name,sha256(content)]))};
     fs.writeFileSync(path.join(stage,marker),JSON.stringify(manifest)+'\n',{mode:0o600});
     for(const [name,content]of Object.entries(notes))fs.writeFileSync(path.join(stage,name),content,{mode:0o600});
     fs.rmSync(backup,{recursive:true,force:true});
@@ -233,7 +233,7 @@ export class Vault {
     const notes={...prior.notes};
     for(const [name,content] of Object.entries(write)) {
       const tmp=path.join(abs,`.${name}.one-connect-tmp`);
-      fs.writeFileSync(tmp,content,{mode:0o600});fs.renameSync(tmp,path.join(abs,name));notes[name]=digest(content);
+      fs.writeFileSync(tmp,content,{mode:0o600});fs.renameSync(tmp,path.join(abs,name));notes[name]=sha256(content);
     }
     for(const name of remove) {
       if(!Object.hasOwn(prior.notes,name))continue;

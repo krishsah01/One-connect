@@ -4,15 +4,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createHash } from 'node:crypto';
 import {
   blockingFailures, containsSecret, designChecks, designCss, designDiff, designJobPrompt, designMarkdown, designSpecimenHtml, designTokensJson,
   DESIGN_RUNTIME_LIMITS, DesignSystemSchema, HUMAN, isActiveRun, isLegacyDesign, reviewPrompt, upgradeDesignInput,
   type Assignment, type DesignRevision, type DesignSkill, type WorkItem,
 } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import type { Daemon } from './daemon.ts';
 import { DesignStudio } from './designStudio.ts';
 import { DesignDocuments } from './designDocuments.ts';
+import { sha256 } from './util/hash.ts';
 
 const ROOT = fileURLToPath(new URL('../resources/designer/', import.meta.url));
 interface Skill extends DesignSkill { files: { path: string; sha256: string }[] }
@@ -23,11 +24,10 @@ export function builtinSkillFile(id: string, file: string): string {
   const s = builtinSkill(id), entry = s?.files.find(f => f.path === file);
   if (!s || !entry) throw new CommandError('Unknown skill reference', 404);
   const text = fs.readFileSync(path.join(ROOT, 'skills', id, entry.path), 'utf8');
-  if (createHash('sha256').update(text).digest('hex') !== entry.sha256) throw new CommandError('Pinned skill integrity check failed', 409);
+  if (sha256(text) !== entry.sha256) throw new CommandError('Pinned skill integrity check failed', 409);
   return text;
 }
 
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 export const DESIGN_LABEL = /^(design|ui|mock|frontend|branding)$/i;
 /** Built-in sets for design work other than mock generation. Design-labelled tasks get the whole library. */
 export const SKILL_SETS = {
@@ -114,7 +114,7 @@ export class Designer {
     if (containsSecret(JSON.stringify(system), { denylist: this.d.denylist() }).length) errors.push('Remove credentials from the design rules or notes.');
     const checks = designChecks(system), blocking = blockingFailures(system);
     if (blocking.length) errors.push(`Text contrast is below the minimum: ${blocking.map(c => `${c.name} ${c.ratio.toFixed(2)}:1 (needs ${c.required}:1)`).join(', ')}`);
-    const hash = sha(JSON.stringify(system));
+    const hash = sha256(JSON.stringify(system));
     const olderActive = Object.values(this.d.state.runs).filter(r => isActiveRun(r) && this.d.state.assignments[r.assignmentId]?.designRevision && this.d.state.assignments[r.assignmentId]!.designRevision !== hash).length;
     return {
       ok: errors.length === 0, errors, system, hash, unchanged: hash === current?.hash, checks,

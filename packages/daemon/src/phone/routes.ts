@@ -2,7 +2,8 @@
 // HTTP routes for phone access, notifications, Brief & Reports and the context benchmark.
 // Registered on the main app, so Host/Origin/auth checks (local or remote gate) run first.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import { buildBrief, buildMorningReport, buildTimeline, renderStandupMarkdown } from '@acc/core';
 import { phoneLog, phoneLogPage } from './logs.ts';
 import { phoneDecision, phoneHistory, phoneReportEvents } from './projection.ts';
@@ -79,7 +80,7 @@ export function registerPhoneRoutes(app: FastifyInstance, d: Daemon): void {
   app.delete('/api/remote/sessions/:id', async (req: R<unknown, { id: string }>) => { local(req); if (!d.remote.revoke(req.params.id, 'revoked by owner')) throw new CommandError('No such active phone session', 404); return d.remote.status(); });
   app.get('/api/remote/audit', async (req) => {
     local(req);
-    return { events: d.store.list({ types: ['remote.config_changed', 'remote.tunnel_requested', 'remote.tunnel_state', 'remote.pairing_issued', 'remote.paired', 'remote.pair_failed', 'remote.session_revoked', 'remote.request_denied'], limit: 10_000 }).slice(-100).reverse() };
+    return { events: d.store.list({ types: ['remote.config_changed', 'remote.tunnel_requested', 'remote.tunnel_state', 'remote.pairing_issued', 'remote.paired', 'remote.pair_failed', 'remote.session_revoked', 'remote.request_denied'], limit: 100, order: 'desc' }) };
   });
 
   // Phone-facing: pairing (no session yet), session info, logout.

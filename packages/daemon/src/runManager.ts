@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Actor, AgentState, Assignment, Evidence, ExitReason, Handoff, NewEvent, Run, RunState, TestCounts } from '@acc/core';
-import { agentActor, branchName, formatHandoff, HUMAN, isActiveRun, newId, outOfScope, parseHandoff, redact, slugify, SYSTEM } from '@acc/core';
+import { agentActor, branchName, formatHandoff, HUMAN, isActiveRun, isManualRelay, newId, outOfScope, parseHandoff, redact, shellQuote, slugify, SYSTEM } from '@acc/core';
 import { CURSOR_MCP_FILE } from './adapters/agents/cursor.ts';
 import { sanitizeEnv } from './adapters/agents/env.ts';
 import { classifyFailure, type Failure } from './adapters/agents/failures.ts';
@@ -18,14 +18,31 @@ import { adapterFor } from './adapters/agents/index.ts';
 import type { LaunchContext, Parsed, StreamParser } from './adapters/agents/types.ts';
 import { changedFiles, commitOnBranch, commitsSince, createWorktree, ensureBranch, ensureExcluded, gitCommonDir, headSha, installWorktreeHooks, isTracked } from './adapters/vcs/git.ts';
 import { runChecks } from './checks.ts';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import type { DaemonOptions } from './daemon.ts';
 import { Supervisor, type ExitInfo, type TailOffsets } from './runner/supervisor.ts';
-import type { OutboxOp } from './store/eventStore.ts';
+import { MAX_LIST, type OutboxOp } from './store/eventStore.ts';
 import { writePrivate } from './paths.ts';
+import type { AgentCommands, Kernel, WorkCommands } from './kernel.ts';
+import type { OutboxWorker } from './outbox.ts';
+import type { ReviewMerge } from './reviewMerge.ts';
+import type { Rules } from './rules.ts';
+import type { SkillLibrary } from './skills.ts';
+import type { Team } from './team.ts';
+import type { WorktreeWatcher } from './adapters/vcs/watcher.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type RunManagerDeps = Kernel & Pick<WorkCommands, 'agentFree' | 'assignmentText' | 'preflight' | 'safeTransition' | 'transition'> & Pick<AgentCommands, 'resolveModelFor' | 'spentToday'> & { readonly outbox: OutboxWorker; readonly reviewMerge: ReviewMerge; readonly rules: Rules; readonly skillLib: SkillLibrary; readonly team: Team; readonly watcher: WorktreeWatcher } & { readonly opts: Pick<DaemonOptions, 'supervisorPollMs'> };
 
 export const MCP_SERVER_PATH = fileURLToPath(new URL('./mcp/server.ts', import.meta.url));
 const IGNORED_PATHS = [CURSOR_MCP_FILE];
-const SAFE_BASH = ['git status', 'git diff', 'git log', 'git show', 'git add', 'git commit', 'git restore', 'git rev-parse', 'git branch', 'ls', 'cat', 'head', 'tail', 'wc', 'pwd', 'grep', 'rg', 'find', 'echo'];
+/**
+ * Shell commands an agent may run without a prompt (as `Bash(<prefix>:*)`). A prefix approves every
+ * argument, so nothing here may delete files or rewrite shared git state: `find` (-delete, -exec)
+ * and `git branch` (-D on refs the worktree shares with the repository) are deliberately absent;
+ * agents have Glob/Grep and `git rev-parse --abbrev-ref HEAD` instead.
+ */
+export const SAFE_BASH: readonly string[] = ['git status', 'git diff', 'git log', 'git show', 'git add', 'git commit', 'git restore', 'git rev-parse', 'ls', 'cat', 'head', 'tail', 'wc', 'pwd', 'grep', 'rg', 'echo'];
 
 interface RunCtx {
   parser: StreamParser;
@@ -43,7 +60,7 @@ interface RunCtx {
 const FAILURE_WEIGHT: Record<string, number> = { billing_violation: 6, auth_expired: 5, usage_limit: 5, model_unsupported: 4, network: 3, sandbox_denied: 2, crash: 1 };
 
 export class RunManager {
-  readonly d: Daemon;
+  readonly d: RunManagerDeps;
   readonly supervisor: Supervisor;
   private ctx = new Map<string, RunCtx>();
   private tokens = new Map<string, string>();
@@ -56,7 +73,7 @@ export class RunManager {
     return p;
   }
 
-  constructor(d: Daemon) {
+  constructor(d: RunManagerDeps) {
     this.d = d;
     this.supervisor = new Supervisor(
       d.paths.runs,
@@ -110,7 +127,7 @@ export class RunManager {
   }
 
   binaryCheck(agent: AgentState): { status: 'pass' | 'warn' | 'fail'; message: string } | undefined {
-    if (agent.config.adapter === 'relay') return undefined;
+    if (isManualRelay(agent.config)) return undefined;
     if (!agent.binary) return { status: 'fail', message: 'no vendor binary found; install the official CLI and re-probe' };
     if (!fs.existsSync(agent.binary.path)) return { status: 'fail', message: `pinned binary ${agent.binary.path} no longer exists; re-probe` };
     if (agent.config.adapter === 'opencode-server') {
@@ -204,7 +221,7 @@ export class RunManager {
       t.outbox,
     );
 
-    if (agent.config.adapter === 'relay') {
+    if (isManualRelay(agent.config)) {
       d.commit([{ type: 'run.state', ...refs, data: { state: 'waiting-for-input', reason: 'paste the prompt into the app, then paste its reply back' } }]);
       return runId;
     }
@@ -220,7 +237,6 @@ export class RunManager {
     }
     const checkConfigPath = path.join(runDir, 'project-checks.json');
     writePrivate(checkConfigPath, JSON.stringify({ project, policies: { redact_env: d.config.policies.redact_env }, agents: [{ id: 'checks', name: 'Project checks', role: 'qa', adapter: 'relay' }] }));
-    const shellQuote = (s: string) => "'" + s.replaceAll("'", "'\\''") + "'";
     const checkCommand = `${shellQuote(process.execPath)} ${shellQuote(fileURLToPath(new URL('./cli.ts', import.meta.url)))} check --config ${shellQuote(checkConfigPath)} --worktree ${shellQuote(asg.worktree!)}`;
     const runtimeInstruction = project.check_runtime?.mode === 'host-fixture'
       ? 'HOST FIXTURE (unsandboxed; disposable tests/demo only).'
@@ -413,9 +429,7 @@ export class RunManager {
   }
 
   private lastAssistantText(runId: string): string | null {
-    const msgs = this.d.store.list({ runId, types: ['t.message'], limit: 10_000 });
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      const m = msgs[i];
+    for (const m of this.d.store.list({ runId, types: ['t.message'], limit: MAX_LIST, order: 'desc' })) {
       if (m.type === 't.message' && m.data.role === 'assistant') return m.data.text;
     }
     return null;
@@ -423,7 +437,8 @@ export class RunManager {
 
   private recordedCommands(runId: string): { command: string; exitCode: number | null | undefined }[] {
     return this.d.store
-      .list({ runId, types: ['t.command'], limit: 10_000 })
+      .list({ runId, types: ['t.command'], limit: MAX_LIST, order: 'desc' })
+      .reverse()
       .flatMap((e) => (e.type === 't.command' && e.data.status !== 'started' ? [{ command: e.data.command, exitCode: e.data.exitCode }] : []));
   }
 
@@ -444,7 +459,7 @@ export class RunManager {
     const events: NewEvent[] = [];
     // A reviewer's run never moves the issue; its typed review record does (see ReviewMerge).
     const reviewRun = asg.kind === 'review';
-    const transition: Daemon['safeTransition'] = (...args) => (reviewRun ? { events: [], outbox: [] } : d.safeTransition(...args));
+    const transition: RunManagerDeps['safeTransition'] = (...args) => (reviewRun ? { events: [], outbox: [] } : d.safeTransition(...args));
 
     // Commits made in this worktree since the base, recorded as verified evidence.
     let commits: { sha: string; subject: string; body: string }[] = [];
@@ -618,14 +633,22 @@ export class RunManager {
 
   // ---- control -----------------------------------------------------------------------------
 
+  private readonly beforeStop: ((runId: string) => Promise<void> | void)[] = [];
+
+  /** Run `hook` before any stop, pause or kill of a run (e.g. to close that run's tool transports). */
+  onBeforeStop(hook: (runId: string) => Promise<void> | void): void {
+    this.beforeStop.push(hook);
+  }
+
   async stop(runId: string, reason: string, actor: Actor = HUMAN, kind: 'stopped' | 'killed' = 'stopped', pause = false): Promise<void> {
+    for (const hook of this.beforeStop) await hook(runId);
     const run = this.d.state.runs[runId];
     if (!run) throw new CommandError(`unknown run ${runId}`, 404);
     if (!isActiveRun(run)) return;
     const ctx = this.getCtx(run);
     ctx.stopRequested = { reason, kind, pause };
     this.d.commit([{ type: 't.system', actor, agentId: run.agentId, runId, workItemId: run.workItemId, assignmentId: run.assignmentId, data: { text: `${pause ? 'pause' : kind === 'killed' ? 'kill' : 'stop'} requested by ${actor.id}: ${reason}` } }]);
-    if (run.adapter === 'relay' || !this.supervisor.info(runId)) {
+    if (isManualRelay(run) || !this.supervisor.info(runId)) {
       await this.finalize(runId, { code: null, signal: null });
       return;
     }
@@ -704,7 +727,7 @@ export class RunManager {
   /** Relay agents: the human pastes the app's reply; it must contain a handoff block. */
   async relayResult(runId: string, text: string, actor: Actor = HUMAN): Promise<Handoff> {
     const run = this.d.state.runs[runId];
-    if (!run || run.adapter !== 'relay') throw new CommandError('not a relay run', 400);
+    if (!run || !isManualRelay(run)) throw new CommandError('not a relay run', 400);
     if (!isActiveRun(run)) throw new CommandError('run already ended', 409);
     const handoff = parseHandoff(text, 'relay_paste');
     if (!handoff) throw new CommandError('no handoff block found in the pasted reply (it needs at least a "Done:" line under "### Handoff")', 422);
@@ -757,7 +780,7 @@ export class RunManager {
   recoverAll(): void {
     for (const run of Object.values(this.d.state.runs)) {
       if (!isActiveRun(run)) continue;
-      if (run.adapter === 'relay') continue; // waiting for a paste; nothing to reattach
+      if (isManualRelay(run)) continue; // waiting for a paste; nothing to reattach
       const mcpFile = path.join(this.supervisor.runDir(run.id), 'mcp.json');
       try {
         const { token } = JSON.parse(fs.readFileSync(mcpFile, 'utf8')) as { token: string };

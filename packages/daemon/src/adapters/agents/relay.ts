@@ -3,14 +3,12 @@
 // produces a self-contained prompt, the human pastes it into the app, then pastes the reply back.
 // There is no process; the run waits for input until the reply arrives.
 import type { AuthStatus, BillingInfo, ModelInfo } from '@acc/core';
+import { ADAPTER_PROFILES } from '@acc/core';
 import { unknownUsage, type LaunchSpec, type StreamParser, type VendorAdapter } from './types.ts';
 
 export const relayAdapter: VendorAdapter = {
   type: 'relay',
-  displayName: 'Relay (copy/paste)',
-  installUrl: '',
-  loginHint: 'Open the app and sign in',
-  capabilities: { headless: false, streamingInput: false, resume: false, hostApprovals: false, mcp: false },
+  ...ADAPTER_PROFILES['relay'],
   binaryNames: [],
   vendorHost: 'example.com',
   knownLocations: () => [],

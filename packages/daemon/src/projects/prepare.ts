@@ -2,13 +2,13 @@
 // Turn an inspected repository into a project configuration. A repository's own
 // control-center.yaml is used only when it binds this exact folder; otherwise a generated
 // configuration is written to app-owned storage, never into the user's repository.
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import YAML from 'yaml';
 import { parseConfig } from '@acc/core';
 import { writePrivate } from '../paths.ts';
 import { inspectProject, ProjectIntakeError, type ProjectInspection } from './inspect.ts';
+import { sha256 } from '../util/hash.ts';
 
 export interface PreparedProject { config: string; generated: boolean; inspection: ProjectInspection }
 
@@ -42,7 +42,7 @@ export function generatedConfig(i: ProjectInspection, name = i.name): string {
 }
 
 export function generatedConfigPath(configDir: string, repo: string): string {
-  return path.join(configDir, `${createHash('sha256').update(repo).digest('hex').slice(0, 32)}.yaml`);
+  return path.join(configDir, `${sha256(repo).slice(0, 32)}.yaml`);
 }
 
 export async function prepareProject(dir: string, configDir: string, o: { name?: string } = {}): Promise<PreparedProject> {

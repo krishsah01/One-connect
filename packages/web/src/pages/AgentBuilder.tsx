@@ -1,27 +1,35 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { useEffect,useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { ADAPTER_TYPES, AgentConfigSchema, defaultHarnessFor, EFFORTS, LOCAL_PROVIDERS, PAID_PROVIDERS, PROVIDER_HARNESS, PROVIDERS, ROLES, subscriptionGroup, type AgentConfig, type Provider, type ControlState, type DesignSkill, type ProjectSkill } from '@acc/core';
+import { ADAPTER_TYPES, adapterProfile, AgentConfigSchema, defaultHarnessFor, isManualRelay, EFFORTS, LOCAL_PROVIDERS, PAID_PROVIDERS, PROVIDER_HARNESS, PROVIDERS, ROLES, subscriptionGroup, type AgentConfig, type Provider, type ControlState, type DesignSkill, type ProjectSkill } from '@acc/core';
 import { ErrorLine, useAction } from '../components/common';
 import { api,post } from '../lib/api';
 import { HarnessNotes, OllamaPanel } from '../components/ModelSource';
 
 const LABELS:Record<string,string>={'codex-cli':'Codex CLI','claude-headless':'Claude Code','cursor-agent-cli':'Cursor agent CLI','generic-cli':'Custom official CLI','relay':'Manual relay (requires another app)','opencode-server':'OpenCode (open source, recommended for API keys and local models)'};
-const SOURCES:Record<string,string>={subscription:'Subscription: official CLI login','ollama':'Ollama local models (free)','ollama-cloud':'Ollama cloud models (Ollama subscription)','lmstudio':'LM Studio local models (free)','anthropic-api':'Anthropic API key (pay per token)','openai-api':'OpenAI API key (pay per token)','openrouter':'OpenRouter API key (pay per token)'};
+const SOURCES:Record<string,string>={subscription:'Subscription: official CLI login','ollama':'Ollama local models (free)','ollama-cloud':'Ollama cloud models (Ollama subscription)','lmstudio':'LM Studio local models (free)','anthropic-api':'Anthropic API key (pay per token)','openai-api':'OpenAI API key (pay per token)','cursor-api':'Cursor API key (Cursor CLI, pay per use)','openrouter':'OpenRouter API key (pay per token)'};
 const billingFor=(p:Provider):AgentConfig['billing']=>p==='subscription'||p==='ollama-cloud'?'subscription':LOCAL_PROVIDERS.includes(p)?'local':'metered';
-const LOGIN_ADAPTERS=['codex-cli','claude-headless','cursor-agent-cli'];
 
 export function AgentBuilder({state}:{state:ControlState}) {
   const {id}=useParams(),[search]=useSearchParams();
   const source=id?state.agents[id]?.config:state.agents[search.get('clone')??'']?.config;
   if(id&&!source)return <div className="page empty">Agent not found.</div>;
-  return <BuilderForm key={id??`new:${search.get('clone')??''}`} source={source} editing={Boolean(id)} />;
+  const preset=!id&&!source?presetFrom(search):undefined;
+  return <BuilderForm key={id??`new:${search.get('clone')??''}:${preset?`${preset.adapter}:${preset.provider}`:''}`} source={source} preset={preset} editing={Boolean(id)} />;
 }
 
-function BuilderForm({source,editing}:{source?:AgentConfig;editing:boolean}) {
+/** Setup links here with ?adapter=&provider= for the harness and account route the user chose. */
+function presetFrom(search:URLSearchParams):{adapter:AgentConfig['adapter'];provider:Provider;name:string}|undefined{
+  const adapter=search.get('adapter')??'',provider=(search.get('provider')??'subscription') as Provider;
+  if(!(ADAPTER_TYPES as readonly string[]).includes(adapter)||!(PROVIDERS as readonly string[]).includes(provider))return undefined;
+  if(provider==='subscription'?adapter==='opencode-server':!PROVIDER_HARNESS[provider].includes(adapter))return undefined;
+  return {adapter:adapter as AgentConfig['adapter'],provider,name:`${(LABELS[adapter]??adapter).split(' (')[0]}${provider==='subscription'?'':` (${SOURCES[provider]?.split(' (')[0]??provider})`}`};
+}
+
+function BuilderForm({source,preset,editing}:{source?:AgentConfig;preset?:{adapter:AgentConfig['adapter'];provider:Provider;name:string};editing:boolean}) {
   const navigate=useNavigate(),{busy,error,run}=useAction();
   const [expected]=useState(editing?source:null);
-  const [cfg,setCfg]=useState<AgentConfig>(()=>source?{...source,...(!editing?{id:'',name:`${source.name} copy`,enabled:false}:{})}:{...AgentConfigSchema.parse({id:'new-agent',name:'Custom agent',role:'engineer',adapter:'codex-cli',enabled:false}),id:'',name:''});
+  const [cfg,setCfg]=useState<AgentConfig>(()=>source?{...source,...(!editing?{id:'',name:`${source.name} copy`,enabled:false}:{})}:preset?{...AgentConfigSchema.parse({id:'new-agent',name:preset.name,role:'engineer',adapter:preset.adapter,provider:preset.provider,metered_opt_in:PAID_PROVIDERS.includes(preset.provider),enabled:false}),id:'',name:preset.name}:{...AgentConfigSchema.parse({id:'new-agent',name:'Custom agent',role:'engineer',adapter:'codex-cli',enabled:false}),id:'',name:''});
   const patch=(changes:Partial<AgentConfig>)=>setCfg(c=>({...c,...changes}));
   const [args,setArgs]=useState((source?.args??[]).join('\n'));
   const [builtin,setBuiltin]=useState<DesignSkill[]>([]),[project,setProject]=useState<ProjectSkill[]>([]);
@@ -48,14 +56,14 @@ function BuilderForm({source,editing}:{source?:AgentConfig;editing:boolean}) {
           <label>Display name<input required maxLength={120} value={cfg.name} onChange={e=>patch({name:e.target.value})} placeholder="Frontend engineer"/></label>
           <label>Agent ID<input required pattern="[a-z0-9][a-z0-9-]{0,31}" maxLength={32} disabled={editing} value={cfg.id} onChange={e=>patch({id:e.target.value})} placeholder="frontend"/><span className="small faint">Permanent identity for issues, runs and messages.</span></label>
           <label>Role<select value={cfg.role} onChange={e=>patch({role:e.target.value as AgentConfig['role']})}>{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select></label>
-          <label>Model source<select value={cfg.provider} onChange={e=>changeSource(e.target.value as Provider)}>{PROVIDERS.map(p=><option key={p} value={p}>{SOURCES[p]}</option>)}</select><span className="small faint">Subscription agents keep their official vendor CLI and your own login. API keys and local models run through OpenCode.</span></label>
+          <label>Model source<select value={cfg.provider} onChange={e=>changeSource(e.target.value as Provider)}>{PROVIDERS.map(p=><option key={p} value={p}>{SOURCES[p]}</option>)}</select><span className="small faint">Subscription agents keep their official vendor CLI and your own login. API keys and local models run through OpenCode, or through the vendor's own CLI where it supports a key.</span></label>
           <label>Runtime<select value={cfg.adapter} onChange={e=>patch({adapter:e.target.value as AgentConfig['adapter'],binary:undefined,command:undefined,args:undefined,allowed_models:undefined,model_family:undefined,model:'newest'})}>{runtimes.map(a=><option key={a} value={a}>{LABELS[a]}</option>)}</select></label>
           <label>Model<input required value={cfg.model} onChange={e=>patch({model:e.target.value})} placeholder="newest"/><span className="small faint">Newest means newest allowed model discovered at dispatch.</span></label>
           <label>Effort<select value={cfg.effort??''} onChange={e=>patch({effort:(e.target.value||undefined) as AgentConfig['effort']})}><option value="">Vendor default</option>{EFFORTS.map(e=><option key={e}>{e}</option>)}</select></label>
           <label>Model family<input value={cfg.model_family??''} onChange={e=>patch({model_family:e.target.value||undefined})} placeholder="Optional inventory filter"/></label>
           <label>Allowed models<input value={(cfg.allowed_models??[]).join(', ')} onChange={e=>patch({allowed_models:e.target.value.split(',').map(x=>x.trim()).filter(Boolean)})} placeholder="Comma-separated IDs or patterns"/></label>
           <label>Subscription name<input value={cfg.subscription??''} onChange={e=>patch({subscription:e.target.value||undefined})} placeholder="Your existing plan"/></label>
-          <label>Shared subscription group<input pattern="[a-z0-9][a-z0-9-]{0,63}" disabled={(LOGIN_ADAPTERS.includes(cfg.adapter)&&cfg.provider==='subscription')||cfg.provider==='ollama-cloud'} value={((LOGIN_ADAPTERS.includes(cfg.adapter)&&cfg.provider==='subscription')||cfg.provider==='ollama-cloud')?subscriptionGroup(cfg)??'':cfg.subscription_group??''} onChange={e=>patch({subscription_group:e.target.value||undefined})} placeholder={subscriptionGroup(cfg)??'Local provider'}/><span className="small faint">Official CLI agents share their native vendor login. Renaming an agent cannot create more capacity.</span></label>
+          <label>Shared subscription group<input pattern="[a-z0-9][a-z0-9-]{0,63}" disabled={(adapterProfile(cfg.adapter).loginArgs!==null&&cfg.provider==='subscription')||cfg.provider==='ollama-cloud'} value={((adapterProfile(cfg.adapter).loginArgs!==null&&cfg.provider==='subscription')||cfg.provider==='ollama-cloud')?subscriptionGroup(cfg)??'':cfg.subscription_group??''} onChange={e=>patch({subscription_group:e.target.value||undefined})} placeholder={subscriptionGroup(cfg)??'Local provider'}/><span className="small faint">Official CLI agents share their native vendor login. Renaming an agent cannot create more capacity.</span></label>
           <label>Parallel run limit<input type="number" min={1} max={8} required value={cfg.concurrency} onChange={e=>patch({concurrency:Number(e.target.value)})}/></label>
           <label>Pinned CLI binary<input value={cfg.binary??''} onChange={e=>patch({binary:e.target.value||undefined})} placeholder="Optional absolute path"/><span className="small faint">Leave empty to detect official installed tools.</span></label>
         </div>
@@ -81,7 +89,7 @@ function BuilderForm({source,editing}:{source?:AgentConfig;editing:boolean}) {
           </div>
           <p className="small muted">The app stops on recorded usage. In-flight requests and other agents can exceed this threshold; use a provider spending limit for a hard cap. Provider cost takes precedence over these estimates. Prices must match your selected model.</p>
         </div>}
-        {cfg.adapter==='relay'&&<div className="banner tone-warn small">Manual relay requires copying prompts and replies through another app. Choose a CLI runtime for a complete in-app console.</div>}
+        {isManualRelay(cfg)&&<div className="banner tone-warn small">Manual relay requires copying prompts and replies through another app. Choose a CLI runtime for a complete in-app console.</div>}
         <label className="row"><input type="checkbox" checked={cfg.enabled} onChange={e=>patch({enabled:e.target.checked})}/>Enable runtime checks and dispatch</label>
         <div className="row"><button className="btn primary" type="submit">{busy?'Saving…':needsCostApproval?'Review cost approval':editing?'Save settings':cfg.enabled?'Create agent':'Save agent draft'}</button><span className="small faint">Saved only in this project. Existing runs and history keep their identity.</span></div>
       </fieldset>

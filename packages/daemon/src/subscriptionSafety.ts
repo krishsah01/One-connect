@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Account payment settings remain vendor-owned. A human's time-bounded attestation is distinct
 // from detected billing; it never changes an unknown vendor setting into "off".
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
-import { HUMAN, type Actor, type AgentState } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { HUMAN, type Actor, type AgentState, isManualRelay } from '@acc/core';
+import { CommandError } from './errors.ts';
+import { sha256 } from './util/hash.ts';
+import type { Kernel } from './kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type SubscriptionSafetyDeps = Kernel;
 
 interface Confirmation { binding: string; session: string; at: string; expiresAt: string }
 const TTL_MS = 12 * 60 * 60_000;
 export class SubscriptionSafety {
   private readonly session = randomBytes(24).toString('hex');
-  private readonly d: Daemon;
-  constructor(d: Daemon) { this.d = d; }
+  private readonly d: SubscriptionSafetyDeps;
+  constructor(d: SubscriptionSafetyDeps) { this.d = d; }
 
   private binding(a: AgentState): string {
     let binary: unknown = null;
@@ -19,13 +24,13 @@ export class SubscriptionSafety {
       try { const s = fs.statSync(a.binary.path); binary = [fs.realpathSync(a.binary.path), a.binary.version, s.dev, s.ino, s.size, s.mtimeMs]; }
       catch { binary = 'missing'; }
     }
-    return createHash('sha256').update(JSON.stringify({ id: a.id, adapter: a.config.adapter, provider: a.config.provider, binary, configuredBinary: a.config.binary, subscription: a.config.subscription, billing: a.config.billing, meteredOptIn: a.config.metered_opt_in, auth: a.auth, detectedBilling: a.billing, probedAt: a.probedAt })).digest('hex');
+    return sha256(JSON.stringify({ id: a.id, adapter: a.config.adapter, provider: a.config.provider, binary, configuredBinary: a.config.binary, subscription: a.config.subscription, billing: a.config.billing, meteredOptIn: a.config.metered_opt_in, auth: a.auth, detectedBilling: a.billing, probedAt: a.probedAt }));
   }
 
   status(agentId: string) {
     const a = this.d.state.agents[agentId];
     if (!a) throw new CommandError('Unknown agent', 404);
-    const required = a.config.adapter !== 'relay' && !a.config.metered_opt_in && a.billing.mode === 'subscription' && a.billing.overage === 'unknown';
+    const required = !isManualRelay(a.config) && !a.config.metered_opt_in && a.billing.mode === 'subscription' && a.billing.overage === 'unknown';
     const raw = this.d.store.kvGet(`subscription-confirm:${agentId}`);
     const confirmation = raw ? JSON.parse(raw) as Confirmation : null;
     const valid = Boolean(required && a.auth.state === 'logged_in' && a.binary && confirmation?.session === this.session && confirmation.binding === this.binding(a) && Date.parse(confirmation.expiresAt) > this.d.now().getTime());

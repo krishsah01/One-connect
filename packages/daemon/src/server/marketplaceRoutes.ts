@@ -3,13 +3,15 @@ import { randomBytes } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { containsSecret } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
-import { githubPreview, githubSource, hash, type GitHubPreview } from '../marketplace/github.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
+import { githubPreview, githubSource, type GitHubPreview } from '../marketplace/github.ts';
+import { sha256 } from '../util/hash.ts';
 import { fetchRegistryVersion, registryConnectorDraft, searchRegistry, type RegistryEntry } from '../marketplace/mcp.ts';
 import type { MarketplaceFetch } from '../marketplace/transport.ts';
 type R<B = unknown, Q = Record<string, string | undefined>> = FastifyRequest<{ Body: B; Querystring: Q }>;
-const githubKey = (url: string, commit: string) => `marketplace:github:${hash(url + '@' + commit)}`;
-const registryKey = (name: string, version: string) => `marketplace:mcp:${hash(name + '@' + version)}`;
+const githubKey = (url: string, commit: string) => `marketplace:github:${sha256(url + '@' + commit)}`;
+const registryKey = (name: string, version: string) => `marketplace:mcp:${sha256(name + '@' + version)}`;
 export function registerMarketplaceRoutes(app: FastifyInstance, d: Daemon): void {
   // Exact one-shot GET permits. No marketplace host is added to general agent/provider egress.
   const permits = new Map<string, string>();

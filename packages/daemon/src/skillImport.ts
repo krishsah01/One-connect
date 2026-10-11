@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Parse SKILL.md frontmatter and portable skill bundles for import preview. No persistence.
-import { createHash } from 'node:crypto';
 import YAML from 'yaml';
 import { z } from 'zod';
 import {
@@ -9,7 +8,7 @@ import {
   stripGeneratedReferencesFooter, type SkillAttribution, type SkillBundle, type SkillDraft, type SkillImportPreview,
 } from '@acc/core';
 import { fileSha256, filesHash } from '@acc/core/skillHash';
-import { CommandError } from './daemon.ts';
+import { CommandError } from './errors.ts';
 
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
 const ALLOWED_FRONTMATTER = new Set(['name', 'description']);

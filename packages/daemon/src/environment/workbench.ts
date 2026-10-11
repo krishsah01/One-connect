@@ -6,19 +6,22 @@
 // is re-read; if content changed the approval is refused. Execution uses an immutable snapshot
 // of the verified bytes so nothing can change between check and `docker compose`. Images are
 // never pulled implicitly (`up --pull never`).
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import YAML from 'yaml';
 import { HUMAN, newId, type Decision } from '@acc/core';
 import { run, type ExecOptions, type ExecResult } from '../exec.ts';
-import type { Daemon } from '../daemon.ts';
-import type { AnswerOptions } from '../decisions.ts';
+import type { AnswerOptions, Decisions } from '../decisions.ts';
 import { writePrivate } from '../paths.ts';
 import { dockerIgnore, privateBuildPath, readBounded, readScopedBytes, scopedPath, findComposeFile, normalizeComposeProject, parseCompose, type ComposeFile, type ComposeService } from './compose.ts';
 import { DatabaseFiles, DatabaseSpecError, parseDatabaseSpec, postgresImage, volumeName, type DatabaseRecord, type PostgresSpec } from './database.ts';
 import { RuntimeInputs } from './runtime-inputs.ts';
+import { sha256 } from '../util/hash.ts';
+import type { Kernel } from '../kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ProjectEnvironmentDeps = Kernel & { readonly decisions: Decisions };
 
 export type DockerExec = (args: string[], o?: Pick<ExecOptions, 'timeoutMs' | 'maxBytes' | 'signal'>) => Promise<ExecResult>;
 export type ComposeAction = 'up' | 'stop' | 'restart' | 'build' | 'pull' | 'down';
@@ -65,7 +68,6 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_FILES = 2000;
 const SERVICE_KEYS = new Set('image build command entrypoint environment env_file ports volumes healthcheck depends_on restart profiles labels working_dir user init tty stdin_open hostname stop_signal stop_grace_period expose networks secrets configs mem_limit cpus read_only tmpfs shm_size cap_drop security_opt'.split(' '));
 const BUILD_KEYS = new Set('context dockerfile args target platforms network pull no_cache labels'.split(' '));
-const sha = (s: string | Buffer) => createHash('sha256').update(s).digest('hex');
 
 export function portInUse(port: number, host = '127.0.0.1'): Promise<boolean> {
   return new Promise(resolve => {
@@ -81,7 +83,7 @@ function publishedPorts(line: { Names?: string; Ports?: string; Labels?: string 
 }
 
 export class ProjectEnvironment {
-  readonly d: Daemon;
+  readonly d: ProjectEnvironmentDeps;
   readonly exec: DockerExec;
   readonly portProbe: (port: number) => Promise<boolean>;
   readonly files: DatabaseFiles;
@@ -93,7 +95,7 @@ export class ProjectEnvironment {
   private closing = false;
   private availabilityCache: { at: number; value: DockerAvailability } | null = null;
 
-  constructor(d: Daemon, o: { exec?: DockerExec; portProbe?: (port: number) => Promise<boolean>; now?: () => number } = {}) {
+  constructor(d: ProjectEnvironmentDeps, o: { exec?: DockerExec; portProbe?: (port: number) => Promise<boolean>; now?: () => number } = {}) {
     this.d = d;
     this.exec = o.exec ?? ((args, x) => {
       // Compose must not discover override files, implicit .env files, profiles or inherited values.
@@ -288,7 +290,7 @@ export class ProjectEnvironment {
       for (const file of candidates) {
         const root = file === projectFile ? repo : this.files.dir;
         const content = readScopedBytes(root, file, 256 * 1024).toString('utf8');
-        files.push({ path: file, sha256: sha(content), content });
+        files.push({ path: file, sha256: sha256(content), content });
         const doc = YAML.parse(content, { maxAliasCount: 50 }) as Settings;
         if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw new Error('Compose must be a mapping');
         for (const key of Object.keys(doc)) {
@@ -459,11 +461,11 @@ export class ProjectEnvironment {
   }
 
   private digestOf(binding: ComposeBinding): string {
-    return sha(JSON.stringify({
+    return sha256(JSON.stringify({
       project: binding.project, repo: binding.repo, action: binding.action, services: binding.services,
       files: binding.files.map(f => ({ path: f.path, sha256: f.sha256 })),
-      inputs: binding.inputs.map(i => ({ path: i.path, sha256: sha(i.bytes), mode: i.mode })),
-      builds: binding.builds.map(b => ({ service: b.service, context: b.context, dockerfile: b.dockerfile, entries: b.entries.map(e => ({ path: e.relative, sha256: sha(e.bytes), mode: e.mode, directory: e.directory ?? false })) })),
+      inputs: binding.inputs.map(i => ({ path: i.path, sha256: sha256(i.bytes), mode: i.mode })),
+      builds: binding.builds.map(b => ({ service: b.service, context: b.context, dockerfile: b.dockerfile, entries: b.entries.map(e => ({ path: e.relative, sha256: sha256(e.bytes), mode: e.mode, directory: e.directory ?? false })) })),
       document: binding.document,
     }));
   }

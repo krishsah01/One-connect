@@ -1,30 +1,67 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Human decisions bound to one exact action. Irreversible or outward options need a second,
 // single-use confirmation; only a human actor can answer; recommendations (e.g. Jev) are advisory.
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { Actor, Decision, EventEnvelope, NewEvent } from '@acc/core';
 import { HUMAN, newId } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import { MAX_LIST } from './store/eventStore.ts';
+import { sha256 } from './util/hash.ts';
+import type { Kernel } from './kernel.ts';
+import type { ReviewMerge } from './reviewMerge.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type DecisionsDeps = Kernel & { readonly reviewMerge: ReviewMerge };
 
 const CONFIRM_TTL_MS = 2 * 60_000;
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 export interface AnswerOptions { nonce?: string | null; channel?: string }
 
 export type NewDecision = Pick<Decision, 'question' | 'options'> &
   Partial<Pick<Decision, 'recommendation' | 'evidenceLinks' | 'urgency' | 'irreversible' | 'kind' | 'workItemId' | 'risk' | 'action' | 'evidence' | 'confirmOptions' | 'expiresAt'>>;
 
-export class Decisions {
-  readonly d: Daemon;
+/**
+ * A specialized action that owns the approval of the decisions it bound (settings, costs,
+ * connectors, Docker, releases, …). Answers to an owned decision always route through it, so the
+ * exact action and its human answer commit together. Registered once at the composition root.
+ */
+export interface DecisionExecutor {
+  /** Key under which respond() returns the executor's result (e.g. `settings`, `release`). */
+  readonly key: string;
+  /** Whether this executor bound the decision. */
+  owns(decisionId: string): boolean;
+  resolve(decisionId: string, answer: string, actor: Actor, o: AnswerOptions): unknown;
+}
 
-  constructor(d: Daemon) {
+/** Decision kinds that only an executor may answer; a missing binding must never fall through. */
+const HISTORY_TYPES = ['decision.created', 'decision.recommended', 'decision.confirmation_requested', 'decision.answered', 'decision.consumed', 'decision.advisory', 'decision.advisory_invalidated', 'jev.cancelled', 'connector.activated', 'connector.activation_denied', 'docker.action', 'merge.completed', 'merge.refused', 'merge.post_checks', 'release.saved'];
+
+const BOUND_KINDS: readonly string[] = ['settings', 'cost', 'connector', 'environment', 'docker', 'remote', 'notification', 'release'];
+
+export class Decisions {
+  readonly d: DecisionsDeps;
+  private readonly executors: DecisionExecutor[] = [];
+
+  constructor(d: DecisionsDeps) {
     this.d = d;
   }
 
-  create(input: NewDecision, actor: Actor = HUMAN): Decision {
+  register(...executors: DecisionExecutor[]): void {
+    for (const e of executors) {
+      if (this.executors.some((x) => x.key === e.key)) throw new Error(`decision executor ${e.key} is already registered`);
+      this.executors.push(e);
+    }
+  }
+
+  private executorFor(id: string): DecisionExecutor | undefined {
+    return this.executors.find((e) => e.owns(id));
+  }
+
+  /** One construction path, so plain and bound decisions get the same defaults. */
+  private build(id: string, input: NewDecision): Decision {
     const options = input.options.map((o) => o.trim()).filter(Boolean);
     if (options.length < 2) throw new CommandError('a decision needs at least two options');
-    const decision: Decision = {
-      id: newId('decision'),
+    return {
+      id,
       question: input.question,
       options,
       recommendation: input.recommendation ?? null,
@@ -40,6 +77,7 @@ export class Decisions {
       risk: input.risk ?? 'low',
       action: input.action ?? null,
       evidence: input.evidence ?? [],
+      // An irreversible decision confirms its first option unless the caller names the options.
       confirmOptions: (input.confirmOptions ?? (input.irreversible ? [options[0]] : [])).filter((o) => options.includes(o)),
       recommendedBy: null,
       rationale: null,
@@ -49,20 +87,18 @@ export class Decisions {
       outcome: null,
       expiresAt: input.expiresAt ?? null,
     };
+  }
+
+  create(input: NewDecision, actor: Actor = HUMAN): Decision {
+    const decision = this.build(newId('decision'), input);
     this.d.commit([{ type: 'decision.created', actor, workItemId: decision.workItemId ?? null, data: { decision } }]);
     return this.d.state.decisions[decision.id];
   }
 
   /** Like create(), but also commits `extra` events and binds the exact action in the same transaction. */
   createBound(input: NewDecision, actor: Actor, extra: (id: string) => NewEvent[], bind: (id: string) => void): Decision {
-    const options = input.options.map((o) => o.trim()).filter(Boolean);
-    if (options.length < 2) throw new CommandError('a decision needs at least two options');
-    const id = newId('decision');
-    const decision: Decision = {
-      id, question: input.question, options, recommendation: input.recommendation ?? null, evidenceLinks: input.evidenceLinks ?? [], urgency: input.urgency ?? 'normal', irreversible: input.irreversible ?? false,
-      answer: null, answeredAt: null, channel: null, createdAt: this.d.nowIso(), kind: input.kind ?? 'question', workItemId: input.workItemId ?? null, risk: input.risk ?? 'low', action: input.action ?? null,
-      evidence: input.evidence ?? [], confirmOptions: (input.confirmOptions ?? []).filter((o) => options.includes(o)), recommendedBy: null, rationale: null, answeredBy: null, confirmedAt: null, consumedAt: null, outcome: null, expiresAt: input.expiresAt ?? null,
-    };
+    const decision = this.build(newId('decision'), input);
+    const { id } = decision;
     this.d.commit([{ type: 'decision.created', actor, workItemId: decision.workItemId ?? null, data: { decision } }, ...extra(id)], [], () => bind(id));
     return this.d.state.decisions[id];
   }
@@ -93,7 +129,7 @@ export class Decisions {
     const nonce = randomBytes(18).toString('hex');
     const expiresAt = new Date(this.d.now().getTime() + CONFIRM_TTL_MS).toISOString();
     this.d.commit([{ type: 'decision.confirmation_requested', actor, workItemId: dec.workItemId ?? null, data: { decisionId: id, answer, expiresAt } }], [], () =>
-      this.d.store.kvSet(`decision-confirm:${id}`, JSON.stringify({ nonce: sha(nonce), answer, expiresAt })),
+      this.d.store.kvSet(`decision-confirm:${id}`, JSON.stringify({ nonce: sha256(nonce), answer, expiresAt })),
     );
     return { confirm: true, nonce, expiresAt };
   }
@@ -107,7 +143,7 @@ export class Decisions {
     if (confirm) {
       const raw = this.d.store.kvGet(`decision-confirm:${id}`);
       const pending = raw ? (JSON.parse(raw) as { nonce: string; answer: string; expiresAt: string }) : null;
-      if (!pending || !o.nonce || pending.nonce !== sha(o.nonce) || pending.answer !== answer) throw new CommandError('confirm this irreversible action on the confirmation step first', 428);
+      if (!pending || !o.nonce || pending.nonce !== sha256(o.nonce) || pending.answer !== answer) throw new CommandError('confirm this irreversible action on the confirmation step first', 428);
       if (Date.parse(pending.expiresAt) < this.d.now().getTime()) throw new CommandError('the confirmation expired; start again', 410);
     }
     return { decision: dec, confirmed: confirm };
@@ -117,7 +153,7 @@ export class Decisions {
    * The exact action's authorization and its human answer commit in the same transaction.
    * `outbox` is the tracker's ordered comment queue (release steps record the outcome there).
    */
-  answerAtomic(id: string, answer: string, o: AnswerOptions = {}, actor: Actor = HUMAN, events: Parameters<Daemon['commit']>[0] = [], transaction?: () => void, outbox: Parameters<Daemon['commit']>[1] = []): Decision {
+  answerAtomic(id: string, answer: string, o: AnswerOptions = {}, actor: Actor = HUMAN, events: Parameters<Kernel['commit']>[0] = [], transaction?: () => void, outbox: Parameters<Kernel['commit']>[1] = []): Decision {
     const { decision: dec, confirmed: confirm } = this.validateAnswer(id, answer, o, actor);
     this.d.commit([{ type: 'decision.answered', actor, workItemId: dec.workItemId ?? null, data: { decisionId: id, answer, channel: o.channel ?? 'web', confirmed: confirm } }, ...events], outbox, () => {
       if (confirm) this.d.store.kvDelete(`decision-confirm:${id}`);
@@ -128,59 +164,19 @@ export class Decisions {
 
   /** Plain answers cannot consume an approval owned by a specialized action executor. */
   answer(id: string, answer: string, o: AnswerOptions = {}, actor: Actor = HUMAN): Decision {
-    if (['workflow-link:decision:', 'settings:decision:', 'agent-cost:', 'connector:decision:', 'connector-tool:', 'env-action:', 'docker:', 'remote:decision:', 'notify:decision:', 'release:', 'release-rollback:', 'release-inspect:'].some(prefix => this.d.store.kvGet(`${prefix}${id}`))) {
-      throw new CommandError('Answer this bound action through its action executor', 409);
-    }
+    if (this.executorFor(id)) throw new CommandError('Answer this bound action through its action executor', 409);
     return this.answerAtomic(id, answer, o, actor);
   }
 
   /** All dashboard surfaces use the same action router, including the phone inbox. */
   async respond(id: string, answer: string, o: AnswerOptions = {}, actor: Actor = HUMAN) {
     this.validateAnswer(id, answer, o, actor);
-    const workflowLinkId = this.d.store.kvGet(`workflow-link:decision:${id}`);
-    if (workflowLinkId) {
-      const link = await this.d.workflowLinks.decide(workflowLinkId, answer, actor, o);
-      return { decision: this.d.state.decisions[id], link };
+    const executor = this.executorFor(id);
+    if (executor) {
+      const result = await executor.resolve(id, answer, actor, o);
+      return { decision: this.d.state.decisions[id], [executor.key]: result };
     }
-    if (this.d.store.kvGet(`settings:decision:${id}`)) {
-      const settings = await this.d.settings.resolve(id, answer, o);
-      return { decision: this.d.state.decisions[id], settings };
-    }
-    if (this.d.store.kvGet(`agent-cost:${id}`)) {
-      const cost = this.d.agentCosts.resolve(id, answer, o, actor);
-      return { decision: this.d.state.decisions[id], cost };
-    }
-    if (this.d.store.kvGet(`connector:decision:${id}`)) {
-      const connection = await this.d.connectors.resolve(id, answer, actor, o);
-      return { decision: this.d.state.decisions[id], connection };
-    }
-    if (this.d.store.kvGet(`connector-tool:${id}`)) {
-      const tool = await this.d.connectors.resolveToolCall(id, answer, actor, o);
-      return { decision: this.d.state.decisions[id], tool };
-    }
-    const environment = this.d.store.kvGet(`env-action:${id}`);
-    if (environment) {
-      const pending = JSON.parse(environment) as { digest: string };
-      const action = await this.d.environment.resolve(id, answer, pending.digest, o);
-      return { decision: this.d.state.decisions[id], environment: action };
-    }
-    if (this.d.store.kvGet(`docker:${id}`)) {
-      const docker = await this.d.docker.resolve(id, answer, o);
-      return { decision: this.d.state.decisions[id], docker };
-    }
-    if (this.d.remote.isRemoteDecision(id)) {
-      const r = await this.d.remote.resolve(id, answer, actor, o);
-      return { decision: this.d.state.decisions[id], remote: r.status };
-    }
-    if (this.d.notifications.isEndpointDecision(id)) {
-      const notification = await this.d.notifications.resolveEndpoint(id, answer, actor, o);
-      return { decision: this.d.state.decisions[id], notification };
-    }
-    if (this.d.store.kvGet(`release:${id}`) || this.d.store.kvGet(`release-rollback:${id}`) || this.d.store.kvGet(`release-inspect:${id}`)) {
-      const release = await this.d.releasePlans.resolve(id, answer, o);
-      return { decision: this.d.state.decisions[id], release };
-    }
-    if (['settings', 'cost', 'connector', 'environment', 'docker', 'remote', 'notification', 'release'].includes(this.d.state.decisions[id]?.kind ?? '')) {
+    if (BOUND_KINDS.includes(this.d.state.decisions[id]?.kind ?? '')) {
       throw new CommandError('The action binding is missing; request a fresh approval', 409);
     }
     return this.d.reviewMerge.answer(id, answer, o, actor);
@@ -218,13 +214,16 @@ export class Decisions {
   /** Audit trail for one decision, oldest first. */
   history(id: string): EventEnvelope[] {
     if (!this.d.state.decisions[id]) throw new CommandError(`unknown decision ${id}`, 404);
+    // Post-merge checks name only the merge, so the decision's merges are matched too.
+    const mergeIds = Object.values(this.d.state.merges ?? {}).filter((m) => m.decisionId === id).map((m) => m.id);
     return this.d.store
-      .list({ kind: 'control', types: ['decision.created', 'decision.recommended', 'decision.confirmation_requested', 'decision.answered', 'decision.consumed', 'decision.advisory', 'decision.advisory_invalidated', 'jev.cancelled', 'connector.activated', 'connector.activation_denied', 'docker.action', 'merge.completed', 'merge.refused', 'merge.post_checks', 'release.saved'], limit: 100_000 })
+      .list({ kind: 'control', types: HISTORY_TYPES, containsAny: [id, ...mergeIds], limit: MAX_LIST })
       .filter((e) => {
         const data = e.data as { decisionId?: string; decision?: { id: string }; merge?: { decisionId: string }; mergeId?: string; plan?: { steps?: { decisionId?: string | null }[] } };
         if (data.decisionId === id || data.decision?.id === id || data.merge?.decisionId === id) return true;
         if (data.plan?.steps?.some((s) => s.decisionId === id)) return true;
-        return Boolean(data.mergeId && this.d.state.merges[data.mergeId]?.decisionId === id);
+        return Boolean(data.mergeId && mergeIds.includes(data.mergeId));
       });
   }
+
 }

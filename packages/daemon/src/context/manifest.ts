@@ -10,15 +10,15 @@
 // Raw repository paths are never stored: rows use sha256(raw path) as the key and the redacted,
 // alias-safe source path for display. Blobs no longer referenced by a kept generation are removed,
 // so deleted files and content redacted under an older policy stop being retrievable.
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { DictionaryChanges, DictionaryJob, DictionaryStage, DictionaryStageName } from '@acc/core';
 import type { ProjectStructure, StructureEdge, StructureManifest, StructureSymbol } from './structure.ts';
+import { sha256 } from '../util/hash.ts';
 
 export const PIPELINE_VERSION='dictionary-v4.1';
-export const pathKey=(raw:string)=>createHash('sha256').update('path\n'+raw).digest('hex');
+export const pathKey=(raw:string)=>sha256('path\n'+raw);
 
 export interface BlobRow { oid:string; policy:string; bytes:number; hash:string; content:string; lines:number; }
 export interface SnapshotRow { key:string; path:string; oid:string; language:string; bytes:number; hash:string; lines:number; noteHash:string; }

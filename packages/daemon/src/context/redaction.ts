@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
-import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { sha256 } from '../util/hash.ts';
 
 /** Never use a redactor's replacement text as a filesystem path. Changed paths get an opaque,
  * stable alias; distinct secrets that redact alike must still name distinct source files. */
@@ -10,7 +10,7 @@ export function sourcePath(raw:string,redact:(s:string)=>string):string {
   if(clean===raw && !/[\u0000-\u001f\u007f\\]/.test(raw) && raw.split('/').every(p=>p&&p!=='.'&&p!=='..'&&Buffer.byteLength(p)<=240))return raw;
   const extension=path.extname(raw).toLowerCase();
   const suffix=/^\.[a-z0-9]{1,10}$/.test(extension)?extension:'.txt';
-  return `one-connect-redacted/${createHash('sha256').update(raw).digest('hex')}/source${suffix}`;
+  return `one-connect-redacted/${sha256(raw)}/source${suffix}`;
 }
 
 /** JSON escaping must not hide a secret from the textual redactor. Keep existing line numbers. */

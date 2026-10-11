@@ -11,6 +11,7 @@ import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import type { AuthStatus, BillingInfo, ModelInfo } from '@acc/core';
+import { ADAPTER_PROFILES } from '@acc/core';
 import { commandCompleted, endWithoutResult, relPath, stderrLine, summarize, tryJson } from './common.ts';
 import { classifyFailure, type Failure } from './failures.ts';
 import { buildOpencodeConfig, DELTA_MATCH, OPENCODE_PROTOCOL, opencodeEnv, RESULT_MATCH } from './opencode/protocol.ts';
@@ -22,10 +23,7 @@ const text = (v: unknown) => (typeof v === 'string' ? v : '');
 
 export const opencodeAdapter: VendorAdapter = {
   type: 'opencode-server',
-  displayName: 'OpenCode (API keys & local models)',
-  installUrl: 'https://opencode.ai/docs/',
-  loginHint: 'OpenCode has no login of its own here: add the provider key under Connections (Keychain), or start Ollama',
-  capabilities: { headless: true, streamingInput: true, resume: true, hostApprovals: true, mcp: true },
+  ...ADAPTER_PROFILES['opencode-server'],
   binaryNames: ['opencode'],
   vendorHost: '127.0.0.1',
   knownLocations: () => [path.join(os.homedir(), '.opencode', 'bin', 'opencode'), path.join(os.homedir(), '.local', 'bin', 'opencode'), '/opt/homebrew/bin/opencode', '/usr/local/bin/opencode'],

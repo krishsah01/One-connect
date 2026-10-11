@@ -4,15 +4,22 @@
 // They never downgrade a model and never enable paid usage.
 import { lookup } from 'node:dns/promises';
 import type { EventEnvelope, Run } from '@acc/core';
-import { isActiveRun, subscriptionPeers, SYSTEM } from '@acc/core';
+import { isActiveRun, subscriptionPeers, SYSTEM, isManualRelay } from '@acc/core';
 import { adapterFor } from './adapters/agents/index.ts';
 import { clampPollSeconds } from './adapters/hosts/webhook.ts';
-import type { Daemon } from './daemon.ts';
+import type { AgentCommands, Kernel, WorkCommands } from './kernel.ts';
+import type { ReleaseFindings } from './release/findings.ts';
+import type { CodeHosts } from './adapters/hosts/index.ts';
+import type { InfraHealth } from './infra/health.ts';
+import type { RunManager } from './runManager.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type RulesDeps = Kernel & Pick<WorkCommands, 'agentFree' | 'preflight' | 'tryTransition'> & Pick<AgentCommands, 'probe'> & { readonly findings: ReleaseFindings; readonly hosts: CodeHosts; readonly infra: InfraHealth; readonly runs: RunManager };
 
 const minutes = (n: number) => n * 60_000;
 
 export class Rules {
-  readonly d: Daemon;
+  readonly d: RulesDeps;
   private timer: NodeJS.Timeout | null = null;
   private refilling = new Set<string>();
   /** Injected in tests; real check is a DNS lookup of the vendor's API host. */
@@ -26,7 +33,7 @@ export class Rules {
   };
   retryDelayMs = 3000;
 
-  constructor(d: Daemon) {
+  constructor(d: RulesDeps) {
     this.d = d;
   }
 
@@ -142,7 +149,7 @@ export class Rules {
   private reassignSuggestion(run: Run) {
     const d = this.d;
     const ids = Object.values(d.state.agents)
-      .filter((a) => a.id !== run.agentId && a.config.mode !== 'coordinator-only' && d.agentFree(a.id) && (a.config.adapter === 'relay' || (a.auth.state === 'logged_in' && a.billing.mode === 'subscription')))
+      .filter((a) => a.id !== run.agentId && a.config.mode !== 'coordinator-only' && d.agentFree(a.id) && (isManualRelay(a.config) || (a.auth.state === 'logged_in' && a.billing.mode === 'subscription')))
       .sort((a, b) => a.queue.next.length - b.queue.next.length)
       .map((a) => a.id);
     return { kind: 'reassign' as const, agentIds: ids, note: ids.length ? 'agents with capacity on included usage' : 'no other agent has capacity right now' };

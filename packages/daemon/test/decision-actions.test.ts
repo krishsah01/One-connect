@@ -127,3 +127,28 @@ describe('one inbox for bound actions', () => {
     expect((await answer(legacy.id, 'keep')).status).toBe(200);
   });
 });
+
+describe('decision executor registry', () => {
+  it('one registration both refuses plain answers and routes responses to the executor', async () => {
+    h = await startDaemon(makeConfig(makeRepo()), { probe: false });
+    const { d } = h;
+    const owned = new Set<string>();
+    const calls: string[] = [];
+    d.decisions.register({ key: 'probe', owns: (id) => owned.has(id), resolve: (id, answer) => { calls.push(`${id}:${answer}`); return { routed: true }; } });
+    const decision = d.decisions.create({ question: 'Run the probe?', options: ['approve', 'reject'] });
+    owned.add(decision.id);
+    expect(() => d.decisions.answer(decision.id, 'reject')).toThrow(/action executor/);
+    await expect(d.decisions.respond(decision.id, 'reject')).resolves.toMatchObject({ probe: { routed: true } });
+    expect(calls).toEqual([`${decision.id}:reject`]);
+    expect(() => d.decisions.register({ key: 'probe', owns: () => false, resolve: () => null })).toThrow(/already registered/);
+  });
+
+  it('plain and bound decisions share the irreversible confirmation default', async () => {
+    h = await startDaemon(makeConfig(makeRepo()), { probe: false });
+    const { d } = h;
+    const plain = d.decisions.create({ question: 'Delete it?', options: ['delete', 'keep'], irreversible: true });
+    const bound = d.decisions.createBound({ question: 'Delete it?', options: ['delete', 'keep'], irreversible: true }, HUMAN, () => [], () => undefined);
+    expect(plain.confirmOptions).toEqual(['delete']);
+    expect(bound.confirmOptions).toEqual(['delete']);
+  });
+});

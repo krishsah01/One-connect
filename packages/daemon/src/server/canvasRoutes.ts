@@ -4,7 +4,8 @@
 // Terminating a workflow cancels it through the workflow engine and reopens its unfinished steps.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { CANVAS_LIMITS, containsSecret, continuationSketch, emptyCanvas, normalizeCanvas, type CanvasLayout } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 
 type R<P = Record<string, string>, B = unknown> = FastifyRequest<{ Params: P; Body: B }>;
 const KEY = 'canvas:layout';

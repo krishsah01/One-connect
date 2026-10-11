@@ -1170,3 +1170,18 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .appearance-sample { gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); }
 .appearance-sample .badge .light { width: 6px; height: 6px; box-shadow: none; }
+
+/* Harness picker (setup step 1) and own-account confirmation */
+.harness-picker { scroll-margin-top: 90px; }
+.harness-picker > .card-b { gap: 14px; }
+.harness-grid { align-items: stretch; }
+.harness-card { box-shadow: none; min-width: 0; }
+.harness-card .card-b { gap: 12px; }
+.harness-install { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--bg); }
+.harness-routes { gap: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.harness-routes .btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.harness-terms { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.account-terms label.row { align-items: flex-start; gap: 8px; }
+.account-terms label.row input { margin-top: 3px; }
+@media (min-width: 961px) { .setup-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 960px) and (min-width: 641px) { .setup-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
-import { CommandError } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
 export type MarketplaceFetch = (url: string, init?: RequestInit) => Promise<Response>;
 export async function readBounded(res: Response, maxBytes: number): Promise<Buffer> {
   if (!res.ok) { await res.body?.cancel(); throw new CommandError(`Marketplace returned HTTP ${res.status}`, 502); }

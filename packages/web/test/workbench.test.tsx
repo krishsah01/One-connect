@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DockerWorkbench, shellQuote, type EnvironmentStatus } from '../src/components/DockerWorkbench';
+import { shellJoin } from '@acc/core';
+import { DockerWorkbench, type EnvironmentStatus } from '../src/components/DockerWorkbench';
 import { IntakePreview } from '../src/pages/Projects';
 import type { Inspection } from '../src/lib/desktop';
 
@@ -66,10 +67,10 @@ describe('Docker workbench', () => {
     await screen.findByText('running · no healthcheck');
     fireEvent.click(screen.getAllByRole('button', { name: 'Stop' })[0]);
     const dialog = await screen.findByRole('dialog', { name: 'Approve Docker action' });
-    expect(dialog.textContent).toContain(shellQuote([...base, 'stop', 'web']));
+    expect(dialog.textContent).toContain(shellJoin([...base, 'stop', 'web']));
     expect(calls.find(c => c.url === '/api/environment/actions')?.body).toEqual({ action: 'stop', services: ['web'] });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Open in terminal' }));
-    expect(onTerminal).toHaveBeenCalledWith(shellQuote([...base, 'stop', 'web']));
+    expect(onTerminal).toHaveBeenCalledWith(shellJoin([...base, 'stop', 'web']));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Approve and run' }));
     await waitFor(() => expect(calls.some(c => c.url === '/api/environment/actions/decision_1/resolve')).toBe(true));
     expect(calls.find(c => c.url.endsWith('/resolve'))?.body).toMatchObject({ answer: 'approve', digest: 'd'.repeat(64) });
@@ -85,7 +86,7 @@ describe('Docker workbench', () => {
     expect(plan.textContent).toContain('compose.one-connect.yaml');
     expect(plan.textContent).toContain('Its contents are never shown');
     expect(within(plan).getByText('network')).toBeTruthy();
-    expect(plan.textContent).toContain(shellQuote([...base, 'pull', 'db']));
+    expect(plan.textContent).toContain(shellJoin([...base, 'pull', 'db']));
     fireEvent.click(within(plan).getByRole('button', { name: 'Create these files' }));
     await within(plan).findByRole('button', { name: 'Request image pull' });
     expect(calls.find(c => c.url === '/api/environment/database/create')?.body).toEqual({ kind: 'postgres', service: 'db', database: 'app', user: 'app', version: '16-alpine', port: 5432 });
@@ -95,7 +96,7 @@ describe('Docker workbench', () => {
   });
 
   it('quotes shell arguments safely', () => {
-    expect(shellQuote(['psql', '-c', "select 'x'", '/a b'])).toBe(`psql -c 'select '\\''x'\\''' '/a b'`);
+    expect(shellJoin(['psql', '-c', "select 'x'", '/a b'])).toBe(`psql -c 'select '\\''x'\\''' '/a b'`);
   });
 });
 

@@ -2,6 +2,7 @@
 // Any vendor CLI that takes a prompt and prints an answer (Gemini CLI, Grok, …), configured with
 // a command + argument template. Detection is limited, so billing is "declared in config".
 import type { AuthStatus, BillingInfo, ModelInfo } from '@acc/core';
+import { ADAPTER_PROFILES } from '@acc/core';
 import { commandCompleted, endWithoutResult, stderrLine, tryJson } from './common.ts';
 import { unknownUsage, type LaunchContext, type LaunchSpec, type Parsed, type StreamParser, type VendorAdapter } from './types.ts';
 
@@ -21,10 +22,7 @@ export function fillTemplate(args: readonly string[], vars: Record<string, strin
 
 export const genericAdapter: VendorAdapter = {
   type: 'generic-cli',
-  displayName: 'Generic CLI',
-  installUrl: '',
-  loginHint: "Sign in with the tool's own login command",
-  capabilities: { headless: true, streamingInput: false, resume: false, hostApprovals: false, mcp: false },
+  ...ADAPTER_PROFILES['generic-cli'],
   binaryNames: [],
   vendorHost: 'example.com',
   knownLocations: () => [],

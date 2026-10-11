@@ -13,11 +13,17 @@
 // Protocol verified from https://docs.typesafe.ai/api on 2026-10-07. System One accepts
 // {state, model, questions} and returns {model, answers, usage}. Fixtures validate that public
 // contract; this build has made no live or paid TypeSafe request.
-import { createHash } from 'node:crypto';
 import type { Actor, Decision, DecisionAction, JevAdvisory } from '@acc/core';
-import { HUMAN } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { HUMAN, ellipsize, canonicalJson } from '@acc/core';
+import { CommandError } from './errors.ts';
 import { getSecret, hasSecret } from './secrets.ts';
+import { sha256 } from './util/hash.ts';
+import type { Kernel } from './kernel.ts';
+import type { WorkflowLinks } from './workflowLinks.ts';
+import type { WorkflowEngine } from './workflows.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type JevDeps = Kernel & { readonly workflowLinks: WorkflowLinks; readonly workflows: WorkflowEngine };
 
 export const JEV_DEFAULT_ENDPOINT = 'https://api.typesafe.ai';
 export const JEV_PATH = '/v1/systemone';
@@ -37,8 +43,6 @@ export const JEV_DISCLOSURE = {
   authority: 'A Jev result is advice. It is never recorded as your answer or approval, and it cannot confirm an irreversible action.',
 } as const;
 
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
-const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 
 /** Bound transport consumption as well as JSON parsing; never buffer an arbitrary reply. */
@@ -65,11 +69,6 @@ async function boundedResponse(res: Response): Promise<string> {
   } finally { reader.releaseLock(); }
 }
 
-function canonical(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`;
-  if (v && typeof v === 'object') return `{${Object.keys(v as object).sort().map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`).join(',')}}`;
-  return JSON.stringify(v) ?? 'null';
-}
 
 export function validateEndpoint(raw: string): URL {
   let u: URL;
@@ -123,9 +122,9 @@ function actionEvidence(action: DecisionAction | null | undefined, r: (s: string
 }
 
 export class Jev {
-  readonly d: Daemon;
+  readonly d: JevDeps;
   private inFlight = new Set<string>();
-  constructor(d: Daemon) {
+  constructor(d: JevDeps) {
     this.d = d;
     d.bus.on('events', (events: { type: string }[]) => {
       if (events.some((e) => e.type !== 'decision.advisory' && e.type !== 'decision.advisory_invalidated')) queueMicrotask(() => this.invalidateStale());
@@ -202,7 +201,7 @@ export class Jev {
 
   /** Bounded, redacted evidence for one decision and its hash. Pure over current state. */
   buildEvidence(dec: Decision): JevEvidence {
-    const r = (s: string, n: number) => clip(this.d.redactText(String(s ?? '')), n);
+    const r = (s: string, n: number) => ellipsize(this.d.redactText(String(s ?? '')), n);
     const item = dec.workItemId ? this.d.state.workItems[dec.workItemId] : null;
     const evidence = (dec.evidence ?? []).slice(0, MAX_EVIDENCE_ITEMS).map((e) => ({ label: r(e.label, 80), detail: r(e.detail, 400), ok: e.ok ?? null }));
     const build = (ev: typeof evidence) => ({
@@ -221,17 +220,17 @@ export class Jev {
     let ev = evidence;
     let payload = build(ev);
     let truncated = evidence.length < (dec.evidence ?? []).length;
-    while (canonical(systemOneRequest({ ...payload, truncated })).length > MAX_PAYLOAD_CHARS && ev.length) {
+    while (canonicalJson(systemOneRequest({ ...payload, truncated })).length > MAX_PAYLOAD_CHARS && ev.length) {
       ev = ev.slice(0, -1);
       truncated = true;
       payload = build(ev);
     }
     const full = { ...payload, truncated };
-    const wire = canonical(systemOneRequest(full));
+    const wire = canonicalJson(systemOneRequest(full));
     const chars = wire.length;
     if (chars > MAX_PAYLOAD_CHARS) throw new CommandError('Decision context is too large for a bounded Jev request', 409);
     const evidenceIds = [...ev.map((e, i) => `decision:${dec.id}:${i}:${e.label}`), ...(item ? item.evidence.slice(-20).map((e) => e.id) : [])];
-    return { payload: full, hash: sha(wire), items: ev.length, chars, truncated, evidenceIds };
+    return { payload: full, hash: sha256(wire), items: ev.length, chars, truncated, evidenceIds };
   }
 
   async preview(id: string) {

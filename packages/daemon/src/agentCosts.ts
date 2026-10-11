@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // A paid configuration is a draft until its exact settings are approved by the owner.
-import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { HUMAN, PAID_PROVIDERS, type Actor, type AgentConfig, type NewEvent } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
-import type { AnswerOptions } from './decisions.ts';
+import { CommandError } from './errors.ts';
+import type { AnswerOptions, Decisions } from './decisions.ts';
+import { sha256 } from './util/hash.ts';
+import type { AgentCommands, Kernel } from './kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type AgentCostsDeps = Kernel & Pick<AgentCommands, 'saveAgent' | 'validateAgentSettings'> & { readonly decisions: Decisions };
 
 interface PendingCost {
   config: AgentConfig;
@@ -14,12 +18,12 @@ interface PendingCost {
 }
 const PREFIX = 'agent-cost:';
 const TTL_MS = 15 * 60_000;
-const hash = (config: AgentConfig, expected: AgentConfig | null) => createHash('sha256').update(JSON.stringify({ config, expected })).digest('hex');
+const hash = (config: AgentConfig, expected: AgentConfig | null) => sha256(JSON.stringify({ config, expected }));
 export const needsCostApproval = (cfg: AgentConfig) => PAID_PROVIDERS.includes(cfg.provider) || cfg.billing === 'metered' || cfg.metered_opt_in || cfg.on_demand;
 
 export class AgentCosts {
-  readonly d: Daemon;
-  constructor(d: Daemon) { this.d = d; }
+  readonly d: AgentCostsDeps;
+  constructor(d: AgentCostsDeps) { this.d = d; }
 
   request(input: unknown, expected: unknown = null, actor: Actor = HUMAN) {
     if (actor.type !== 'human' || actor.id === 'jev') throw new CommandError('Only the owner can request a paid agent configuration', 403);

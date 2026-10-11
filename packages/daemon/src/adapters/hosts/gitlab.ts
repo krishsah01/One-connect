@@ -4,10 +4,7 @@
 import type { CodeHostCheck, CodeHostPull, CodeHostSnapshot } from '@acc/core';
 import type { Fetch } from '../../egress.ts';
 import { readCapability, type HostReadOpt } from './github.ts';
-
-function asRecord(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-}
+import { asRecord } from '@acc/core';
 
 function pipelineStatus(status: unknown): CodeHostCheck['status'] {
   const s = String(status ?? '');

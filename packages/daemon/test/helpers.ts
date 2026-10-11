@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseConfig, type ControlCenterConfig } from '@acc/core';
+import { ACCOUNT_STATEMENT_IDS, parseConfig, type ControlCenterConfig } from '@acc/core';
 import { HOST_FIXTURE_MARKER, HOST_FIXTURE_NOTICE } from '../src/checks.ts';
 import { Daemon, type DaemonOptions } from '../src/daemon.ts';
 import { createServer } from '../src/server/http.ts';
@@ -55,9 +55,15 @@ export interface Harness {
   close(): Promise<void>;
 }
 
+/** Fixture CLIs stand in for the owner's own login; real vendor binaries never get this. */
+function attestFixtureAccount(d: Daemon, id: string): void {
+  if (d.accounts.status(id).valid) return;
+  d.accounts.acknowledge(id, [...ACCOUNT_STATEMENT_IDS]);
+}
+
 export async function startDaemon(config: ControlCenterConfig, o: Partial<DaemonOptions> & { dataDir?: string; server?: boolean; confirmFixtureSubscriptions?: boolean } = {}): Promise<Harness> {
   const dataDir = o.dataDir ?? tmpDir('data');
-  const d = new Daemon({ config, allowTempDataDir: true, rulesTickMs: 3_600_000, outboxTickMs: 100, supervisorPollMs: 50, ...o, dataDir });
+  const d = new Daemon({ config, allowTempDataDir: true, rulesTickMs: 3_600_000, accountWatchMs: 0, outboxTickMs: 100, supervisorPollMs: 50, ...o, dataDir });
   // Only these repository-owned fake CLIs are zero-cost protocol fixtures. Tests explicitly
   // attest their settings after each probe; real vendor binaries never inherit this permission.
   if (o.confirmFixtureSubscriptions !== false) {
@@ -65,7 +71,7 @@ export async function startDaemon(config: ControlCenterConfig, o: Partial<Daemon
     d.probe = async id => {
       await probe(id);
       const a = d.state.agents[id];
-      if (a?.config.binary && path.dirname(a.config.binary) === FAKE_BIN && a.billing.mode === 'subscription' && a.billing.overage === 'unknown' && a.auth.state === 'logged_in') d.subscriptionSafety.confirm(id, true);
+      if (a?.config.binary && path.dirname(a.config.binary) === FAKE_BIN && a.billing.mode === 'subscription' && a.billing.overage === 'unknown' && a.auth.state === 'logged_in') { d.subscriptionSafety.confirm(id, true); attestFixtureAccount(d, id); }
     };
   }
   d.rules.retryDelayMs = 0;
@@ -80,10 +86,11 @@ export async function startDaemon(config: ControlCenterConfig, o: Partial<Daemon
     };
   }
   await d.start();
+  await d.initialProbe;
   // A restart invalidates subscription confirmations (by design); re-attest only the scripted fixtures.
   if (o.confirmFixtureSubscriptions !== false) {
     for (const a of Object.values(d.state.agents)) {
-      if (a.config.binary && path.dirname(a.config.binary) === FAKE_BIN && a.billing.mode === 'subscription' && a.billing.overage === 'unknown' && a.auth.state === 'logged_in') d.subscriptionSafety.confirm(a.id, true);
+      if (a.config.binary && path.dirname(a.config.binary) === FAKE_BIN && a.billing.mode === 'subscription' && a.billing.overage === 'unknown' && a.auth.state === 'logged_in') { d.subscriptionSafety.confirm(a.id, true); attestFixtureAccount(d, a.id); }
     }
   }
   await d.context.answer.refresh(false);

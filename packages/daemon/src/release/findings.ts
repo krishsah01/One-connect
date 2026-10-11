@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Failing CI, an unprotected branch, and migration drift become tracker issues through the
 // existing outbox. The work item stays unsynced until that outbox delivers.
-import { createHash } from 'node:crypto';
 import { HUMAN, productionBranchOf, type WorkItem } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import { sha256 } from '../util/hash.ts';
+import type { Kernel, WorkCommands } from '../kernel.ts';
+import type { Connectors } from '../connectors.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ReleaseFindingsDeps = Kernel & Pick<WorkCommands, 'buildIssue'> & { readonly connectors: Connectors };
 
 export const FINDING_KINDS = ['ci', 'unprotected_branch', 'migration_drift'] as const;
 export type FindingKind = (typeof FINDING_KINDS)[number];
 
 export class ReleaseFindings {
-  readonly d: Daemon;
+  readonly d: ReleaseFindingsDeps;
 
-  constructor(d: Daemon) {
+  constructor(d: ReleaseFindingsDeps) {
     this.d = d;
   }
 
@@ -32,7 +37,7 @@ export class ReleaseFindings {
     if (!(FINDING_KINDS as readonly string[]).includes(kind)) throw new CommandError('unknown finding', 404);
     if (!this.active(kind)) throw new CommandError('That finding has no current scoped proof, so no issue was created.', 409);
     const config = this.d.connectors.approvedReleaseConfig();
-    const scope = createHash('sha256').update(JSON.stringify([this.d.config.project.repo, productionBranchOf(config.project), kind === 'migration_drift' ? config.infra?.supabase : config.code_host])).digest('hex');
+    const scope = sha256(JSON.stringify([this.d.config.project.repo, productionBranchOf(config.project), kind === 'migration_drift' ? config.infra?.supabase : config.code_host]));
     const key = `finding:${kind}:${scope}`;
     const existingId = this.d.store.kvGet(key);
     const existing = existingId ? this.d.state.workItems[existingId] : undefined;
@@ -57,7 +62,7 @@ export class ReleaseFindings {
   }
 }
 
-function findingCopy(kind: FindingKind, d: Daemon): { title: string; description: string } {
+function findingCopy(kind: FindingKind, d: ReleaseFindingsDeps): { title: string; description: string } {
   if (kind === 'unprotected_branch') {
     const branch = d.state.codeHost?.productionBranch ?? 'the production branch';
     return { title: `Unprotected branch ${branch}`, description: d.state.codeHost?.protectionDetail || `${branch} is not protected.` };

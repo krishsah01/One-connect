@@ -2,7 +2,7 @@
 // Onboarding / probe: which vendor binaries exist, which one is pinned, login state, billing
 // mode, model inventory and (where exposed) included usage. Never touches credentials.
 import type { AgentState, BinaryInfo, ControlEventData } from '@acc/core';
-import { selectNewestModel } from '@acc/core';
+import { selectNewestModel, isManualRelay } from '@acc/core';
 import { chooseBinary, detectBinaries, newerCandidate } from './adapters/agents/detect.ts';
 import { meteredVarsPresent, sanitizeEnv } from './adapters/agents/env.ts';
 import { adapterFor } from './adapters/agents/index.ts';
@@ -10,6 +10,7 @@ import { whichAll } from './adapters/agents/detect.ts';
 import { probeProvider } from './adapters/agents/providers.ts';
 import { checkVersion } from './adapters/agents/opencode/protocol.ts';
 import type { Fetch } from './egress.ts';
+import { getSecret } from './secrets.ts';
 
 export type ProbeResult = ControlEventData['agent.probed'] & { newerBinary: BinaryInfo | null; meteredVars: string[] };
 
@@ -17,7 +18,7 @@ export async function probeAgent(agent: AgentState, baseEnv: NodeJS.ProcessEnv, 
   const cfg = agent.config;
   const adapter = adapterFor(cfg.adapter);
   const meteredVars = meteredVarsPresent(cfg, baseEnv);
-  if (cfg.adapter === 'relay') {
+  if (isManualRelay(cfg)) {
     return {
       auth: await adapter.authStatus({ binary: '', agent: cfg, env: baseEnv }),
       billing: await adapter.billingMode({ binary: '', agent: cfg, env: baseEnv }),
@@ -50,6 +51,23 @@ export async function probeAgent(agent: AgentState, baseEnv: NodeJS.ProcessEnv, 
   }
   // Probe with the same sanitized env runs get, so billing reflects what an agent run would use.
   const { env } = sanitizeEnv(cfg, baseEnv);
+  if (cfg.provider === 'cursor-api') {
+    // A Cursor API key: Cursor's own CLI checks it; the key reaches only this probe's child process.
+    const key = await getSecret('cursor-api', baseEnv);
+    if (!key) {
+      return {
+        auth: { state: 'expired', detail: 'no Cursor API key stored', fix: 'Add your Cursor API key under Agents → API keys (stored in the macOS Keychain)' },
+        billing: { mode: 'metered', source: 'Cursor API key (billed by Cursor to the key owner)', overage: 'on', notes: [] },
+        binary,
+        binaryCandidates: candidates,
+        models: [],
+        newest: null,
+        newerBinary: newerCandidate(binary, candidates),
+        meteredVars,
+      };
+    }
+    env.CURSOR_API_KEY = key;
+  }
   const p = { binary: binary.path, agent: cfg, env };
   // Bring-your-own-model connections: the provider answers login/billing/models, not the harness.
   const provider = fetchFn ? await probeProvider(cfg, fetchFn, baseEnv).catch(() => null) : null;

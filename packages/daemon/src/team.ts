@@ -2,7 +2,12 @@
 // One project's durable inboxes. MCP supplies the authenticated run identity.
 import type { Actor, EventEnvelope, TeamMessage } from '@acc/core';
 import { isActiveRun, newId } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import type { Kernel } from './kernel.ts';
+import type { RunManager } from './runManager.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type TeamDeps = Kernel & { readonly runs: RunManager };
 
 export interface SendTeamMessage {
   recipients: string[];
@@ -17,8 +22,8 @@ const KINDS = new Set(['note', 'question', 'reply', 'blocker', 'handoff']);
 const bounded = (v: number | undefined, min: number, max: number, fallback: number) => Number.isFinite(v) ? Math.min(max, Math.max(min, Math.floor(v!))) : fallback;
 
 export class Team {
-  readonly d: Daemon;
-  constructor(d: Daemon) { this.d = d; }
+  readonly d: TeamDeps;
+  constructor(d: TeamDeps) { this.d = d; }
   private changed = (events: EventEnvelope[]) => {
     for (const e of events) if (e.type === 'run.state' && e.data.state === 'running' && e.runId) {
       const r = this.d.state.runs[e.runId];

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Repo migration filenames compared with a database history that was actually read.
 // Missing history is unchecked, never "in sync".
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { MigrationDrift } from '@acc/core';
+import { sha256 } from '../util/hash.ts';
 
 export const MIGRATION_QUERIES = [
   'SELECT version FROM supabase_migrations.schema_migrations ORDER BY version',
@@ -12,7 +12,7 @@ export const MIGRATION_QUERIES = [
 ] as const;
 
 export function migrationHash(content: Buffer | string): string {
-  return createHash('sha256').update(content).digest('hex');
+  return sha256(content);
 }
 
 export function listRepoMigrations(repo: string, extraDir?: string): string[] {

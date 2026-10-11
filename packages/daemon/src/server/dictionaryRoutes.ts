@@ -3,7 +3,8 @@
 // declarative structure graph, installed local model status and the agent context packet preview.
 // Registered on the main app, so they inherit its Host/Origin checks and authentication.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import { redactMetadata } from '../context/redaction.ts';
 
 type R<B = unknown, Q = Record<string, string | undefined>> = FastifyRequest<{ Body: B; Querystring: Q }>;

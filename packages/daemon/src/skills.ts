@@ -4,7 +4,6 @@
 // Saving a draft never runs code, installs anything or calls a model.
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -13,14 +12,18 @@ import {
   SkillDraftSchema, skillAdvice, skillMarkdown, SKILL_ID_RE, stripGeneratedReferencesFooter,
   type AdapterType, type Assignment, type ProjectSkill, type SkillBundle, type SkillDraft, type SkillImportPreview, type SkillRef, type SkillVersion,
 } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
-import { builtinSkill, builtinSkillFile } from './designer.ts';
+import { CommandError } from './errors.ts';
+import { builtinSkill, builtinSkillFile, type Designer } from './designer.ts';
 import { ensureExcluded } from './adapters/vcs/git.ts';
 import { draftHash, filesHash } from '@acc/core/skillHash';
 import { buildSkillBundle, previewSkillImport, type ImportFilesInput } from './skillImport.ts';
+import { sha256 } from './util/hash.ts';
+import type { Kernel } from './kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type SkillLibraryDeps = Kernel & { readonly designer: Designer };
 
 const exec = promisify(execFile);
-const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
 /** Where each harness discovers repository skills. Relay runs have no worktree. */
 export const SKILL_EXPORT_DIRS: Record<AdapterType, string | null> = {
@@ -47,8 +50,8 @@ function frontmatterName(text: string): string | null {
 }
 
 export class SkillLibrary {
-  readonly d: Daemon;
-  constructor(d: Daemon) { this.d = d; }
+  readonly d: SkillLibraryDeps;
+  constructor(d: SkillLibraryDeps) { this.d = d; }
 
   private skillsState(): Record<string, ProjectSkill> { return this.d.state.skills ?? {}; }
 
@@ -157,7 +160,7 @@ export class SkillLibrary {
     if (draftHash(parsed) !== expectedDraftHash) throw new CommandError('The draft changed since you last saved. Reload and review before publishing.', 409);
     if (containsSecret(JSON.stringify(parsed), { denylist: this.d.denylist() }).length) throw new CommandError('Remove credentials from this skill.');
     const files = filesOf(parsed);
-    const meta = files.map(f => ({ path: f.path, sha256: sha(f.content), bytes: Buffer.byteLength(f.content) }));
+    const meta = files.map(f => ({ path: f.path, sha256: sha256(f.content), bytes: Buffer.byteLength(f.content) }));
     const version: SkillVersion = {
       id, version: (cur.latest ?? 0) + 1, hash: filesHash(meta), name: parsed.name, description: parsed.description,
       files: meta, createdAt: this.d.nowIso(), by: HUMAN, source: parsed.source ?? null, license: parsed.license ?? null,
@@ -182,7 +185,7 @@ export class SkillLibrary {
     const meta = stored.version.files.map(f => f.path).sort();
     const actual = files.map(f => f.path).sort();
     if (meta.length !== actual.length || meta.some((p, i) => p !== actual[i])) throw new CommandError('Stored skill version is missing files or has extras', 409);
-    for (const f of stored.version.files) if (sha(files.find(x => x.path === f.path)!.content) !== f.sha256) throw new CommandError('Skill integrity check failed', 409);
+    for (const f of stored.version.files) if (sha256(files.find(x => x.path === f.path)!.content) !== f.sha256) throw new CommandError('Skill integrity check failed', 409);
     if (filesHash(stored.version.files) !== stored.version.hash) throw new CommandError('Skill integrity check failed', 409);
     const payload = JSON.stringify({ version: stored.version, files });
     if (containsSecret(payload, { denylist: this.d.denylist() }).length) throw new CommandError('This version contains credentials and cannot be exported.');
@@ -242,7 +245,7 @@ export class SkillLibrary {
     }
     const v = this.stored(ref.id, Number(ref.version));
     if (!v || v.version.hash !== ref.hash) throw new CommandError('Snapshot version is missing', 409);
-    for (const f of v.files) if (sha(f.content) !== v.version.files.find(m => m.path === f.path)?.sha256) throw new CommandError('Skill integrity check failed', 409);
+    for (const f of v.files) if (sha256(f.content) !== v.version.files.find(m => m.path === f.path)?.sha256) throw new CommandError('Skill integrity check failed', 409);
     return v.files;
   }
 
@@ -294,8 +297,8 @@ export class SkillLibrary {
       if (st.nlink > 1) { rec.skipped.push({ path: rel, reason: 'hardlinked file; not overwritten' }); return null; }
       if (st.size !== expectedBytes) { rec.skipped.push({ path: rel, reason: 'file was edited in the worktree; not overwritten' }); return null; }
       const cur = fs.readFileSync(fd, 'utf8');
-      if (sha(cur) !== owned.get(rel)) { rec.skipped.push({ path: rel, reason: 'file was edited in the worktree; not overwritten' }); return null; }
-      if (sha(cur) === expected) return cur;
+      if (sha256(cur) !== owned.get(rel)) { rec.skipped.push({ path: rel, reason: 'file was edited in the worktree; not overwritten' }); return null; }
+      if (sha256(cur) === expected) return cur;
       rec.skipped.push({ path: rel, reason: 'file content changed; not overwritten' });
       return null;
     } catch {
@@ -306,7 +309,7 @@ export class SkillLibrary {
   }
 
   private safeWriteFile(abs: string, rel: string, content: string, owned: Map<string, string>, rec: ExportRecord): boolean {
-    const expected = sha(content);
+    const expected = sha256(content);
     if (owned.has(rel)) {
       const cur = this.readOwnedFile(abs, rel, expected, Buffer.byteLength(content), owned, rec);
       if (cur !== null) {
@@ -325,7 +328,7 @@ export class SkillLibrary {
         if (st.nlink > 1) { rec.skipped.push({ path: rel, reason: 'hardlinked file; not overwritten' }); return false; }
         if (!owned.has(rel) || st.size !== Buffer.byteLength(content)) { rec.skipped.push({ path: rel, reason: 'exists and is not managed or no longer matches its snapshot' }); return false; }
         const cur = fs.readFileSync(fd, 'utf8');
-        if (sha(cur) === expected) { rec.written.push({ path: rel, sha256: expected }); return true; }
+        if (sha256(cur) === expected) { rec.written.push({ path: rel, sha256: expected }); return true; }
         if (!owned.has(rel)) { rec.skipped.push({ path: rel, reason: 'exists and is not managed by One Connect' }); return false; }
         rec.skipped.push({ path: rel, reason: 'file content changed; not overwritten' }); return false;
       } catch {
@@ -403,7 +406,7 @@ export class SkillLibrary {
           const current = fs.fstatSync(fd);
           if (!current.isFile() || current.nlink > 1) return false;
           if (current.size !== Buffer.byteLength(content)) return true;
-          return sha(fs.readFileSync(fd, 'utf8')) !== owned.get(p);
+          return sha256(fs.readFileSync(fd, 'utf8')) !== owned.get(p);
         } finally { fs.closeSync(fd); }
       });
       if (foreign || changed) { rec.skipped.push({ path: dir, reason: foreign ? `${foreign} exists and is not managed by One Connect` : `${changed} was edited in the worktree; not overwritten` }); continue; }
