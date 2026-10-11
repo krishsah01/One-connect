@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AuthStatus, BillingInfo, ModelInfo } from '@acc/core';
 import { run } from '../../exec.ts';
-import { commandCompleted, endWithoutResult, relPath, stderrLine, summarize, textOf, tryJson } from './common.ts';
+import { accountFingerprint, commandCompleted, endWithoutResult, maskEmail, relPath, stderrLine, summarize, textOf, tryJson } from './common.ts';
 import { classifyFailure } from './failures.ts';
 import { unknownUsage, type LaunchContext, type LaunchSpec, type Parsed, type StreamParser, type VendorAdapter } from './types.ts';
 
@@ -33,7 +33,10 @@ export const cursorAdapter: VendorAdapter = {
     if (/logged in/i.test(out) && !/not logged in/i.test(out)) {
       const about = await run(binary, ['about'], { env, timeoutMs: 20_000 });
       const tier = /Subscription Tier\s+(.+)/i.exec(about.stdout)?.[1]?.trim();
-      return { state: 'logged_in', detail: 'signed in to Cursor', tier };
+      const email = /logged in as\s+(\S+@\S+)/i.exec(out)?.[1] ?? null;
+      const account = accountFingerprint('cursor', email);
+      if (env.CURSOR_API_KEY) return { state: 'logged_in', detail: 'Cursor API key accepted', ...(tier ? { tier } : {}) };
+      return { state: 'logged_in', detail: 'signed in to Cursor', tier, ...(account ? { account } : {}), ...(maskEmail(email) ? { accountLabel: maskEmail(email) } : {}) };
     }
     if (/not logged in|login/i.test(out)) return { state: 'expired', detail: 'not signed in', fix: this.loginHint };
     return { state: 'unknown', detail: out.trim().slice(0, 200) };

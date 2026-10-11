@@ -158,6 +158,10 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
   // ---- state & reads -----------------------------------------------------------------------
   app.get('/api/state', async () => ({ seq: d.state.seq, state: d.state, demo: d.baseEnv().ACC_DEMO_FIXTURES === '1', tracker: { type: d.tracker.type, target: d.tracker.target, live: d.tracker.live }, outbox: d.store.outboxStats() }));
   app.get('/api/agents/:id/subscription-safety', async (req: FastifyRequest<{ Params: { id: string } }>) => d.subscriptionSafety.status(req.params.id));
+  // Own-account / vendor-terms confirmation for subscription logins (owner only, at this Mac).
+  app.get('/api/agents/:id/account-terms', async (req: FastifyRequest<{ Params: { id: string } }>) => d.accounts.status(req.params.id));
+  app.post('/api/agents/:id/account-terms', async (req: FastifyRequest<{ Params: { id: string }; Body: { statements?: unknown } }>) => d.accounts.acknowledge(req.params.id, req.body?.statements));
+  app.delete('/api/agents/:id/account-terms', async (req: FastifyRequest<{ Params: { id: string } }>) => d.accounts.revoke(req.params.id));
   app.post('/api/agents/:id/subscription-safety', async (req: FastifyRequest<{ Params: { id: string }; Body: { paidModesOff?: boolean } }>) => d.subscriptionSafety.confirm(req.params.id, req.body?.paidModesOff === true));
 
   app.get('/api/runs/:id/events', async (req: FastifyRequest<{ Params: { id: string }; Querystring: { since?: string; limit?: string } }>) => {
@@ -359,9 +363,9 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
 
   // ---- connections (API keys in the Keychain) & egress transparency ----------------------------
   app.get('/api/connections', async () => {
-    const out: Record<string, { stored: boolean; usedBy: string[] }> = {};
+    const out: Record<string, { stored: boolean; usedBy: string[]; storedAt: string | null; ageDays: number | null; rotationDue: boolean }> = {};
     for (const name of SECRET_NAMES) {
-      out[name] = { stored: await hasSecret(name, d.baseEnv()), usedBy: d.config.agents.filter((a) => providerSecretFor(a)?.secret === name || (name === 'linear' && d.config.tracker.type === 'linear')).map((a) => a.id) };
+      out[name] = { stored: await hasSecret(name, d.baseEnv()), ...d.accounts.keyAge(name), usedBy: d.config.agents.filter((a) => providerSecretFor(a)?.secret === name || (name === 'linear' && d.config.tracker.type === 'linear')).map((a) => a.id) };
     }
     return { connections: out, egress: { allowed: d.egress.allowed, recent: d.egress.log.slice(-50) } };
   });
@@ -372,6 +376,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
     if (!key) throw new CommandError('key is required');
     await setSecret(name, key);
     d.addSecret(key);
+    d.accounts.keyStored(name);
     for (const a of d.config.agents) if (providerSecretFor(a)?.secret === name && a.enabled !== false) void d.probe(a.id).catch(() => undefined);
     return { stored: true };
   });
@@ -379,6 +384,7 @@ export async function createServer(d: Daemon, o: ServerOptions): Promise<{ app: 
     const name = req.params.id as SecretName;
     if (!(SECRET_NAMES as readonly string[]).includes(name)) throw new CommandError('unknown connection', 404);
     await deleteSecret(name);
+    d.accounts.keyRemoved(name);
     return { stored: false };
   });
 

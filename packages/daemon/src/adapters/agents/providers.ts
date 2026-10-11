@@ -29,7 +29,8 @@ const perM = (v: unknown) => Math.round(Number(v ?? 0) * 1_000_000 * 1000) / 100
 
 export async function probeProvider(agent: AgentConfig, f: Fetch, env: NodeJS.ProcessEnv = process.env): Promise<ProviderProbe | null> {
   const p = agent.provider;
-  if (p === 'subscription') return null;
+  // Cursor's own CLI answers for a Cursor API key (probe.ts hands it the key).
+  if (p === 'subscription' || p === 'cursor-api') return null;
 
   if (p === 'ollama' || p === 'ollama-cloud') {
     const st = await ollamaStatus(agent, f, env);

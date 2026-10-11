@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
-// API keys for connections the user explicitly opted into (Anthropic Console, OpenAI, OpenRouter,
+// API keys for connections the user explicitly opted into (Anthropic Console, OpenAI, Cursor, OpenRouter,
 // Linear). Stored in the macOS Keychain (or ACC_SECRET_<NAME> env vars elsewhere), never in
 // config, logs or the event store, and handed only to that connection's own runs.
 import { spawn } from 'node:child_process';
 import { run } from './exec.ts';
 
 export const KEYCHAIN_SERVICE = 'agent-control-center';
-export const SECRET_NAMES = ['anthropic-api', 'openai-api', 'openrouter', 'ollama-cloud', 'jev', 'linear', 'github', 'gitlab', 'vercel', 'supabase', 'github-webhook', 'gitlab-webhook'] as const;
+export const SECRET_NAMES = ['anthropic-api', 'openai-api', 'cursor-api', 'openrouter', 'ollama-cloud', 'jev', 'linear', 'github', 'gitlab', 'vercel', 'supabase', 'github-webhook', 'gitlab-webhook'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 const envName = (n: string) => `ACC_SECRET_${n.toUpperCase().replace(/-/g, '_')}`;
@@ -46,6 +46,7 @@ export async function deleteSecret(name: SecretName): Promise<void> {
 export const PROVIDER_SECRET: Partial<Record<string, { secret: SecretName; envVars: string[] }>> = {
   'anthropic-api': { secret: 'anthropic-api', envVars: ['ANTHROPIC_API_KEY'] },
   'openai-api': { secret: 'openai-api', envVars: ['OPENAI_API_KEY', 'CODEX_API_KEY'] },
+  'cursor-api': { secret: 'cursor-api', envVars: ['CURSOR_API_KEY'] },
   openrouter: { secret: 'openrouter', envVars: ['OPENROUTER_API_KEY'] },
   // Only the cloud-API route needs this key; see providerSecretFor().
   'ollama-cloud': { secret: 'ollama-cloud', envVars: ['OLLAMA_API_KEY'] },

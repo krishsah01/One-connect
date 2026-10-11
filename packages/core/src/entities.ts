@@ -21,6 +21,10 @@ export interface AuthStatus {
   /** The vendor's own login command or instruction, e.g. "Run `codex login` in a terminal". */
   fix?: string;
   tier?: string;
+  /** Opaque fingerprint of the signed-in identity (never the identity itself), when the CLI reports one. */
+  account?: string;
+  /** Masked identity for display only, e.g. "kr…@gmail.com". */
+  accountLabel?: string;
 }
 
 export type BillingMode = 'subscription' | 'metered' | 'local' | 'unknown';
@@ -325,6 +329,7 @@ export type AlertKind =
   | 'path_overlap'
   | 'binary_changed'
   | 'auth'
+  | 'account'
   | 'billing'
   | 'model'
   | 'preflight_failed'

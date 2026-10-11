@@ -7,7 +7,7 @@ import { api,post } from '../lib/api';
 import { HarnessNotes, OllamaPanel } from '../components/ModelSource';
 
 const LABELS:Record<string,string>={'codex-cli':'Codex CLI','claude-headless':'Claude Code','cursor-agent-cli':'Cursor agent CLI','generic-cli':'Custom official CLI','relay':'Manual relay (requires another app)','opencode-server':'OpenCode (open source, recommended for API keys and local models)'};
-const SOURCES:Record<string,string>={subscription:'Subscription: official CLI login','ollama':'Ollama local models (free)','ollama-cloud':'Ollama cloud models (Ollama subscription)','lmstudio':'LM Studio local models (free)','anthropic-api':'Anthropic API key (pay per token)','openai-api':'OpenAI API key (pay per token)','openrouter':'OpenRouter API key (pay per token)'};
+const SOURCES:Record<string,string>={subscription:'Subscription: official CLI login','ollama':'Ollama local models (free)','ollama-cloud':'Ollama cloud models (Ollama subscription)','lmstudio':'LM Studio local models (free)','anthropic-api':'Anthropic API key (pay per token)','openai-api':'OpenAI API key (pay per token)','cursor-api':'Cursor API key (Cursor CLI, pay per use)','openrouter':'OpenRouter API key (pay per token)'};
 const billingFor=(p:Provider):AgentConfig['billing']=>p==='subscription'||p==='ollama-cloud'?'subscription':LOCAL_PROVIDERS.includes(p)?'local':'metered';
 const LOGIN_ADAPTERS=['codex-cli','claude-headless','cursor-agent-cli'];
 
@@ -15,13 +15,22 @@ export function AgentBuilder({state}:{state:ControlState}) {
   const {id}=useParams(),[search]=useSearchParams();
   const source=id?state.agents[id]?.config:state.agents[search.get('clone')??'']?.config;
   if(id&&!source)return <div className="page empty">Agent not found.</div>;
-  return <BuilderForm key={id??`new:${search.get('clone')??''}`} source={source} editing={Boolean(id)} />;
+  const preset=!id&&!source?presetFrom(search):undefined;
+  return <BuilderForm key={id??`new:${search.get('clone')??''}:${preset?`${preset.adapter}:${preset.provider}`:''}`} source={source} preset={preset} editing={Boolean(id)} />;
 }
 
-function BuilderForm({source,editing}:{source?:AgentConfig;editing:boolean}) {
+/** Setup links here with ?adapter=&provider= for the harness and account route the user chose. */
+function presetFrom(search:URLSearchParams):{adapter:AgentConfig['adapter'];provider:Provider;name:string}|undefined{
+  const adapter=search.get('adapter')??'',provider=(search.get('provider')??'subscription') as Provider;
+  if(!(ADAPTER_TYPES as readonly string[]).includes(adapter)||!(PROVIDERS as readonly string[]).includes(provider))return undefined;
+  if(provider==='subscription'?adapter==='opencode-server':!PROVIDER_HARNESS[provider].includes(adapter))return undefined;
+  return {adapter:adapter as AgentConfig['adapter'],provider,name:`${(LABELS[adapter]??adapter).split(' (')[0]}${provider==='subscription'?'':` (${SOURCES[provider]?.split(' (')[0]??provider})`}`};
+}
+
+function BuilderForm({source,preset,editing}:{source?:AgentConfig;preset?:{adapter:AgentConfig['adapter'];provider:Provider;name:string};editing:boolean}) {
   const navigate=useNavigate(),{busy,error,run}=useAction();
   const [expected]=useState(editing?source:null);
-  const [cfg,setCfg]=useState<AgentConfig>(()=>source?{...source,...(!editing?{id:'',name:`${source.name} copy`,enabled:false}:{})}:{...AgentConfigSchema.parse({id:'new-agent',name:'Custom agent',role:'engineer',adapter:'codex-cli',enabled:false}),id:'',name:''});
+  const [cfg,setCfg]=useState<AgentConfig>(()=>source?{...source,...(!editing?{id:'',name:`${source.name} copy`,enabled:false}:{})}:preset?{...AgentConfigSchema.parse({id:'new-agent',name:preset.name,role:'engineer',adapter:preset.adapter,provider:preset.provider,metered_opt_in:PAID_PROVIDERS.includes(preset.provider),enabled:false}),id:'',name:preset.name}:{...AgentConfigSchema.parse({id:'new-agent',name:'Custom agent',role:'engineer',adapter:'codex-cli',enabled:false}),id:'',name:''});
   const patch=(changes:Partial<AgentConfig>)=>setCfg(c=>({...c,...changes}));
   const [args,setArgs]=useState((source?.args??[]).join('\n'));
   const [builtin,setBuiltin]=useState<DesignSkill[]>([]),[project,setProject]=useState<ProjectSkill[]>([]);
@@ -48,7 +57,7 @@ function BuilderForm({source,editing}:{source?:AgentConfig;editing:boolean}) {
           <label>Display name<input required maxLength={120} value={cfg.name} onChange={e=>patch({name:e.target.value})} placeholder="Frontend engineer"/></label>
           <label>Agent ID<input required pattern="[a-z0-9][a-z0-9-]{0,31}" maxLength={32} disabled={editing} value={cfg.id} onChange={e=>patch({id:e.target.value})} placeholder="frontend"/><span className="small faint">Permanent identity for issues, runs and messages.</span></label>
           <label>Role<select value={cfg.role} onChange={e=>patch({role:e.target.value as AgentConfig['role']})}>{ROLES.map(r=><option key={r} value={r}>{r}</option>)}</select></label>
-          <label>Model source<select value={cfg.provider} onChange={e=>changeSource(e.target.value as Provider)}>{PROVIDERS.map(p=><option key={p} value={p}>{SOURCES[p]}</option>)}</select><span className="small faint">Subscription agents keep their official vendor CLI and your own login. API keys and local models run through OpenCode.</span></label>
+          <label>Model source<select value={cfg.provider} onChange={e=>changeSource(e.target.value as Provider)}>{PROVIDERS.map(p=><option key={p} value={p}>{SOURCES[p]}</option>)}</select><span className="small faint">Subscription agents keep their official vendor CLI and your own login. API keys and local models run through OpenCode, or through the vendor's own CLI where it supports a key.</span></label>
           <label>Runtime<select value={cfg.adapter} onChange={e=>patch({adapter:e.target.value as AgentConfig['adapter'],binary:undefined,command:undefined,args:undefined,allowed_models:undefined,model_family:undefined,model:'newest'})}>{runtimes.map(a=><option key={a} value={a}>{LABELS[a]}</option>)}</select></label>
           <label>Model<input required value={cfg.model} onChange={e=>patch({model:e.target.value})} placeholder="newest"/><span className="small faint">Newest means newest allowed model discovered at dispatch.</span></label>
           <label>Effort<select value={cfg.effort??''} onChange={e=>patch({effort:(e.target.value||undefined) as AgentConfig['effort']})}><option value="">Vendor default</option>{EFFORTS.map(e=><option key={e}>{e}</option>)}</select></label>

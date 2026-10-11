@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AuthStatus, BillingInfo, ModelInfo, UsageInfo } from '@acc/core';
 import { run } from '../../exec.ts';
-import { commandCompleted, endWithoutResult, relPath, stderrLine, summarize, textOf, tryJson } from './common.ts';
+import { accountFingerprint, commandCompleted, endWithoutResult, maskEmail, relPath, stderrLine, summarize, textOf, tryJson } from './common.ts';
 import { classifyFailure } from './failures.ts';
 import { unknownUsage, type LaunchContext, type LaunchSpec, type Parsed, type ProbeEnv, type StreamParser, type VendorAdapter } from './types.ts';
 
@@ -46,7 +46,12 @@ export const claudeAdapter: VendorAdapter = {
     if (r.error) return { state: 'not_installed', detail: r.error, fix: `Install Claude Code: ${this.installUrl}` };
     const j = tryJson(r.stdout);
     if (!j) return { state: 'unknown', detail: (r.stdout || r.stderr).trim().slice(0, 200) };
-    if (j.loggedIn === true) return { state: 'logged_in', detail: `signed in via ${String(j.authMethod ?? 'unknown')}` };
+    if (j.loggedIn === true) {
+      const email = typeof j.email === 'string' ? j.email : null;
+      const account = accountFingerprint('claude', typeof j.orgId === 'string' ? j.orgId : null, email);
+      const tier = typeof j.subscriptionType === 'string' ? j.subscriptionType : undefined;
+      return { state: 'logged_in', detail: `signed in via ${String(j.authMethod ?? 'unknown')}`, ...(tier ? { tier } : {}), ...(account ? { account } : {}), ...(maskEmail(email) ? { accountLabel: maskEmail(email) } : {}) };
+    }
     return { state: 'expired', detail: 'not signed in', fix: this.loginHint };
   },
 

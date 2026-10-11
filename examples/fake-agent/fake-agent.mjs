@@ -25,7 +25,7 @@ if (args.includes('--version')) {
   process.exit(0);
 }
 if (vendor === 'claude' && args[0] === 'auth' && args[1] === 'status') {
-  console.log(JSON.stringify({ loggedIn: process.env.FAKE_LOGGED_OUT !== '1', authMethod: process.env.FAKE_AUTH_METHOD ?? 'claude.ai', apiProvider: 'firstParty' }, null, 2));
+  console.log(JSON.stringify({ loggedIn: process.env.FAKE_LOGGED_OUT !== '1', authMethod: process.env.FAKE_AUTH_METHOD ?? 'claude.ai', apiProvider: 'firstParty', email: process.env.FAKE_ACCOUNT_EMAIL ?? 'owner@example.com', orgId: process.env.FAKE_ORG_ID ?? 'org-fixture', subscriptionType: 'max' }, null, 2));
   process.exit(0);
 }
 if (vendor === 'codex' && args[0] === 'login' && args[1] === 'status') {
