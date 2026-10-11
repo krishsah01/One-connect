@@ -3,11 +3,11 @@ import { containsSecret, GraphifyConfigSchema, HUMAN, isActiveRun, parseConfig, 
 import { CommandError } from './errors.ts';
 import type { AnswerOptions, Decisions } from './decisions.ts';
 import { sha256 } from './util/hash.ts';
-import type { ConfigCommands, Kernel } from './kernel.ts';
+import type { ConfigCommands, ConfigurableKernel } from './kernel.ts';
 import type { ContextSync } from './context/sync.ts';
 
 /** What this service needs from the daemon (see kernel.ts). */
-export type SettingsDeps = Kernel & ConfigCommands & { readonly context: ContextSync; readonly decisions: Decisions };
+export type SettingsDeps = ConfigurableKernel & ConfigCommands & { readonly context: ContextSync; readonly decisions: Decisions };
 
 export interface SettingsDraft { project: ProjectConfig; policies: Policy; code_host: CodeHostConfig | null; infra: InfraConfig | null; graphify: GraphifyConfig }
 const digest = (value: unknown) => sha256(JSON.stringify(value));

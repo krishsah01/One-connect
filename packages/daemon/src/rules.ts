@@ -14,7 +14,7 @@ import type { InfraHealth } from './infra/health.ts';
 import type { RunManager } from './runManager.ts';
 
 /** What this service needs from the daemon (see kernel.ts). */
-export type RulesDeps = Kernel & Pick<WorkCommands, 'agentFree' | 'preflight' | 'tryTransition'> & Pick<AgentCommands, 'probe' | 'ruleOn'> & { readonly findings: ReleaseFindings; readonly hosts: CodeHosts; readonly infra: InfraHealth; readonly runs: RunManager };
+export type RulesDeps = Kernel & Pick<WorkCommands, 'agentFree' | 'preflight' | 'tryTransition'> & Pick<AgentCommands, 'probe'> & { readonly findings: ReleaseFindings; readonly hosts: CodeHosts; readonly infra: InfraHealth; readonly runs: RunManager };
 
 const minutes = (n: number) => n * 60_000;
 

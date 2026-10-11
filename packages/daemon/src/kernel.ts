@@ -62,6 +62,8 @@ export interface Kernel {
   redactText(text: string): string;
   /** Recompute the egress allowlist after a connection was activated or removed. */
   refreshEgress(): void;
+  /** Whether an automation rule is on (owner toggle, else the configured policy). */
+  ruleOn(rule: RuleName): boolean;
 }
 
 /** Issue, assignment and lifecycle commands. */
@@ -87,7 +89,6 @@ export interface WorkCommands {
 /** Agent runtime commands and policy reads. */
 export interface AgentCommands {
   probe(agentId: string): Promise<void>;
-  ruleOn(rule: RuleName): boolean;
   resolveModelFor(agentId: string): { model: string | null; newest: string | null };
   /** Metered spend recorded today (local day) for one agent. */
   spentToday(agentId: string): number;
@@ -97,8 +98,12 @@ export interface AgentCommands {
 
 /** Owner-approved configuration changes that rebuild dependent services. */
 export interface ConfigCommands {
+  /** Writable: replaced when the owner saves settings or an agent. */
   config: ControlCenterConfig;
   connectKnowledge(input: unknown): Promise<void>;
   /** Recreate revision-bound retrieval after an approved integration-branch or graph change. */
   reloadContext(): Promise<void>;
 }
+
+/** A kernel whose configuration the service may replace (settings and agent saves). */
+export type ConfigurableKernel = Omit<Kernel, 'config'> & Pick<ConfigCommands, 'config'>;
