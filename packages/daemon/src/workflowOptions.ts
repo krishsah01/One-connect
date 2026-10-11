@@ -5,13 +5,14 @@ import { adapterFor } from './adapters/agents/index.ts';
 import { revParse } from './adapters/vcs/git.ts';
 import { CommandError } from './errors.ts';
 import type { Kernel, WorkCommands } from './kernel.ts';
+import type { Designer } from './designer.ts';
 import type { DesignMocks } from './mocks.ts';
 import type { RunManager } from './runManager.ts';
 import type { SkillLibrary } from './skills.ts';
 import type { WorkflowEngine } from './workflows.ts';
 
 /** What workflow step options read and change. */
-export type WorkflowOptionsDeps = Kernel & Pick<WorkCommands, 'assignmentText'> & { readonly mocks: DesignMocks; readonly runs: RunManager; readonly skillLib: SkillLibrary; readonly workflows: WorkflowEngine };
+export type WorkflowOptionsDeps = Kernel & Pick<WorkCommands, 'assignmentText'> & { readonly designer: Designer; readonly mocks: DesignMocks; readonly runs: RunManager; readonly skillLib: SkillLibrary; readonly workflows: WorkflowEngine };
 
 export function workflowPrompt(a: Assignment): string {
   const sections: string[] = [];
