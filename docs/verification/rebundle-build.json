@@ -1,26 +1,22 @@
 {
-  "built_at": "2026-10-08T04:23:57.519380+00:00",
-  "app_path": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect.app",
-  "previous_app_path": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect-before-alerts-20261008-042357.app",
-  "profile": "development/debug, unsigned local preview",
-  "platform": "macOS arm64",
-  "engine_sha256": "7f5b1eec7fcbe5e1c06b2fe04d78ac9cc159b29ca36f7a820aa2f6c3722970d5",
-  "node": "24.21.0",
-  "network": "Offline build, no downloads or live integrations activated",
-  "build_result": "tauri build --debug --bundles app --no-sign --ci -- --offline --locked: success",
-  "source_manifest": "docs/verification/rebundle-integrated-source-manifest.json",
-  "full_product_acceptance": "pending",
-  "isolated_archive_import": "Node 24 extracted CLI help succeeded without provider probe",
-  "checks": {
-    "workspaceSuite": "612 passed, 4 skipped; no failures",
-    "web": "98 tests included in full workspace pass",
-    "native": "16 passed on unchanged native source",
-    "typecheck": "All workspace passed; final daemon passed after parent corrections",
-    "licenses": "166 runtime dependencies compatible; notices checked",
-    "spdx": "285 source files checked",
-    "packaging": "Fresh archive extraction preserved the host Node executable",
-    "alerts": "Both saved projects recorded unchecked migrations and zero new notification events since this bundle was copied; historical events preserved."
-  },
-  "native_rendered_status": "Opened this exact bundle; restored active one-connect project reached live Mission Control. Three idle configured agents, unknown included capacity, one backlog issue, zero running or verified-done work items. One Answer honestly partial, graph AST-only. Migration state unchecked; no external integration activated.",
-  "native_observed_at": "2026-10-08T04:27:12.588222+00:00"
+ "built_at": "2026-10-11T08:29:26.527657+00:00",
+ "app_path": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect.app",
+ "previous_app_path": "/Users/krishkumarsah/Docs/Projects/Interface/dist/macos/One Connect-before-unify-20261011.app",
+ "profile": "release, unsigned local preview",
+ "platform": "macOS arm64",
+ "engine_sha256": "7f5b1eec7fcbe5e1c06b2fe04d78ac9cc159b29ca36f7a820aa2f6c3722970d5",
+ "node": "24.21.0",
+ "network": "Offline build, no downloads or live integrations activated",
+ "build_result": "DEVELOPER_DIR=/Library/Developer/CommandLineTools pnpm desktop:build: success",
+ "source_manifest": "docs/verification/rebundle-integrated-source-manifest.json",
+ "full_product_acceptance": "pending",
+ "isolated_archive_import": "Node 24 extracted CLI help succeeded without provider probe",
+ "checks": {
+  "workspaceSuite": "890 passed, 4 skipped; 16 opencode-harness failures (need rg on PATH) and one load-timing flake that passes alone",
+  "typecheck": "all packages clean",
+  "contents": "brand design system, structured Designer with prompt-first studio, canvas undo/redo, SOLID refactor, harness/account compliance"
+ },
+ "native_rendered_status": "Opened this exact bundle; restored active one-connect project reached live Mission Control. Three idle configured agents, unknown included capacity, one backlog issue, zero running or verified-done work items. One Answer honestly partial, graph AST-only. Migration state unchecked; no external integration activated.",
+ "native_observed_at": "2026-10-08T04:27:12.588222+00:00",
+ "git": "534eed4"
 }

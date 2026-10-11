@@ -20,6 +20,7 @@ import {
   sketchFromWorkflow, stepTaskId, validateWorkflow, workflowAttention, workflowProgress,
 } from '@acc/core';
 import { Badge, ErrorLine, useAction } from '../components/common';
+import { DesignPicker } from '../components/designer/DesignPicker';
 import { NewIssueDialog } from '../components/NewIssueDialog';
 import { api, ApiError, post } from '../lib/api';
 import { hue, initials, type Tone } from '../lib/format';
@@ -999,13 +1000,10 @@ function NodeEditor({ state, model: m, node: n, editable, patch, onDesign, busy,
       </div>;
     }
     case 'design': {
-      const current = state.design?.hash ?? null;
-      const options = Object.values(state.mocks ?? {}).flatMap(a => a.revisions.filter(r => mockGate(r, current).state === 'approved').map(r => ({ a, r })));
+      const value = d.artifactId ? { artifactId: String(d.artifactId), rev: Number(d.rev) } : null;
       return <div className="col" style={{ gap: 8 }}>
-        <label className="col"><span className="small muted">Approved mock revision</span><select disabled={dis} value={d.artifactId ? `${String(d.artifactId)}#${String(d.rev)}` : ''} onChange={e => { const [artifactId, rev] = e.target.value.split('#'); patch({ artifactId, rev: Number(rev) }); }}>
-          <option value="">Choose an approved revision…</option>{options.map(({ a, r }) => <option key={`${a.id}#${r.rev}`} value={`${a.id}#${r.rev}`}>{a.title} · rev {r.rev}</option>)}</select></label>
-        {options.length === 0 && <span className="small faint">No approved mocks yet. Design one, review it, then pick it here.</span>}
-        <button type="button" className="btn sm" onClick={onDesign}>Open Designer</button>
+        <span className="small faint">Attach a finalized mock. Steps plugged into this node build exactly that revision; a newer release needs its own review before it can replace it.</span>
+        <DesignPicker state={state} value={value} disabled={dis} onDesign={onDesign} onPick={pick => patch(pick ? { artifactId: pick.artifactId, rev: pick.rev } : { artifactId: null, rev: null })} />
       </div>;
     }
     case 'skill':

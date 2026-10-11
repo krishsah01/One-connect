@@ -35,6 +35,7 @@ function useFit(width: number) {
     const el = ref.current; if (!el) return;
     const update = () => setScale(Math.min(1, Math.max(0.1, (el.clientWidth - 2) / width)));
     update();
+    if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(update); ro.observe(el);
     return () => ro.disconnect();
   }, [width]);

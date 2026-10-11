@@ -14,6 +14,10 @@ The Designer has one start screen and one canvas.
 
 The pinned skills table lives under **Settings → Designer skills**. The brief form, workflow strip and section tabs of earlier releases are gone; the sections below describe what happens underneath.
 
+### The Design node on the canvas
+
+A workflow's **Designer artifact** node attaches one finalized mock to the steps plugged into it. Its inspector lists every mock artifact in two groups: **Finalized** (a revision whose approval holds on the current project design system, including the independent review) with a **Use** button, and **Not finalized** with the reason (needs independent review, needs review, changes requested, not approved yet) and a link into the Designer's Review sheet or the Mocks page. Once attached, the inspector shows a miniature of that exact revision: the structured runtime for design releases, with chips to switch screens, or the sandboxed static render for HTML mocks, with page chips. **Detach** clears it; **Design a new mock** opens the Designer. The node's pill shows the attached mock's title and revision, and workflow validation keeps refusing a revision whose approval no longer holds.
+
 ## 1. Project design system
 
 The **Design system** sheet (and its folded contract editor) edits the project contract. It holds:
