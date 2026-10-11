@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="One Connect">
+  <!-- One hub (aqua), two agents (sun, coral), two struts (ink). For light grounds. -->
+  <path d="M168 256 L344 136 M168 256 L344 376" stroke="#0f2b31" stroke-width="26" stroke-linecap="round" fill="none"/>
+  <circle cx="168" cy="256" r="66" fill="#36dede" stroke="#0f2b31" stroke-width="14"/>
+  <circle cx="344" cy="136" r="48" fill="#ffcf53" stroke="#0f2b31" stroke-width="14"/>
+  <circle cx="344" cy="376" r="48" fill="#fd736d" stroke="#0f2b31" stroke-width="14"/>
+</svg>

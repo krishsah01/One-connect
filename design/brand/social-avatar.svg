@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="One Connect">
+  <circle cx="256" cy="256" r="256" fill="#0f2b31"/>
+  <g transform="translate(256 256) scale(1.3) translate(-256 -256)">
+    <path d="M168 256 L344 136 M168 256 L344 376" stroke="#edf3f3" stroke-width="26" stroke-linecap="round" fill="none"/>
+    <circle cx="168" cy="256" r="66" fill="#4ce4e4" stroke="#edf3f3" stroke-width="14"/>
+    <circle cx="344" cy="136" r="48" fill="#ffcf53" stroke="#edf3f3" stroke-width="14"/>
+    <circle cx="344" cy="376" r="48" fill="#ff7e76" stroke="#edf3f3" stroke-width="14"/>
+  </g>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="One Connect. Your agents. Your subscriptions. One log.">
+  <rect width="1200" height="630" fill="#0f2b31"/>
+  <rect x="820" y="-40" width="420" height="360" rx="40" fill="#36dede"/>
+  <rect x="980" y="340" width="260" height="330" rx="40" fill="#fd736d"/>
+  <rect x="820" y="400" width="140" height="140" rx="24" fill="#ffcf53"/>
+  <g transform="translate(880 60) scale(0.5)">
+    <path d="M168 256 L344 136 M168 256 L344 376" stroke="#001f26" stroke-width="26" stroke-linecap="round" fill="none"/>
+    <circle cx="168" cy="256" r="66" fill="#001f26"/>
+    <circle cx="344" cy="136" r="48" fill="#ffcf53" stroke="#001f26" stroke-width="14"/>
+    <circle cx="344" cy="376" r="48" fill="#fd736d" stroke="#001f26" stroke-width="14"/>
+  </g>
+  <text x="80" y="300" font-family="'Bricolage Grotesque','Avenir Next','Segoe UI',system-ui,sans-serif" font-weight="700" font-size="92" letter-spacing="-3" fill="#edf3f3">Your agents.</text>
+  <text x="80" y="392" font-family="'Bricolage Grotesque','Avenir Next','Segoe UI',system-ui,sans-serif" font-weight="700" font-size="92" letter-spacing="-3" fill="#edf3f3">One log.</text>
+  <text x="82" y="460" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-size="26" fill="#c9d6d8">Run Claude Code, Codex and Cursor as a team on the plans you already pay for.</text>
+  <text x="82" y="560" font-family="system-ui,-apple-system,'Segoe UI',sans-serif" font-weight="600" font-size="22" fill="#4ce4e4">One Connect  ·  open source  ·  macOS</text>
+</svg>

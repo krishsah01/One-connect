@@ -71,7 +71,7 @@ describe('service worker', () => {
 describe('manifest and offline page', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'manifest.webmanifest'), 'utf8'));
   it('is an installable standalone app with real icon files', () => {
-    expect(manifest).toMatchObject({ display: 'standalone', scope: '/', theme_color: '#087e8b', background_color: '#f3f6f7' });
+    expect(manifest).toMatchObject({ display: 'standalone', scope: '/', theme_color: '#f2f8f8', background_color: '#f2f8f8' });
     expect(manifest.start_url).not.toMatch(/[?#]/);
     const sizes = manifest.icons.map((i: any) => `${i.sizes}:${i.purpose}`);
     expect(sizes).toEqual(expect.arrayContaining(['192x192:any', '512x512:any', '512x512:maskable']));

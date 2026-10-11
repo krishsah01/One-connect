@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AgentState, Approval, UsageInfo } from '@acc/core';
 import { post } from '../lib/api';
 import { ago, hue, initials, type Tone } from '../lib/format';
@@ -24,8 +24,22 @@ export function Avatar({ id, name, size = 22 }: { id: string; name: string; size
   );
 }
 
-export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
-  return <button type="button" className={`toggle${on ? ' on' : ''}`} aria-pressed={on} aria-label={label} onClick={() => onChange(!on)} />;
+/** The house switch: previews on pointer-down, commits on click, stretches its pill knob while travelling (styles.css `.toggle`). */
+export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
+  const [pressed, setPressed] = useState(false);
+  const [moving, setMoving] = useState('');
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const flip = () => {
+    if (disabled) return;
+    setMoving(on ? 'moving-off' : 'moving-on');
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setMoving(''), 200);
+    onChange(!on);
+  };
+  const release = () => setPressed(false);
+  return <button type="button" role="switch" className={`toggle${on ? ' on' : ''}${moving ? ` ${moving}` : ''}${pressed ? ' pressed' : ''}`} aria-checked={on} aria-label={label} disabled={disabled}
+    onPointerDown={() => { if (!disabled) setPressed(true); }} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onClick={flip} />;
 }
 
 export function UsageMeter({ usage }: { usage: UsageInfo }) {

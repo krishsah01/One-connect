@@ -42,7 +42,7 @@
   .phone-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
   .phone-tabbar a, .phone-tabbar button { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 52px; font: inherit; font-size: 12px; color: var(--text-2); background: none; border: 0; text-decoration: none; }
   .phone-tabbar a.active { color: var(--accent); font-weight: 650; box-shadow: inset 0 3px 0 var(--accent); }
-  .tab-count { background: var(--warn); color: #fff; border-radius: 999px; font-size: 10px; padding: 0 5px; }
+  .tab-count { background: var(--warn); color: var(--on-accent); border-radius: 999px; font-size: 10px; padding: 0 5px; }
   .workbench-main { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
   .workspace-navigation { display: none; }
   .phone-menu { display: flex; flex-direction: column; gap: 12px; position: fixed; inset: 0 0 calc(52px + env(safe-area-inset-bottom)) 0; z-index: 50; background: var(--bg); padding: 16px; overflow-y: auto; }

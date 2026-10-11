@@ -1,0 +1,41 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "dev:web"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8787",
+        "-d",
+        "site"
+      ],
+      "port": 8787
+    },
+    {
+      "name": "web-designer",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "ACC_DAEMON_URL=http://127.0.0.1:7319",
+        "pnpm",
+        "--filter",
+        "@acc/web",
+        "exec",
+        "vite",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "port": 5174
+    }
+  ]
+}
