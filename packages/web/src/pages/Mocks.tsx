@@ -2,11 +2,12 @@
 // Mock artifacts: a gallery of captured revisions and in-progress jobs, and one artifact's exact
 // revision, page and viewport with review, evidence, comparison, source, refinement and handoff.
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { jobStatus, VIEWPORTS, type ControlState } from '@acc/core';
 import { Badge, ErrorLine, useAction } from '../components/common';
 import { ComparePanel, EvidencePanel, HandoffPanel, RefinePanel, ReviewPanel, SourcePanel } from '../components/designer/MockPanels';
 import { loadPreview, MockStage } from '../components/designer/MockStage';
+import { StructuredStage } from '../components/designer/workspace/StructuredStage';
 import { GATE_LABEL, shortSha, Tabs, tabPanel, type JobView, type MockView } from '../components/designer/shared';
 import '../components/designer/designer.css';
 import { api, post } from '../lib/api';
@@ -38,11 +39,11 @@ function MockList({ state }: { state: ControlState }) {
   const attention = Object.values(state.designStudio?.jobs ?? {}).filter(j => (j.kind === 'generate' || j.kind === 'refine') && !j.canceledAt).map(j => ({ job: j, st: jobStatus(j, state) })).filter(x => ATTENTION.has(x.st.phase)).sort((a, b) => b.job.createdAt.localeCompare(a.job.createdAt));
   const shown = (mocks ?? []).filter(m => filter === 'all' ? true : filter === 'approved' ? m.status.approvedRev !== null : filter === 'old' ? m.status.oldContract : !m.status.approvedIsLatest);
   return <div className="page connected-page mocks-page mocks-studio studio-page">
-    <div className="page-heading"><div><div className="eyebrow">Designer</div><h1>Design mocks</h1><p>Self-contained mocks your design agents wrote under <code>design/</code>, captured as immutable revisions bound to their issue, assignment, git SHA and design contract.</p></div><div className="row wrap"><Link className="btn primary" to="/designer?tab=studio">New design brief</Link><Link className="btn" to="/designer?tab=system">Design system</Link></div></div>
+    <div className="page-heading"><div><div className="eyebrow">Designer</div><h1>Design mocks</h1><p>Self-contained mocks your design agents wrote under <code>design/</code>, captured as immutable revisions bound to their issue, assignment, git SHA and design contract.</p></div><div className="row wrap"><Link className="btn primary" to="/designer">New design</Link></div></div>
     {loadError && <ErrorLine error={`Could not load mocks: ${loadError}`} />}<ErrorLine error={error} />
     {attention.length > 0 && <section className="card card-b col" aria-labelledby="attention-h" style={{ marginBottom: 18 }}>
       <h2 className="section" id="attention-h">In progress and needing attention</h2>
-      <ul className="check-list">{attention.map(({ job, st }) => <li key={job.id}><Badge tone={st.tone}>{st.label}</Badge><span className="grow"><b>{job.title}</b> <span className="muted">· {job.dir}/ · {st.detail}</span></span><Link className="btn sm" to="/designer?tab=studio">Open in studio</Link></li>)}</ul>
+      <ul className="check-list">{attention.map(({ job, st }) => <li key={job.id}><Badge tone={st.tone}>{st.label}</Badge><span className="grow"><b>{job.title}</b> <span className="muted">· {job.dir}/ · {st.detail}</span></span><Link className="btn sm" to="/designer">Open Designer</Link></li>)}</ul>
     </section>}
     {mocks && mocks.length > 0 && <div className="row wrap" style={{ marginBottom: 12 }}><div className="segmented" role="radiogroup" aria-label="Filter mocks">{([['all', 'All'], ['review', 'Latest not approved'], ['approved', 'Has an approved revision'], ['old', 'Older contract']] as const).map(([v, l]) => <label key={v}><input type="radio" name="mock-filter" checked={filter === v} onChange={() => setFilter(v)} />{l}</label>)}</div><span className="small faint">{shown.length} of {mocks.length}</span></div>}
     {!mocks && !loadError ? <div className="empty" role="status">Loading mocks…</div> : mocks && (mocks.length === 0 ? <div className="card card-b col empty" style={{ marginBottom: 18 }}><b>No mocks captured{workItemId ? ' for this issue' : ''} yet.</b><span className="small muted">Write a brief in the Designer studio. The agent registers its mock when done; if a run finishes without one, the studio shows the failure and lets you capture the folder. You can also capture a folder below.</span></div> :
@@ -66,6 +67,7 @@ const DETAIL_TABS: { id: DetailTab; label: string }[] = [{ id: 'review', label: 
 
 function MockDetail({ id, state }: { id: string; state: ControlState }) {
   const { busy, error, run } = useAction();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [mock, setMock] = useState<MockView | null>(null), [loadError, setLoadError] = useState('');
   const [lineage, setLineage] = useState<JobView[]>([]);
@@ -109,8 +111,10 @@ function MockDetail({ id, state }: { id: string; state: ControlState }) {
           <span className="spacer" />
           <button type="button" className="btn sm" disabled={r.rev === mock.revisions[0].rev} onClick={() => setQ({ rev: String(mock.revisions[mock.revisions.indexOf(r) - 1].rev) })} aria-label="Previous revision">← rev</button>
           <button type="button" className="btn sm" disabled={isLatest} onClick={() => setQ({ rev: String(mock.revisions[mock.revisions.indexOf(r) + 1].rev) })} aria-label="Next revision">rev →</button>
+          {r.document ? <Link className="btn sm" to={`/designer?document=${encodeURIComponent(r.document.id)}`}>Open in Designer</Link>
+            : <button type="button" className="btn sm" disabled={busy} title="Recreate this mock's pages as an editable design in the Designer. The mock itself is not changed." onClick={() => void run(async () => { const d = await post<{ document: { id: string } }>(`/api/designer/mocks/${mock.id}/${r.rev}/rebuild`); navigate(`/designer?document=${encodeURIComponent(d.document.id)}`); })}>Open as editable design</button>}
         </div>
-        <MockStage id={mock.id} rev={r.rev} page={page} viewport={vp} title={mock.title} />
+        {r.document ? <StructuredStage artifactId={mock.id} rev={r.rev} width={vp.width} /> : <MockStage id={mock.id} rev={r.rev} page={page} viewport={vp} title={mock.title} />}
         {r.handoff && <details className="card card-b"><summary className="small"><b>Agent handoff</b> (claims, not proof)</summary><div className="col small" style={{ gap: 6, marginTop: 8 }}>{r.handoff.summary && <p style={{ margin: 0 }}>{r.handoff.summary}</p>}{r.handoff.pages.length > 0 && <span>Pages: {r.handoff.pages.map(p => `${p.path}${p.title ? ` (${p.title})` : ''}`).join(', ')}</span>}{r.handoff.states.length > 0 && <span>States: {r.handoff.states.join(', ')}</span>}{r.handoff.interactions.length > 0 && <span>Interactions: {r.handoff.interactions.join('; ')}</span>}{r.handoff.checks.length > 0 && <span>Checks claimed: {r.handoff.checks.map(c => `${c.name} ${c.status.replace('_', ' ')}`).join('; ')}</span>}{r.handoff.limitations.length > 0 && <span className="text-warn">Limitations: {r.handoff.limitations.join('; ')}</span>}{r.handoff.questions.length > 0 && <span>Open questions: {r.handoff.questions.join('; ')}</span>}</div></details>}
         <Tabs idBase="mock" label="Mock review sections" tabs={DETAIL_TABS} value={tab} onChange={t => setQ({ tab: t })} />
         <div {...tabPanel('mock', tab)}>
@@ -131,7 +135,7 @@ function MockDetail({ id, state }: { id: string; state: ControlState }) {
         </section>
         <section className="card card-b col"><h2 className="section">Lineage</h2>
           {lineage.length === 0 ? <p className="small muted">Captured outside the studio, or from a folder you chose.</p> : <ul className="check-list">{lineage.map(v => <li key={v.job.id}><Badge tone={v.status.tone}>{v.status.label}</Badge><span className="grow small"><b>{v.job.kind}</b> {v.job.fromRev ? `from rev ${v.job.fromRev}` : ''} {v.job.request ? `· ${v.job.request.slice(0, 80)}` : ''}</span></li>)}</ul>}
-          <Link className="btn sm" to="/designer?tab=studio">Open studio</Link>
+          <Link className="btn sm" to="/designer">Open Designer</Link>
         </section>
         {!isDesktop && r.files.some(f => f.kind === 'html') && <section className="card card-b col"><h2 className="section">All pages · {vp.name}</h2>{pages.slice(0, 6).map(p => <button type="button" key={p} className="btn sm" aria-pressed={p === page} onClick={() => setQ({ page: p })}>{p}</button>)}</section>}
       </aside>

@@ -1,10 +1,22 @@
 # Designer
 
-Designer is One Connect's design studio. You describe a product screen, choose a design agent and get an interactive local mock. You refine and check that mock against your project's versioned design system, then hand one approved, exact identity to engineering. Design work uses the same issues, assignments, pre-flight, runs and evidence as engineering work. There is no separate generator.
+Designer is One Connect's design studio. You describe an interface in one sentence; your design agent proposes screens on a canvas; you keep or discard each proposal, tweak what you select, and review a frozen release against your project's versioned design system before handing it to engineering.
+
+## At a glance
+
+The Designer has one start screen and one canvas.
+
+- **Start** (`/designer`): one text box, the design agent, and a mode (new prototype or revise existing UI, which lets you point the agent at repository files to recreate read-only). **Start designing** creates a design document from the sentence and gives the agent a *generate* job. Starters and recent designs sit below.
+- **Canvas** (`/designer?document=<id>`): every screen side by side at the chosen viewport (phone, tablet, desktop). Click a layer to select it; the panel appears only then. **Play** runs the prototype. The status word in the top bar is one of Draft, Agent working, Needs you, Needs attention, Ready for review, Approved.
+- **Ask bar**: the only way to talk to the agent. A request becomes a focused job scoped to the selected layers (or the whole design) that the agent answers with proposals. Progress, questions (answered in place) and the transcript unfold above the box. Proposals land on the canvas next to the screens they change with **Keep** and **Discard**; nothing is applied otherwise.
+- **Review** and **Design system** are sheets opened from the top bar (`?sheet=review|system`). Review groups findings, lists evidence, takes your checklist and approval, and prepares the engineering handoff. Design system shows this draft's foundations and publishes them as the project system; the full project contract editor is folded inside.
+- Keyboard: ⌘Z / ⇧⌘Z, ⌘D duplicates, Delete removes, Escape closes the sheet or clears the selection.
+
+The pinned skills table lives under **Settings → Designer skills**. The brief form, workflow strip and section tabs of earlier releases are gone; the sections below describe what happens underneath.
 
 ## 1. Project design system
 
-**Designer → Design system** edits the project contract. It holds:
+The **Design system** sheet (and its folded contract editor) edits the project contract. It holds:
 
 - **Color roles**: canvas, surface, subtle surface, text, secondary text, accent, on accent, divider, focus ring, and success, warning, danger and information. There is a light and a dark palette. *Appearance* chooses light, dark, or both (following the viewer's system setting).
 - **Typography**: system or serif-display pairing and a base size, using a fixed 1.2 scale.
@@ -31,7 +43,7 @@ Saving does not touch existing assignments or active runs. Each assignment keeps
 
 ## 2. Briefs and design jobs
 
-**Designer → Studio** turns a brief into an ordinary issue and a draft assignment. Nothing runs from the form. The brief covers:
+Legacy design jobs (self-contained HTML mocks) are still created from the Mocks page for refinement and engineering handoff. A legacy brief covers:
 
 - the mode: a new prototype, or a revision of existing UI that the agent studies read-only;
 - the title, problem and audience;

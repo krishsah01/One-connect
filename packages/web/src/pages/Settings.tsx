@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { CodeHostConfig, ControlState, GraphifyConfig, InfraConfig, Policy, ProjectConfig } from '@acc/core';
 import { Badge, ErrorLine, useAction } from '../components/common';
+import { Appearance } from '../components/Appearance';
+import { DesignerSkills } from '../components/designer/DesignerSkills';
 import { api, post } from '../lib/api';
 
 interface Draft { project: ProjectConfig; policies: Policy; code_host: CodeHostConfig | null; infra: InfraConfig | null; graphify: GraphifyConfig }
@@ -18,7 +20,7 @@ export function Settings({ state }: { state: ControlState }) {
   const [loadError, setLoadError] = useState('');
   const load = async () => { const value = await api<Snapshot>('/api/settings'); setSnapshot(value); setDraft(value.settings); setFloor(JSON.stringify(value.settings.policies.quality_floor, null, 2)); };
   useEffect(() => { let active = true; void api<Snapshot>('/api/settings').then(value => { if (active) { setSnapshot(value); setDraft(value.settings); setFloor(JSON.stringify(value.settings.policies.quality_floor, null, 2)); } }).catch(e => { if (active) setLoadError(String(e.message ?? e)); }); return () => { active = false; }; }, []);
-  if (!draft || !snapshot) return <div className="page col"><h1>Settings & policies</h1><ErrorLine error={loadError}/><p className="muted">{loadError ? 'Settings are unavailable. Reopen this project or retry.' : 'Opening project settings…'}</p><button className="btn" disabled={busy} onClick={() => void run(load)}>Retry</button></div>;
+  if (!draft || !snapshot) return <div className="page col" style={{ gap: 20 }}><h1>Settings & policies</h1><Appearance/><ErrorLine error={loadError}/><p className="muted">{loadError ? 'Settings are unavailable. Reopen this project or retry.' : 'Opening project settings…'}</p><button className="btn" disabled={busy} onClick={() => void run(load)}>Retry</button></div>;
   const project = (patch: Partial<ProjectConfig>) => setDraft(d => d && ({ ...d, project: { ...d.project, ...patch } }));
   const policy = (patch: Partial<Policy>) => setDraft(d => d && ({ ...d, policies: { ...d.policies, ...patch } }));
   const host = (patch: Partial<CodeHostConfig>) => setDraft(d => d?.code_host ? ({ ...d, code_host: { ...d.code_host, ...patch } as CodeHostConfig }) : d);
@@ -26,6 +28,8 @@ export function Settings({ state }: { state: ControlState }) {
   const runtime = draft.project.check_runtime;
   return <div className="page col" style={{ gap: 20 }}>
     <div className="row wrap"><div><div className="eyebrow">{state.project?.name}</div><h1>Settings & policies</h1><p className="muted">Configure this project, then review the exact changes in Decisions.</p></div><span className="spacer"/><button className="btn" disabled={busy} onClick={() => void run(load)}>Reload saved settings</button></div>
+    <Appearance/>
+    <DesignerSkills/>
     <ErrorLine error={error || loadError}/>
     <form className="col" style={{ gap: 20 }} onSubmit={e => { e.preventDefault(); void run(async () => {
       const quality = JSON.parse(floor) as unknown;

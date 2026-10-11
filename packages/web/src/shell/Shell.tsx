@@ -289,7 +289,7 @@ const COMMANDS: Command[] = [
   { label: 'Issue list', hint: 'Work board and imports', icon: 'list', to: '/board', words: 'board issues kanban backlog import queue' },
   { label: 'Inbox', hint: 'Questions, approvals, decisions, alerts', icon: 'bell', to: '/inbox', words: 'approvals decisions alerts waiting' },
   { label: 'One Ask', hint: 'Ask about this project', icon: 'search', to: '/docs', words: 'ask question context vault obsidian graph docs' },
-  { label: 'Designer', hint: 'Design system and design jobs', icon: 'canvas', to: '/designer', words: 'design mock ui contract tokens brief' },
+  { label: 'Designer', hint: 'Describe an interface and design it with your agent', icon: 'canvas', to: '/designer', words: 'design mock ui contract tokens brief' },
   { label: 'Mocks', hint: 'Captured mocks, review, handoff', icon: 'canvas', to: '/mocks', words: 'artifacts preview review handoff' },
   { label: 'Insights', hint: 'Overview of agents, gates and alerts', icon: 'chart', to: '/insights', words: 'mission control overview' },
   { label: 'Brief and reports', hint: 'Now, next and handoff cards', icon: 'chart', to: '/reports', words: 'report brief summary' },

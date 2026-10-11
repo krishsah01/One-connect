@@ -11,8 +11,8 @@ import { identityRevision } from '../../lib/remote';
 import type { Tone } from '../../lib/format';
 
 export interface Draft<T = unknown> { key: string; value: T; savedAt: string; base: string | null }
-export interface FullExports { revision: DesignRevision; markdown: string; css: string; checks: DesignCheck[]; schema: 1 | 2; tokens: Record<string, unknown>; specimen: string; diff: DesignChange[]; parent: { hash: string; version: number } | null }
-export interface HistoryEntry { version: number; hash: string; createdAt: string; by: { type: string; id: string } | null; parent: string | null; note: string | null; schema: 1 | 2 }
+export interface FullExports { revision: DesignRevision; markdown: string; css: string; checks: DesignCheck[]; schema: 1 | 2 | 3; tokens: Record<string, unknown>; specimen: string; diff: DesignChange[]; parent: { hash: string; version: number } | null }
+export interface HistoryEntry { version: number; hash: string; createdAt: string; by: { type: string; id: string } | null; parent: string | null; note: string | null; schema: 1 | 2 | 3 }
 export interface ContractResponse {
   current: FullExports | null;
   history: HistoryEntry[];

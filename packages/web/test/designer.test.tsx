@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyEvent, DEFAULT_DESIGN, emptyState, parseConfig, REVIEW_CHECKLIST, type ControlState, type EventEnvelope } from '@acc/core';
+import { applyEvent, createDesignDocument, DEFAULT_DESIGN, emptyState, parseConfig, type Assignment, type ControlState, type DesignDocument, type EventEnvelope, type WorkItem } from '@acc/core';
 import { Designer } from '../src/pages/Designer';
 import { loadRemoteSession, setRemoteSession } from '../src/lib/remote';
 
-afterEach(()=>{cleanup();vi.unstubAllGlobals();setRemoteSession(null,'checking');});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); setRemoteSession(null, 'checking'); });
 let seq = 0;
 const ev = (type: string, data: unknown, refs: Partial<EventEnvelope> = {}): EventEnvelope =>
   ({ seq: ++seq, id: `e${seq}`, ts: new Date().toISOString(), type, kind: 'control', actor: { type: 'human', id: 'owner' }, agentId: null, runId: null, workItemId: null, assignmentId: null, data, ...refs }) as EventEnvelope;
@@ -20,65 +20,96 @@ function state(withContract = false): ControlState {
   return s;
 }
 
-const calls: string[] = [];
+const calls: { method: string; url: string; body: unknown }[] = [];
+let doc: DesignDocument;
+let jobs: { assignmentId: string; request: string; selection: string[]; files: string[]; kind: string; skills: never[]; createdAt: string }[] = [];
+const record = () => ({ document: doc, proposals: [], jobs, assignments: jobs.map(j => j.assignmentId), authors: [{ type: 'human', id: 'owner' }], updatedAt: new Date().toISOString(), artifactId: null, undo: { count: 0, label: null }, redo: { count: 0, label: null } });
 beforeEach(async () => {
-  calls.length = 0;
+  calls.length = 0; jobs = [];
+  doc = createDesignDocument('doc-1', 'Release checks');
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-    calls.push(`${init?.method ?? 'GET'} ${url}`);
-    const json = (b: unknown) => new Response(JSON.stringify(b), { status: 200 });
-    // Explicit verified local-owner identity, matching the current signed-in dashboard.
-    if (url === '/api/remote/session') return new Response(JSON.stringify({error:'Not a phone session'}),{status:403});
-    if (url.startsWith('/api/designer/drafts/')) return json(init?.method === 'PUT' ? { draft: { key: 'brief', value: JSON.parse(String(init.body)).value, savedAt: new Date().toISOString(), base: null } } : { draft: null });
-    if (url === '/api/designer/studio') return json({ tooling: { playwright: { found: false, path: null, note: 'Nothing is installed automatically.' } } });
-    if (url === '/api/designer/contract') return json({ current: null, history: [], draft: null, skills: [{ id: 'visual-critique', name: 'Visual critique', description: 'd', license: 'Apache-2.0', source: 'One Connect', version: '1', purpose: 'Independent review.' }], skillSets: { design: ['visual-critique'], implementation: [], review: ['visual-critique'] }, checklist: REVIEW_CHECKLIST });
-    if (url === '/api/designer/validate') return json({ ok: true, errors: [], hash: 'b'.repeat(64), unchanged: false, warnings: [], diff: [{ field: 'name', label: 'Name', before: null, after: 'Connected clarity' }], current: null });
-    return new Response(JSON.stringify({ error: 'not found' }), { status: 404 });
+    const body = init?.body ? JSON.parse(String(init.body)) : null;
+    calls.push({ method: init?.method ?? 'GET', url, body });
+    const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
+    if (url === '/api/remote/session') return json({ error: 'Not a phone session' }, 403);
+    if (url === '/api/designer/documents' && init?.method === 'POST') return json(record());
+    if (url === '/api/designer/documents') return json({ documents: [{ id: 'doc-1', name: 'Release checks', version: 1, updatedAt: new Date().toISOString(), artifactId: null, screens: 4, firstScreen: 'Overview' }] });
+    if (url === '/api/designer/documents/doc-1') return json(record());
+    if (url === '/api/designer/documents/doc-1/ai') return json({ assignment: { id: 'asg-1' }, preflight: { checks: [] }, skills: [] });
+    if (url === '/api/assignments/asg-1/dispatch') return json({ started: true, queued: false });
+    if (url === '/api/assignments/asg-1/preflight') return json({ preflight: { ok: true, checks: [] } });
+    if (url === '/api/designer/documents/doc-1/operations') { const ops = body.operations; doc = { ...doc, version: doc.version + 1 }; return json({ id: 'doc-1', version: doc.version, updatedAt: new Date().toISOString(), patch: {}, undo: { count: 1, label: body.label }, redo: { count: 0, label: null }, ops }); }
+    if (url === '/api/designer/documents/doc-1/release-readiness') return json({ blockers: ['Publish this design’s foundations as the project design system first.'], impact: {} });
+    if (url.startsWith('/api/designer/assets/')) return json({ mime: 'image/png', base64: '' });
+    if (url.startsWith('/api/designer/repository/files')) return json({ files: ['src/pages/Checks.tsx'] });
+    return json({ error: `not found: ${url}` }, 404);
   }));
   await loadRemoteSession();
 });
 
-describe('Designer studio', () => {
-  it('explains the flow, gates creation on a saved contract and never offers relay agents', async () => {
-    render(<MemoryRouter initialEntries={['/designer']}><Designer state={state()} /></MemoryRouter>);
-    expect(screen.getByRole('heading', { name: 'Designer' })).toBeTruthy();
-    expect(screen.getByRole('list', { name: 'Studio workflow' }).textContent).toMatch(/Save a design system.*Brief a reviewable task.*Run and capture.*Review and hand off/);
-    await waitFor(() => expect(screen.getByRole('form', { name: 'Design brief' })).toBeTruthy());
-    expect(screen.getByText(/Design jobs freeze the saved project contract/)).toBeTruthy();
-    const relay = screen.getByRole('radio', { name: /Antigravity/ }) as HTMLInputElement;
-    expect(relay.disabled).toBe(true);
-    expect(screen.getByText(/Relay agents need you to work in another app/)).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Create reviewable task' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/What the isolated preview cannot do/)).toBeTruthy();
-  });
-
-  it('autosaves the brief as a server draft and maps screens to page files', async () => {
+describe('Designer', () => {
+  it('starts a design from one sentence, never offers relay agents, and hands the prompt to the agent', async () => {
     render(<MemoryRouter initialEntries={['/designer']}><Designer state={state(true)} /></MemoryRouter>);
-    const title = await screen.findByRole('textbox', { name: 'Title' });
-    fireEvent.change(title, { target: { value: 'Release checks' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add screen' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Screen 2 name' }), { target: { value: 'Check detail' } });
-    expect(screen.getByText('check-detail.html')).toBeTruthy();
-    await waitFor(() => expect(calls.some(c => c.startsWith('PUT /api/designer/drafts/brief'))).toBe(true), { timeout: 3000 });
-    expect(screen.getByText(/Brief saved .* not approved/)).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'What are you designing?' })).toBeTruthy();
+    const agent = screen.getByRole('combobox', { name: 'Design agent' }) as HTMLSelectElement;
+    expect(Array.from(agent.options).map(o => o.textContent)).toEqual(['Codex']);
+    expect(screen.queryByRole('form', { name: 'Design brief' })).toBeNull();
+    expect(screen.queryByRole('tab')).toBeNull();
+    await screen.findByText('Release checks');
+    const idea = screen.getByRole('textbox', { name: 'Describe the interface' });
+    fireEvent.change(idea, { target: { value: 'A dashboard where engineers see which release checks failed and re-run one.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Start designing' }));
+    await waitFor(() => expect(calls.some(c => c.url === '/api/assignments/asg-1/dispatch')).toBe(true));
+    const create = calls.find(c => c.method === 'POST' && c.url === '/api/designer/documents')!.body as { name: string; proposal: { prompt: string } };
+    expect(create.name).toBe('Dashboard');
+    expect(create.proposal.prompt).toMatch(/release checks/);
+    const ai = calls.find(c => c.url === '/api/designer/documents/doc-1/ai')!.body as { agentId: string; kind: string };
+    expect(ai).toMatchObject({ agentId: 'codex', kind: 'generate' });
+    await screen.findByRole('main', { name: 'Canvas' });
   });
 
-  it('switches sections with the keyboard and shows the contract as an unapproved draft until validated', async () => {
-    render(<MemoryRouter initialEntries={['/designer']}><Designer state={state()} /></MemoryRouter>);
-    const studio = screen.getByRole('tab', { name: 'Studio' });
-    expect(studio.getAttribute('aria-selected')).toBe('true');
-    fireEvent.keyDown(studio, { key: 'ArrowRight' });
-    const system = screen.getByRole('tab', { name: 'Design system' });
-    expect(system.getAttribute('aria-selected')).toBe('true');
-    expect(document.activeElement).toBe(system);
-    await waitFor(() => expect(screen.getByText('unsaved draft · not approved')).toBeTruthy());
-    expect(screen.getByRole('region', { name: /Component specimen: Draft preview · not the approved contract/ })).toBeTruthy();
-    const save = screen.getByRole('button', { name: 'Save as v1' }) as HTMLButtonElement;
-    expect(save.disabled).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Validate draft' }));
-    await waitFor(() => expect(screen.getByText(/Validated on the daemon/)).toBeTruthy());
-    expect((screen.getByRole('button', { name: 'Save as v1' }) as HTMLButtonElement).disabled).toBe(false);
-    expect(screen.getByRole('list', { name: 'Contract changes' })).toBeTruthy();
-    fireEvent.keyDown(system, { key: 'End' });
-    expect(screen.getByRole('tab', { name: 'Skills and sources' }).getAttribute('aria-selected')).toBe('true');
+  it('shows screens on the canvas, opens the panel only on selection, and closes it with Escape', async () => {
+    render(<MemoryRouter initialEntries={['/designer?document=doc-1']}><Designer state={state(true)} /></MemoryRouter>);
+    const canvas = await screen.findByRole('main', { name: 'Canvas' });
+    expect(within(canvas).getByRole('region', { name: 'Overview screen' })).toBeTruthy();
+    expect(within(canvas).getByRole('region', { name: 'Projects screen' })).toBeTruthy();
+    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Ask the design agent' })).toBeTruthy();
+    fireEvent.click(within(canvas).getAllByRole('button', { name: 'View all projects' })[0]);
+    const panel = await screen.findByRole('complementary', { name: /Selected: View all/ });
+    expect(within(panel).getByRole('textbox', { name: 'Label' })).toBeTruthy();
+    expect(within(panel).getByRole('group', { name: 'Style' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Scope: View all/ })).toBeTruthy();
+    fireEvent.keyDown(panel, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
+    expect(screen.getByText('Whole design')).toBeTruthy();
+  });
+
+  it('opens Review and Design system as sheets from the top bar and reports release blockers', async () => {
+    render(<MemoryRouter initialEntries={['/designer?document=doc-1']}><Designer state={state(true)} /></MemoryRouter>);
+    await screen.findByRole('main', { name: 'Canvas' });
+    fireEvent.click(screen.getByRole('button', { name: /^Review/ }));
+    const review = await screen.findByRole('complementary', { name: 'Review' });
+    await waitFor(() => expect(within(review).getByText(/Publish this design’s foundations/)).toBeTruthy());
+    expect((within(review).getByRole('button', { name: 'Create a release for review' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: /^Design system/ }));
+    const system = await screen.findByRole('complementary', { name: 'Design system' });
+    expect(within(system).getByRole('button', { name: /^accent:/ })).toBeTruthy();
+    expect(screen.queryByRole('complementary', { name: 'Review' })).toBeNull();
+    fireEvent.click(within(system).getByRole('button', { name: 'Close design system' }));
+    await waitFor(() => expect(screen.queryByRole('complementary')).toBeNull());
+  });
+
+  it('starts a prepared request by itself once the tracker confirms its issue', async () => {
+    jobs = [{ assignmentId: 'asg-1', request: 'Add an empty state', selection: [], files: [], kind: 'edit', skills: [], createdAt: new Date().toISOString() }];
+    const s = state(true);
+    s.workItems['wi-1'] = { id: 'wi-1', key: 'DEMO-7', trackerId: 't', url: null, title: 'Design: Add an empty state', description: '', acceptance: [], labels: [], priority: 2, parentKey: null, blockedBy: [], state: 'todo', blockedOn: null, resumeTo: null, ownerAgentId: 'codex', assignmentIds: ['asg-1'], runIds: [], branches: [], evidence: [], requiresProductionVerification: false, trackerStatus: null, sync: { status: 'synced', lastError: null, at: new Date().toISOString() }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as WorkItem;
+    s.assignments['asg-1'] = { id: 'asg-1', workItemId: 'wi-1', agentId: 'codex', position: 'draft', scope: '', allowedPaths: [], worktree: null, branch: null, baseRef: 'main', baseSha: null, requiredChecks: [], askHumanIf: [], handoffFormat: '', prompt: '', promptEdited: false, model: null, effort: null, preflight: { ok: false, checks: [{ id: 'issue', label: 'Issue exists', status: 'fail', message: 'issue is not confirmed in the tracker yet' }], model: null, at: new Date().toISOString() }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as Assignment;
+    render(<MemoryRouter initialEntries={['/designer?document=doc-1']}><Designer state={s} /></MemoryRouter>);
+    await screen.findByText('Add an empty state');
+    expect(screen.getByText('Ready to start')).toBeTruthy();
+    await waitFor(() => expect(calls.some(c => c.url === '/api/assignments/asg-1/dispatch')).toBe(true));
+    const order = calls.filter(c => c.url.startsWith('/api/assignments/asg-1/')).map(c => c.url.split('/').at(-1));
+    expect(order).toEqual(['preflight', 'dispatch']);
   });
 });
