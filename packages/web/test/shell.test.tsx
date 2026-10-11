@@ -18,6 +18,8 @@ function state(): ControlState {
 }
 
 beforeEach(async () => {
+  // The canvas (xyflow) measures with ResizeObserver, which jsdom does not provide.
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     if (url === '/api/remote/session') return new Response(JSON.stringify({ error: 'Not a phone session' }), { status: 403 });
     if (url === '/api/canvas') return new Response(JSON.stringify({ layout: { version: 2, frames: {}, nodes: {}, sketches: {}, gates: {}, chains: {} }, rev: 0 }), { status: 200 });
@@ -41,6 +43,13 @@ describe('canvas shell routing', () => {
 });
 
 describe('canvas shell', () => {
+  it('opens an agent console in the drawer with that agent, not an unknown one', async () => {
+    render(<MemoryRouter initialEntries={['/agents/codex']}><Shell state={state()} conn="live" meta={{ demo: false, tracker: null }} projectSwitcher={<b>demo</b>} /></MemoryRouter>);
+    const drawer = await screen.findByRole('dialog', { name: 'Agent' });
+    await waitFor(() => expect(drawer.textContent).toContain('Codex'));
+    expect(drawer.textContent).not.toMatch(/Unknown agent/);
+  });
+
   it('has one short top bar, opens settings as a dialog and closes it with Escape', async () => {
     render(<MemoryRouter initialEntries={['/settings']}><Shell state={state()} conn="live" meta={{ demo: false, tracker: null }} projectSwitcher={<b>demo</b>} /></MemoryRouter>);
     expect(screen.queryByRole('navigation', { name: 'Workspace navigation' })).toBeNull();

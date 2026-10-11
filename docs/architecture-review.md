@@ -4,7 +4,7 @@ This review covers `packages/core`, `packages/daemon` and `packages/web` at `6b1
 
 **Baseline before changes** (main checkout, including the uncommitted Designer work): typecheck clean. 855 tests passed and 19 failed, all of them known: `opencode-harness` needs a real `rg` binary on `PATH`, and the Designer WIP renderer test still uses old starter ids.
 
-**After:** typecheck, SPDX and license checks are clean. The full suite has no new failures; the only failures are the 16 `rg`-dependent ones. 15 tests were added, each pinning one of the fixes below.
+**After:** typecheck, SPDX and license checks are clean. The full suite has no new failures; the only failures are the 16 `rg`-dependent ones. 16 tests were added, each pinning one of the fixes below.
 
 ## Summary
 
@@ -43,7 +43,8 @@ There were also real bugs:
 | 11 | The shared reducer rescanned every run on every agent-affecting event: 10 µs per event at 100 runs, 83 µs at 1,000, 1 ms at 10,000. | The daemon and the browser both slowed down as history grew. | Incremental tracking, about 1 µs per event at any size. | `domain.test.ts` checks equality with a full scan after every event. |
 | 12 | About 20 MB of raw agent session logs and worker status files were tracked and published, though `.gitignore` says they are private. | Unintended publication. No credentials were found in them (scanned for common key formats). | Removed from the index (local copies stay); ignore rules now cover subfolders. **Still in public history**, see O1. | — |
 | 13 | The console said OpenCode messages are "delivered as the next turn". | Wrong hint: OpenCode streams input, so they are delivered live. | The hint now reads the adapter's capability. | — |
-| 14 | Smaller issues: `/api/health` hard-coded the version, expired sign-in codes were never purged, a malformed cookie threw, the socket accepted NaN cursors. | — | Fixed in the HTTP split. | — |
+| 14 | In the canvas shell, every agent console and run-output drawer showed "Unknown agent" or "Unknown run". The drawers open from the URL without a page route, so `useParams()` was empty (Mocks had the same problem). Found by running the demo on this branch; it is also on `main`. | Agent consoles and run output were unusable in the main UI. | `DrawerBody` gives those drawers a route context. | `shell.test.tsx` (also stubs `ResizeObserver`, which jsdom lacks, so the file no longer depends on test order) |
+| 15 | Smaller issues: `/api/health` hard-coded the version, expired sign-in codes were never purged, a malformed cookie threw, the socket accepted NaN cursors. | — | Fixed in the HTTP split. | — |
 
 ### Structure (SOLID and refactoring.guru names)
 
@@ -82,6 +83,7 @@ These are not changed here, most important first.
 - **O11. Tests.** `opencode-harness` needs a real ripgrep. Put a stub `rg` on `PATH` in the test, or document `brew install ripgrep` in CONTRIBUTING. The daemon suite takes about 7 minutes; tag the e2e and process-spawning tests so `pnpm test:unit` runs in seconds.
 - **O12. Dead CSS.** 31 selectors in `styles.css` have no users, including the Designer WIP: `brand`, `sep`, `sidebar-team`, `sidebar-status`, `workspace-next-step`, `connector-question`, `designer-layout`, `designer-page`, `designer-skills`, `token-grid`, `skill-grid`, `skill-tile`, `finding-spacer` and the `mock-*` rules (`mock-preview`, `mock-card`, `mock-stage` and the rest). Remove them after the theme work in flight lands; the pruning script is in this branch's history (`bfa816b`).
 - **O13. Wall-clock time inside the daemon.** `saveSnapshot`, `markDelivered`, the egress log and session times use `new Date()` instead of the injected clock, which limits deterministic tests.
+- **O14a. Run output "Back" link.** Inside the desktop drawer, the run view's Back link goes to `/phone` (it was written for the phone layout). Close the drawer instead when it is not a phone session.
 - **O14. Version is defined twice.** `VERSION` in `version.ts` and the `package.json` versions are separate. Read one from the other at build time.
 
 ## Recommended upgrades and features
