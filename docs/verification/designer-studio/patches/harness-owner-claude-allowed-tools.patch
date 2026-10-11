@@ -1,0 +1,11 @@
+--- a/packages/daemon/src/adapters/agents/claude.ts
++++ b/packages/daemon/src/adapters/agents/claude.ts
+@@ -89,7 +89,7 @@
+     }
+     if (ctx.policies.privacy.strict_mcp) args.push('--strict-mcp-config');
+     args.push('--permission-mode', 'default');
+-    const allowed = [...ctx.allowedTools, ...(ctx.mcp ? ['get_assignment', 'post_handoff', 'submit_review', 'report_finding', 'ask_human', 'get_brief', 'get_team', 'read_messages', 'send_team_message', 'ack_team_message', 'get_design_system', 'get_design_skill', 'search_context', 'ask_project', 'read_note', 'query_graph', 'graph_path', 'explain_node', 'list_skills', 'get_skill', 'register_design_mock', 'record_mock_evidence', 'list_connector_tools'].map((t) => `mcp__acc__${t}`) : [])];
++    const allowed = [...ctx.allowedTools, ...(ctx.mcp ? ['get_assignment', 'post_handoff', 'submit_review', 'report_finding', 'ask_human', 'get_brief', 'get_team', 'read_messages', 'send_team_message', 'ack_team_message', 'get_design_system', 'get_design_skill', 'search_context', 'ask_project', 'read_note', 'query_graph', 'graph_path', 'explain_node', 'list_skills', 'get_skill', 'register_design_mock', 'record_mock_evidence', 'get_design_mock', 'submit_design_review', 'list_connector_tools'].map((t) => `mcp__acc__${t}`) : [])];
+     if (allowed.length) args.push('--allowedTools', allowed.join(','));
+     if (ctx.gitCommonDir) args.push('--add-dir', ctx.gitCommonDir);
+     return {

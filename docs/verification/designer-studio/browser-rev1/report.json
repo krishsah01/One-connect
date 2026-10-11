@@ -1,0 +1,125 @@
+{
+  "tool": "Google Chrome Chrome/154.0.8037.98 headless via DevTools protocol",
+  "url": "loopback:preview-rev1.html",
+  "checks": [
+    {
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "page": "index.html",
+      "state": "empty",
+      "visible": [
+        "empty"
+      ],
+      "announced": "Showing the empty state",
+      "overflowX": false,
+      "width": 390,
+      "passed": true,
+      "screenshot": "phone-empty.png"
+    },
+    {
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "page": "index.html",
+      "state": "loading",
+      "visible": [
+        "loading"
+      ],
+      "announced": "Showing the loading state",
+      "overflowX": false,
+      "width": 390,
+      "passed": true,
+      "screenshot": "phone-loading.png"
+    },
+    {
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "page": "index.html",
+      "state": "error",
+      "visible": [
+        "error"
+      ],
+      "announced": "Showing the error state",
+      "overflowX": false,
+      "width": 390,
+      "passed": true,
+      "screenshot": "phone-error.png"
+    },
+    {
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "page": "index.html",
+      "state": "success",
+      "visible": [
+        "success"
+      ],
+      "announced": "Showing the success state",
+      "overflowX": false,
+      "width": 390,
+      "passed": true,
+      "screenshot": "phone-success.png"
+    },
+    {
+      "viewport": {
+        "name": "tablet",
+        "width": 820,
+        "height": 1180
+      },
+      "page": "index.html",
+      "state": "success",
+      "visible": [
+        "success"
+      ],
+      "announced": "Showing the success state",
+      "overflowX": false,
+      "width": 820,
+      "passed": true,
+      "screenshot": "tablet-success.png"
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "page": "index.html",
+      "state": "success",
+      "visible": [
+        "success"
+      ],
+      "announced": "Showing the success state",
+      "overflowX": false,
+      "width": 1280,
+      "passed": true,
+      "screenshot": "desktop-success.png"
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "page": "index.html",
+      "state": "error",
+      "visible": [
+        "error"
+      ],
+      "announced": "Showing the error state",
+      "overflowX": false,
+      "width": 1280,
+      "passed": true,
+      "screenshot": "desktop-error.png"
+    }
+  ]
+}

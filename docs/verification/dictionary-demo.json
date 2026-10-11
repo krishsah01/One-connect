@@ -1,0 +1,370 @@
+{
+  "at": "2026-10-07T19:55:31.508Z",
+  "repo": "disposable",
+  "tools": {
+    "graphify": "/Users/krishkumarsah/.local/bin/graphify",
+    "embeddingModel": "all-minilm"
+  },
+  "steps": [
+    {
+      "name": "Intake at v1",
+      "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+      "status": {
+        "state": "ready",
+        "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+        "notes": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+        "vectors": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+        "graph": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+        "files": 21,
+        "stages": {
+          "extract": "ready@fe6d508c",
+          "notes": "ready@fe6d508c",
+          "structure": "ready@fe6d508c",
+          "keywords": "ready@fe6d508c",
+          "vectors": "ready@fe6d508c",
+          "graph": "ready@fe6d508c"
+        },
+        "changes": {
+          "mode": "full",
+          "added": [
+            "api/package.json",
+            "compose.yaml",
+            "DESIGN.md",
+            "Dockerfile",
+            "docs/architecture.md",
+            "gateway/go.mod",
+            "inventory/Cargo.toml",
+            "package.json",
+            "README.md",
+            "worker/pyproject.toml",
+            "docs/legacy-refunds.md",
+            "api/src/cart.ts",
+            "api/src/checkout.ts",
+            "api/src/inventory.ts",
+            "gateway/main.go",
+            "gateway/routes/routes.go",
+            "inventory/src/lib.rs",
+            "inventory/src/stock.rs",
+            "worker/__init__.py",
+            "worker/pricing.py",
+            "worker/rules.py"
+          ],
+          "modified": [],
+          "deleted": [],
+          "renamed": [],
+          "reread": 21
+        },
+        "error": null
+      },
+      "structure": {
+        "files": 21,
+        "symbols": 16,
+        "edges": 11,
+        "entryPoints": [
+          "compose.yaml",
+          "DESIGN.md",
+          "Dockerfile",
+          "package.json",
+          "README.md",
+          "api/package.json",
+          "docs/architecture.md",
+          "gateway/go.mod",
+          "gateway/main.go",
+          "inventory/Cargo.toml",
+          "worker/pyproject.toml",
+          "inventory/src/lib.rs",
+          "inventory/src/stock.rs",
+          "api/src/cart.ts",
+          "api/src/inventory.ts",
+          "gateway/routes/routes.go",
+          "worker/rules.py"
+        ]
+      }
+    },
+    {
+      "name": "Cited queries at v1",
+      "checkoutDependsOn": [
+        {
+          "source": "docs/architecture.md",
+          "lines": "1-3",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "# Architecture\n\nThe checkout handler (api/src/checkout.ts) prices carts with the pricing worker (worker/pricing.py) and reserves stock through the inventory ser"
+        },
+        {
+          "source": "api/src/checkout.ts",
+          "lines": "1-6",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "import { cartTotal } from './cart.ts';\nimport { reserve } from './inventory.ts';\n\nexport async function checkout(cart: { sku: string; qty: number; cents: number"
+        },
+        {
+          "source": "gateway/routes/routes.go",
+          "lines": "1-5",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "package routes\n\nimport \"net/http\"\n\nfunc Router() http.Handler { return http.NewServeMux() }"
+        }
+      ],
+      "vat": [
+        {
+          "source": "worker/pricing.py",
+          "lines": "1-4",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "from .rules import VAT_RATE\n\ndef price_with_vat(cents: int) -> int:\n    return round(cents * (1 + VAT_RATE))"
+        },
+        {
+          "source": "worker/rules.py",
+          "lines": "1-1",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "VAT_RATE = 0.21"
+        },
+        {
+          "source": "worker/pyproject.toml",
+          "lines": "1-3",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "[project]\nname = \"pricing-worker\"\ndependencies = [\"pydantic>=2\", \"httpx\"]"
+        },
+        {
+          "source": "docs/architecture.md",
+          "lines": "1-3",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "# Architecture\n\nThe checkout handler (api/src/checkout.ts) prices carts with the pricing worker (worker/pricing.py) and reserves stock through the inventory ser"
+        },
+        {
+          "source": "README.md",
+          "lines": "1-3",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "# Shop\n\nA small storefront: a TypeScript web API, a Python pricing worker, a Rust inventory service and a Go gateway. See docs/architecture.md."
+        }
+      ],
+      "legacyRefunds": [
+        {
+          "source": "docs/legacy-refunds.md",
+          "lines": "1-3",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "# Refunds (legacy)\n\nLegacy refunds take 14 business days."
+        },
+        {
+          "source": "inventory/src/stock.rs",
+          "lines": "1-5",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "pub const HOLD_MINUTES: u32 = 15;\npub struct Stock;\nimpl Stock {\n    pub fn take(&mut self, _sku: &str, _qty: u32) -> bool { true }\n}"
+        },
+        {
+          "source": "api/src/checkout.ts",
+          "lines": "6-8",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "semantic",
+          "excerpt": "  await reserve(cart);\n  return { total, currency: 'EUR' };\n}"
+        },
+        {
+          "source": "inventory/src/lib.rs",
+          "lines": "1-6",
+          "revision": "fe6d508ccf3dfdac8fb5d9c0c0838f7f58aea0d5",
+          "via": "keyword",
+          "excerpt": "mod stock;\npub use crate::stock::Stock;\n\npub fn reserve(stock: &mut Stock, sku: &str, qty: u32) -> bool {\n    stock.take(sku, qty)\n}"
+        }
+      ]
+    },
+    {
+      "name": "Incremental update to v2",
+      "revision": "93da006cdc45e33684bef3941eb873cce19bb21d",
+      "status": {
+        "state": "ready",
+        "revision": "93da006cdc45e33684bef3941eb873cce19bb21d",
+        "notes": "93da006cdc45e33684bef3941eb873cce19bb21d",
+        "vectors": "93da006cdc45e33684bef3941eb873cce19bb21d",
+        "graph": "93da006cdc45e33684bef3941eb873cce19bb21d",
+        "files": 20,
+        "stages": {
+          "extract": "ready@93da006c",
+          "notes": "ready@93da006c",
+          "structure": "ready@93da006c",
+          "keywords": "ready@93da006c",
+          "vectors": "ready@93da006c",
+          "graph": "ready@93da006c"
+        },
+        "changes": {
+          "mode": "incremental",
+          "added": [],
+          "modified": [
+            "inventory/src/lib.rs",
+            "worker/rules.py"
+          ],
+          "deleted": [
+            "docs/legacy-refunds.md"
+          ],
+          "renamed": [
+            {
+              "from": "inventory/src/stock.rs",
+              "to": "inventory/src/reservations.rs"
+            }
+          ],
+          "reread": 2
+        },
+        "error": null
+      },
+      "staleChunks": 0,
+      "staleBlobs": 0,
+      "vat": [
+        {
+          "source": "worker/pricing.py",
+          "lines": "1-4",
+          "revision": "93da006cdc45e33684bef3941eb873cce19bb21d",
+          "via": "keyword",
+          "excerpt": "from .rules import VAT_RATE\n\ndef price_with_vat(cents: int) -> int:\n    return round(cents * (1 + VAT_RATE))"
+        },
+        {
+          "source": "worker/rules.py",
+          "lines": "1-1",
+          "revision": "93da006cdc45e33684bef3941eb873cce19bb21d",
+          "via": "keyword",
+          "excerpt": "VAT_RATE = 0.19"
+        },
+        {
+          "source": "worker/pyproject.toml",
+          "lines": "1-3",
+          "revision": "93da006cdc45e33684bef3941eb873cce19bb21d",
+          "via": "keyword",
+          "excerpt": "[project]\nname = \"pricing-worker\"\ndependencies = [\"pydantic>=2\", \"httpx\"]"
+        },
+        {
+          "source": "docs/architecture.md",
+          "lines": "1-3",
+          "revision": "93da006cdc45e33684bef3941eb873cce19bb21d",
+          "via": "keyword",
+          "excerpt": "# Architecture\n\nThe checkout handler (api/src/checkout.ts) prices carts with the pricing worker (worker/pricing.py) and reserves stock through the inventory ser"
+        },
+        {
+          "source": "README.md",
+          "lines": "1-3",
+          "revision": "93da006cdc45e33684bef3941eb873cce19bb21d",
+          "via": "keyword",
+          "excerpt": "# Shop\n\nA small storefront: a TypeScript web API, a Python pricing worker, a Rust inventory service and a Go gateway. See docs/architecture.md."
+        }
+      ],
+      "legacyRefunds": {
+        "evidence": {
+          "support": "insufficient",
+          "coverage": 0.33,
+          "terms": [
+            "legac",
+            "refun",
+            "take"
+          ],
+          "missing": [
+            "legac",
+            "refun"
+          ]
+        },
+        "citesDeletedFile": false
+      }
+    },
+    {
+      "name": "Restart",
+      "statusBeforeStart": "partial",
+      "status": {
+        "state": "ready",
+        "revision": "93da006cdc45e33684bef3941eb873cce19bb21d",
+        "notes": "93da006cdc45e33684bef3941eb873cce19bb21d",
+        "vectors": "93da006cdc45e33684bef3941eb873cce19bb21d",
+        "graph": "93da006cdc45e33684bef3941eb873cce19bb21d",
+        "files": 20,
+        "stages": {
+          "extract": "ready@93da006c",
+          "notes": "ready@93da006c",
+          "structure": "ready@93da006c",
+          "keywords": "ready@93da006c",
+          "vectors": "ready@93da006c",
+          "graph": "ready@93da006c"
+        },
+        "changes": {
+          "mode": "incremental",
+          "added": [],
+          "modified": [
+            "inventory/src/lib.rs",
+            "worker/rules.py"
+          ],
+          "deleted": [
+            "docs/legacy-refunds.md"
+          ],
+          "renamed": [
+            {
+              "from": "inventory/src/stock.rs",
+              "to": "inventory/src/reservations.rs"
+            }
+          ],
+          "reread": 2
+        },
+        "error": null
+      },
+      "sameCitations": true,
+      "reread": 0
+    },
+    {
+      "name": "Agent packet (dashboard preview)",
+      "chars": 5209,
+      "entryPoints": [
+        "compose.yaml",
+        "DESIGN.md",
+        "Dockerfile",
+        "package.json",
+        "README.md",
+        "api/package.json",
+        "docs/architecture.md",
+        "gateway/go.mod",
+        "gateway/main.go",
+        "inventory/Cargo.toml",
+        "worker/pyproject.toml",
+        "inventory/src/lib.rs",
+        "inventory/src/reservations.rs",
+        "api/src/cart.ts",
+        "api/src/inventory.ts",
+        "gateway/routes/routes.go",
+        "worker/rules.py"
+      ],
+      "central": [
+        {
+          "path": "inventory/src/reservations.rs",
+          "inbound": 2
+        },
+        {
+          "path": "api/src/cart.ts",
+          "inbound": 1
+        },
+        {
+          "path": "api/src/inventory.ts",
+          "inbound": 1
+        },
+        {
+          "path": "gateway/routes/routes.go",
+          "inbound": 1
+        },
+        {
+          "path": "worker/rules.py",
+          "inbound": 1
+        }
+      ],
+      "citations": [
+        "api/src/checkout.ts:1-6 (keyword)",
+        "inventory/src/lib.rs:1-6 (keyword)",
+        "inventory/src/reservations.rs:1-5 (keyword)",
+        "docs/architecture.md:1-3 (keyword)",
+        "api/src/inventory.ts:1-3 (keyword)",
+        "One Connect/project-b4956974537451dd608d8f87058ad108459cb56582895c766cecf81cc5393b0b/Graph Report.md:note 22-34 (keyword)"
+      ]
+    }
+  ],
+  "egress": {
+    "requests": 5,
+    "offMachine": 0
+  }
+}
