@@ -24,7 +24,9 @@ const PATHS = {
   terminal: 'M4 5h16v14H4zM8 10l3 2l-3 2M13 15h3',
   ask: 'M12 21a9 9 0 1 0-8.2-5.3L3 21l5.3-.8A9 9 0 0 0 12 21zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6M12 16.5h.01',
   library: 'M4 4h4v16H4zM10 4h4v16h-4zM16 5l4 1l-3 14l-4-1z',
-  spark: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z',
+  undo: 'M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3',
+  redo: 'M15 14l5-5l-5-5M20 9H10a6 6 0 0 0 0 12h3',
+  spark:'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z',
 } as const;
 
 export type IconName = keyof typeof PATHS;

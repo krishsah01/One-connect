@@ -28,7 +28,7 @@ input.cv-frame-name:hover, input.cv-frame-name:focus { border-color: var(--borde
 .cv-frame-h .small { white-space: nowrap; }
 .cv-frame-h .btn { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; border-radius: 999px; }
 .cv-frame-empty { padding: 20px 24px; }
-.cv-attn { color: var(--warn); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.cv-attn { color: var(--warn-text); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .cv .cv-rail { width: 14px; height: 14px; border-radius: 4px; background: var(--surface); border: 3px solid var(--accent); top: 23px; }
 
 /* Sockets: small rings on node edges; labels appear on hover, selection or while connecting */
@@ -60,7 +60,7 @@ input.cv-frame-name:hover, input.cv-frame-name:focus { border-color: var(--borde
   border: 1px solid color-mix(in srgb, var(--tint) 40%, var(--border)); font-size: 12.5px; }
 .cv-pill-kind { flex: none; padding: 3px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: color-mix(in srgb, var(--tint) 75%, var(--text)); background: color-mix(in srgb, var(--tint) 16%, var(--surface)); }
 .cv-pill-title { min-width: 0; }
-.cv-pill.t-note { border-style: dashed; background: color-mix(in srgb, #facc15 8%, var(--surface)); }
+.cv-pill.t-note { border-style: dashed; background: color-mix(in srgb, var(--sun) 12%, var(--surface)); }
 .cv-pill.selected { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
 
 /* Work: cards with a spine and a progress bar */
@@ -76,7 +76,7 @@ input.cv-frame-name:hover, input.cv-frame-name:focus { border-color: var(--borde
 @keyframes cv-flow { from { background-position: -60px 0; } to { background-position: 220px 0; } }
 .cv-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 .cv-card.problem, .cv-pill.problem { border-color: var(--crit); }
-.cv-flag { position: absolute; top: -6px; right: 4px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; background: var(--crit); }
+.cv-flag { position: absolute; top: -6px; right: 4px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: var(--on-crit); background: var(--crit); }
 
 /* Decisions: diamonds */
 .cv-gate { position: relative; width: 170px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding-bottom: 6px; }

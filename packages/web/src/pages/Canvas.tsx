@@ -23,6 +23,7 @@ import { Badge, ErrorLine, useAction } from '../components/common';
 import { NewIssueDialog } from '../components/NewIssueDialog';
 import { api, ApiError, post } from '../lib/api';
 import { hue, initials, type Tone } from '../lib/format';
+import { emptyHistory, record, redoStep, undoStep, type History } from '../lib/history';
 import { useTheme } from '../lib/theme';
 import { Icon } from '../shell/icons';
 import { OneAskDock, type AskResult } from '../shell/OneAskDock';
@@ -52,13 +53,19 @@ const pickColor = (kind: string) => kind.startsWith('gate') || kind === 'workflo
 function useCanvasLayout() {
   const [layout, setLayout] = useState<CanvasLayout | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [steps, setSteps] = useState({ undo: 0, redo: 0 });
   const rev = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<CanvasLayout | null>(null);
+  // The layout lives in a ref as well so consecutive edits in one event compose and history is recorded exactly once.
+  const current = useRef<CanvasLayout | null>(null);
+  const history = useRef<History<CanvasLayout>>(emptyHistory());
+  const show = useCallback((l: CanvasLayout) => { current.current = l; setLayout(l); }, []);
+  const setHistory = useCallback((h: History<CanvasLayout>) => { history.current = h; setSteps({ undo: h.past.length, redo: h.future.length }); }, []);
   const load = useCallback(async () => {
-    try { const r = await api<{ layout: CanvasLayout; rev: number }>('/api/canvas'); rev.current = r.rev; setLayout(r.layout); setError(null); }
-    catch (e) { setError(e instanceof Error ? e.message : String(e)); setLayout(l => l ?? emptyCanvas()); }
-  }, []);
+    try { const r = await api<{ layout: CanvasLayout; rev: number }>('/api/canvas'); rev.current = r.rev; show(r.layout); setHistory(emptyHistory()); setError(null); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); if (!current.current) show(emptyCanvas()); }
+  }, [show, setHistory]);
   useEffect(() => { void load(); }, [load]);
   const flush = useCallback(async () => {
     const next = pending.current; pending.current = null; if (!next) return;
@@ -66,17 +73,32 @@ function useCanvasLayout() {
     catch (e) { setError(e instanceof Error ? e.message : String(e)); if (e instanceof ApiError && e.status === 409) void load(); }
   }, [load]);
   useEffect(() => () => { if (timer.current) { clearTimeout(timer.current); void flush(); } }, [flush]);
-  const update = useCallback((fn: (l: CanvasLayout) => CanvasLayout) => {
-    setLayout(cur => {
-      const next = fn(cur ?? emptyCanvas());
-      pending.current = next;
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => { timer.current = null; void flush(); }, 500);
-      return next;
-    });
-  }, [flush]);
-  const adopt = useCallback((l: CanvasLayout, r: number) => { rev.current = r; pending.current = null; setLayout(l); }, []);
-  return { layout, update, adopt, error };
+  const commit = useCallback((next: CanvasLayout) => {
+    show(next);
+    pending.current = next;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => { timer.current = null; void flush(); }, 500);
+  }, [show, flush]);
+  /** `forget` drops undo history: use it when the edit follows a server-side change that undo must not cross. */
+  const update = useCallback((fn: (l: CanvasLayout) => CanvasLayout, opts?: { forget?: boolean }) => {
+    const cur = current.current ?? emptyCanvas();
+    const next = fn(cur);
+    if (next === cur) return;
+    setHistory(opts?.forget ? emptyHistory() : record(history.current, cur, Date.now()));
+    commit(next);
+  }, [commit, setHistory]);
+  const undo = useCallback(() => {
+    const cur = current.current; const r = cur && undoStep(history.current, cur);
+    if (!r) return;
+    setHistory(r.history); commit(r.value);
+  }, [commit, setHistory]);
+  const redo = useCallback(() => {
+    const cur = current.current; const r = cur && redoStep(history.current, cur);
+    if (!r) return;
+    setHistory(r.history); commit(r.value);
+  }, [commit, setHistory]);
+  const adopt = useCallback((l: CanvasLayout, r: number) => { rev.current = r; pending.current = null; show(l); setHistory(emptyHistory()); }, [show, setHistory]);
+  return { layout, update, adopt, undo, redo, canUndo: steps.undo > 0, canRedo: steps.redo > 0, error };
 }
 
 // ---- engine links: canvas hand-offs and decisions become durable workflow links --------------------
@@ -527,7 +549,7 @@ interface Menu { x: number; y: number; flow: { x: number; y: number }; target: '
 function CanvasInner({ state }: { state: ControlState }) {
   const navigate = useNavigate();
   const { mode } = useTheme();
-  const { layout, update, adopt, error: saveError } = useCanvasLayout();
+  const { layout, update, adopt, undo, redo, canUndo, canRedo, error: saveError } = useCanvasLayout();
   const { busy, error, run } = useAction();
   const flow = useReactFlow();
   const [selected, setSelected] = useState<string | null>(null);
@@ -652,7 +674,7 @@ function CanvasInner({ state }: { state: ControlState }) {
           const gates = Object.fromEntries(Object.entries(l.gates).map(([k, g]) => [k, { ...g, from: re(g.from), options: g.options.map(o => ({ ...o, to: re(o.to) })) }]));
           const chains = Object.fromEntries(Object.entries(l.chains).map(([k, c]) => [k, { ...c, from: re(c.from), to: re(c.to) }]));
           return { ...l, sketches, frames, nodes: pos, gates, chains };
-        });
+        }, { forget: true });
       }
       if (start && id) await post(`/api/workflows/${encodeURIComponent(id)}/start`);
     }),
@@ -748,7 +770,10 @@ function CanvasInner({ state }: { state: ControlState }) {
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
       if (!(e.metaKey || e.ctrlKey)) return;
       const key = e.key.toLowerCase();
-      if (key === 'c') {
+      if (key === 'z' || key === 'y') {
+        e.preventDefault();
+        if (key === 'y' || e.shiftKey) redo(); else undo();
+      } else if (key === 'c') {
         const sel = nodes.filter(n => n.selected && n.type === 'g');
         const m = sel[0] ? frameOf(sel[0].id) : undefined;
         if (!m) return;
@@ -801,6 +826,8 @@ function CanvasInner({ state }: { state: ControlState }) {
     <div className={`cv${connecting ? ' connecting' : ''}`} onDragOver={e => { if (e.dataTransfer.types.includes('application/x-one-connect-node')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }} onDrop={onDrop}>
       <div className="cv-toolbar" role="toolbar" aria-label="Canvas">
         <button type="button" className="btn sm" aria-pressed={library} onClick={() => setLibrary(v => !v)}><Icon name="library" size={14} />Library</button>
+        <button type="button" className="btn sm" disabled={!canUndo} onClick={undo} title="Undo (⌘Z)" aria-label="Undo"><Icon name="undo" size={14} /></button>
+        <button type="button" className="btn sm" disabled={!canRedo} onClick={redo} title="Redo (⇧⌘Z)" aria-label="Redo"><Icon name="redo" size={14} /></button>
         <button type="button" className="btn sm primary" onClick={openSearchAtCenter}><Icon name="plus" size={14} />Add node</button>
         <button type="button" className="btn sm" onClick={() => flow.fitView({ padding: 0.15, maxZoom: 1, duration: 250 })}><Icon name="fit" size={14} />Fit</button>
         {hidden.length > 0 && <button type="button" className="btn sm" aria-expanded={trayOpen} onClick={() => setTrayOpen(v => !v)}><Icon name="eyeOff" size={14} />Hidden {hidden.length}</button>}
