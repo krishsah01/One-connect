@@ -9,7 +9,7 @@ img{max-width:100%;display:block}
 .wrap{width:min(1120px,100% - 2*var(--space-5));margin-inline:auto}
 :focus-visible{outline:none;box-shadow:0 0 0 2px var(--focus-halo),0 0 0 4px var(--focus);border-radius:var(--radius-sm)}
 h1,h2,h3{margin:0;text-wrap:balance}
-.display{font:700 clamp(40px,6vw,64px)/0.98 var(--font-display);letter-spacing:-0.03em}
+.display{font:700 clamp(32px,6vw,64px)/0.98 var(--font-display);letter-spacing:-0.03em;overflow-wrap:anywhere}
 .title{font:700 clamp(26px,3.2vw,36px)/1.1 var(--font-display);letter-spacing:-0.02em}
 .lede{font-size:18px;line-height:1.55;color:var(--text-2);max-width:56ch;margin:0}
 .overline{font:600 11px/16px var(--font-sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
