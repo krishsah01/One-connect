@@ -1,8 +1,8 @@
 # Launch video — 45 seconds, storyboard for the full ElevenLabs connector
 
-Blocked until the full connector (https://api.elevenlabs.io/v1/mcp) is added; this is the shot list and script so the flow can be built in one pass.
+`teaser.mp4` (42.6s, 1920×1080) is the assembled teaser: storyboard cards, first-open sound, voiceover take 1 and the install chime. A generated-footage version needs the full ElevenLabs connector (https://api.elevenlabs.io/v1/mcp); this shot list and script drive that flow.
 
-Format: 1920×1080 and 1080×1350. Night theme throughout. No music bed until the last five seconds. Voiceover in the brand voice (to be designed from the owner's line).
+Format: 1920×1080 and 1080×1350. Night theme throughout. No music bed until the last five seconds. Voiceover: four takes recorded on the brand-sounds flow (node jCWHDM3HP2wmt4UBmxUo) with the library voice "Justin Case" (warm, plain-spoken product explainer). A designed brand voice can replace it once the owner supplies the line and the voice description. Mux the chosen take over `teaser-silent.mp4` with ffmpeg: `ffmpeg -i teaser-silent.mp4 -i vo.mp3 -c:v copy -c:a aac -shortest teaser.mp4`.
 
 | t | Shot | Voice |
 |---|---|---|

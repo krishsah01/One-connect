@@ -2,7 +2,7 @@
 /* Canvas shell: a single short top bar, the main surface, and overlays (drawer, settings, palette). */
 .shell { display: flex; flex-direction: column; height: 100vh; min-height: 0; background: var(--bg); color: var(--text); }
 .shell-bar { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--surface); flex: none; }
-.shell-brand { display: inline-flex; color: var(--accent); padding: 4px; border-radius: var(--radius-sm); }
+.shell-brand { display: inline-flex; color: var(--text); padding: 4px; border-radius: var(--radius-sm); }
 .shell-project { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 260px; }
 .shell-project select { max-width: 220px; height: 30px; font-weight: 600; background: transparent; border-color: transparent; }
 .shell-project select:hover, .shell-project select:focus-visible { border-color: var(--border-strong); }

@@ -4,6 +4,7 @@ import type { AgentState, Approval, UsageInfo } from '@acc/core';
 import { isManualRelay } from '@acc/core';
 import { post } from '../lib/api';
 import { ago, hue, initials, type Tone } from '../lib/format';
+import { playSound } from '../lib/sounds';
 
 export function Light({ tone, pulse }: { tone: Tone; pulse?: boolean }) {
   return <span className={`light tone-${tone}${pulse ? ' pulse' : ''}`} aria-hidden />;
@@ -36,6 +37,7 @@ export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChang
     setMoving(on ? 'moving-off' : 'moving-on');
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setMoving(''), 200);
+    playSound('toggle-tick', 0.35);
     onChange(!on);
   };
   const release = () => setPressed(false);

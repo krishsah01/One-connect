@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+# Builds the macOS app and, when a release tag is given, attaches the zip to that GitHub Release.
+# Run it from the Actions tab. The bundle carries no vendor tools or credentials; it is unsigned, so
+# first launch needs right-click → Open (or `xattr -dr com.apple.quarantine "One Connect.app"`).
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to attach the build to (leave empty to only keep an artifact)'
+        required: false
+        default: ''
+permissions:
+  contents: write
+jobs:
+  macos:
+    runs-on: macos-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm desktop:build
+      - name: Zip the app
+        run: |
+          cd packages/desktop/src-tauri/target/release/bundle/macos
+          ditto -c -k --sequesterRsrc --keepParent "One Connect.app" "One-Connect-macOS-$(uname -m).zip"
+          shasum -a 256 "One-Connect-macOS-$(uname -m).zip" > "One-Connect-macOS-$(uname -m).zip.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: One-Connect-macOS
+          path: packages/desktop/src-tauri/target/release/bundle/macos/One-Connect-macOS-*.zip
+      - uses: softprops/action-gh-release@v2
+        if: env.RELEASE_TAG != ''
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            packages/desktop/src-tauri/target/release/bundle/macos/One-Connect-macOS-*.zip
+            packages/desktop/src-tauri/target/release/bundle/macos/One-Connect-macOS-*.zip.sha256

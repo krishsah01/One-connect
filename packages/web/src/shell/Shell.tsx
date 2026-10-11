@@ -2,7 +2,9 @@
 // The local dashboard shell: one canvas (or the issue list) as the main surface, a short top bar,
 // and every other tool in a side drawer, the Settings dialog or the command palette. Existing
 // routes keep working; they now open over the canvas instead of replacing it.
+import { FirstRun } from '../components/FirstRun';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { playSound } from '../lib/sounds';
 import { Link, matchPath, Route, Routes, useLocation, useNavigate } from 'react-router';
 import type { ControlState } from '@acc/core';
 import { ApprovalCard, Badge, ErrorLine, useAction, useTick } from '../components/common';
@@ -114,12 +116,25 @@ export function Shell({ state, meta, conn, projectSwitcher }: { state: ControlSt
   const decisions = Object.values(state.decisions).filter(d => !d.answeredAt && !d.consumedAt).length;
   const critical = Object.values(state.alerts).filter(a => !a.resolvedAt && a.severity === 'critical').length;
   const inbox = approvals + decisions + critical;
+  // Event sounds: something new needs you, a run finished, a critical alert. Counts only rise on new events.
+  const finished = Object.values(state.runs).filter(r => r.state === 'finished').length;
+  const seen = useRef<{ ask: number; done: number; crit: number } | null>(null);
+  useEffect(() => {
+    const now = { ask: approvals + decisions, done: finished, crit: critical };
+    const prev = seen.current;
+    seen.current = now;
+    if (!prev) return;
+    if (now.crit > prev.crit) playSound('alert', 0.5);
+    else if (now.ask > prev.ask) playSound('needs-you', 0.45);
+    else if (now.done > prev.done) playSound('run-done', 0.35);
+  }, [approvals, decisions, finished, critical]);
   const enabledAgents = Object.values(state.agents).filter(a => a.config.enabled !== false);
   const needsConnection = needsAgentConnection(Object.values(state.agents));
   const name = state.project?.name ?? 'this project';
 
   return (
     <div className="shell">
+      <FirstRun state={state} demo={Boolean(meta.demo)} />
       <a className="workspace-skip" href="#shell-main">Skip to workspace</a>
       <header className="shell-bar">
         <Link to="/" className="shell-brand" aria-label="One Connect canvas"><BrandMark /></Link>
@@ -165,8 +180,14 @@ export function Shell({ state, meta, conn, projectSwitcher }: { state: ControlSt
   );
 }
 
+/** The One Connect mark: one hub (accent), two agents (sun, coral), struts and rings in the text colour. Source: design/brand. */
 function BrandMark() {
-  return <svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><rect x="2" y="3" width="17" height="12" rx="6" fill="none" stroke="currentColor" strokeWidth="3" transform="rotate(-35 14 14)"/><rect x="9" y="13" width="17" height="12" rx="6" fill="none" stroke="currentColor" strokeWidth="3" transform="rotate(-35 14 14)"/></svg>;
+  return <svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true">
+    <path d="M168 256 L344 136 M168 256 L344 376" stroke="currentColor" strokeWidth="34" strokeLinecap="round" fill="none"/>
+    <circle cx="168" cy="256" r="66" fill="var(--accent)" stroke="currentColor" strokeWidth="22"/>
+    <circle cx="344" cy="136" r="48" fill="var(--sun)" stroke="currentColor" strokeWidth="22"/>
+    <circle cx="344" cy="376" r="48" fill="var(--coral)" stroke="currentColor" strokeWidth="22"/>
+  </svg>;
 }
 
 /** Focus moves in on open and back to the opener on close; Escape closes. */

@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect x="32" y="32" width="448" height="448" rx="100" fill="#111923"/><path d="M176 256 328 152M176 256 328 360" stroke="#7dd3fc" stroke-width="22" stroke-linecap="round"/><circle cx="176" cy="256" r="47" fill="#38bdf8"/><circle cx="328" cy="152" r="38" fill="#e0f2fe"/><circle cx="328" cy="360" r="38" fill="#e0f2fe"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="One Connect app icon">
+  <!-- macOS app icon: ink squircle (radius 22.4%), mark centred at 70% with paper struts. -->
+  <rect x="0" y="0" width="1024" height="1024" rx="229" fill="#0f2b31"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="229" fill="url(#g)"/>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.06"/><stop offset="1" stop-color="#000000" stop-opacity="0.18"/></linearGradient></defs>
+  <g transform="translate(512 512) scale(1.45) translate(-256 -256)">
+    <path d="M168 256 L344 136 M168 256 L344 376" stroke="#edf3f3" stroke-width="26" stroke-linecap="round" fill="none"/>
+    <circle cx="168" cy="256" r="66" fill="#4ce4e4" stroke="#edf3f3" stroke-width="14"/>
+    <circle cx="344" cy="136" r="48" fill="#ffcf53" stroke="#edf3f3" stroke-width="14"/>
+    <circle cx="344" cy="376" r="48" fill="#ff7e76" stroke="#edf3f3" stroke-width="14"/>
+  </g>
+</svg>
