@@ -1,14 +1,25 @@
 # Adding an agent adapter
 
-A vendor adapter implements **one interface**, `VendorAdapter` in `packages/daemon/src/adapters/agents/types.ts`. Process supervision, durable logs, redaction, approvals, rules and the UI are shared, so the adapter only needs to know how to talk to its CLI.
+An agent runtime is two pieces:
+
+1. **Its profile** in `packages/core/src/adapterProfiles.ts`: the facts every package shares (display name, install page, login hint and argv, capabilities, and `runsHere: false` only for manual relay). The web reads it directly, so the setup page, login buttons and console hints need no edits.
+2. **Its behavior**: one `VendorAdapter` in `packages/daemon/src/adapters/agents/` (interface in `types.ts`). Process supervision, durable logs, redaction, approvals, rules and the UI are shared, so the adapter only needs to know how to talk to its CLI.
 
 ```ts
-export const myAdapter: VendorAdapter = {
-  type: 'my-cli',                       // add it to ADAPTER_TYPES in packages/core/src/config.ts
+// packages/core/src/adapterProfiles.ts  (and add 'my-cli' to ADAPTER_TYPES in config.ts)
+'my-cli': {
   displayName: 'My CLI',
   installUrl: 'https://vendor.example/cli',
   loginHint: 'Run `my login` in a terminal',
+  loginArgs: ['login'],                  // null when the runtime has no login of its own
+  runsHere: true,
   capabilities: { headless: true, streamingInput: false, resume: true, hostApprovals: false, mcp: true },
+},
+
+// packages/daemon/src/adapters/agents/my.ts
+export const myAdapter: VendorAdapter = {
+  type: 'my-cli',
+  ...ADAPTER_PROFILES['my-cli'],
   binaryNames: ['my'],
   knownLocations: () => ['/Applications/My.app/Contents/Resources/my'],  // app-bundled copies
   vendorHost: 'api.vendor.example',      // used for the connectivity check before a retry
@@ -21,6 +32,8 @@ export const myAdapter: VendorAdapter = {
   createParser(ctx) {},  // stdout/stderr line → Parsed[] (events, session, usage, final, failure, result)
 };
 ```
+
+Register it in `VENDOR_ADAPTERS` (`adapters/agents/index.ts`). If the CLI takes a tool allowlist, pre-approve the `acc` tools with `accToolPatterns()` from `mcp/tools.ts` rather than listing names.
 
 ## Rules for adapters
 

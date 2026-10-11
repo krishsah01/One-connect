@@ -16,6 +16,7 @@ import {
   pickNewest,
   replay,
   runPreflight,
+  scanActiveRunIds,
   scopesOverlap,
   type AgentConfig,
   type Assignment,
@@ -222,6 +223,28 @@ describe('reducer', () => {
     expect(s.runs.r1.state).toBe('finished');
     expect(s.agents.cursor.status).toBe('idle');
     expect(s.agents.cursor.idleSince).toBe('2026-01-01T00:03:00Z');
+  });
+
+  it('keeps active runs incrementally, equal to a full scan after every event', () => {
+    const run = (id: string, agentId: string) => ({ id, assignmentId: `as_${id}`, workItemId: 'wi_1', agentId, adapter: 'cursor-agent-cli', model: null, resolvedModel: null, effort: null, attempt: 1, retryOf: null, pid: null, sessionId: null, state: 'queued', createdAt: '', startedAt: null, endedAt: null, lastEventAt: null, lastMeaningful: null, eventCount: 0, usage: { inputTokens: 0, outputTokens: 0 }, exit: null, handoff: null, filesChanged: [], outOfScope: [], tests: null, logDir: null });
+    const [a, b] = [cfg.agents[0], { ...cfg.agents[0], id: 'other', name: 'Other' }];
+    const approval = (id: string, runId: string, agentId: string) => ({ id, runId, agentId, workItemId: 'wi_1', kind: 'ask_human', title: 'q', detail: '', options: [], createdAt: '', resolvedAt: null, decision: null, by: null, channel: null });
+    const events = [
+      ev('agent.registered', { config: a }), ev('agent.registered', { config: b }), ev('work_item.created', { item: item() }),
+      ev('run.created', { run: run('r1', a.id) }, { agentId: a.id }), ev('run.created', { run: run('r2', b.id) }, { agentId: b.id }),
+      ev('run.started', { pid: 1 }, { agentId: a.id, runId: 'r1' }), ev('t.command', { command: 'ls', status: 'started' }, { agentId: a.id, runId: 'r1' }),
+      ev('run.created', { run: run('r3', a.id) }, { agentId: a.id }), ev('approval.requested', { approval: approval('ap1', 'r3', a.id) }, { agentId: a.id, runId: 'r3' }),
+      ev('run.ended', { exit: { kind: 'completed', message: 'ok' } }, { agentId: a.id, runId: 'r1' }), ev('run.state', { state: 'stalled' }, { agentId: b.id, runId: 'r2' }),
+      ev('agent.registered', { config: { ...a, name: 'Renamed' } }), ev('approval.resolved', { approvalId: 'ap1', decision: 'approve', by: 'owner', channel: 'web' }, { agentId: a.id, runId: 'r3' }),
+      ev('run.ended', { exit: { kind: 'crash', message: 'x' } }, { agentId: b.id, runId: 'r2' }), ev('agent.queue_set', { now: null, next: [] }, { agentId: a.id }),
+      ev('run.ended', { exit: { kind: 'completed', message: 'ok' } }, { agentId: a.id, runId: 'r3' }),
+    ];
+    let s = emptyState();
+    for (const e of events) {
+      s = applyEvent(s, e);
+      for (const id of Object.keys(s.agents)) expect(s.agents[id].activeRunIds, `${e.type} → ${id}`).toEqual(scanActiveRunIds(s, id));
+    }
+    expect(Object.values(s.agents).map((x) => x.activeRunIds)).toEqual([[], []]);
   });
 
   it('is deterministic over replay', () => {

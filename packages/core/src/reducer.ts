@@ -65,13 +65,29 @@ export function deriveAgentStatus(s: ControlState, a: AgentState): AgentStatus {
   return 'idle';
 }
 
-/** Re-derive status and idle accounting for one agent after any change that could affect it. */
-function refreshAgent(s: ControlState, agentId: string | null | undefined, ts: string): ControlState {
-  if (!agentId || !s.agents[agentId]) return s;
-  const a = s.agents[agentId];
-  const activeRunIds = Object.values(s.runs)
+/** Every active run of an agent, by scanning all runs (the reference definition; O(runs)). */
+export function scanActiveRunIds(s: ControlState, agentId: string): string[] {
+  return Object.values(s.runs)
     .filter((r) => r.agentId === agentId && isActiveRun(r))
     .map((r) => r.id);
+}
+
+/**
+ * Re-derive status and idle accounting for one agent after any change that could affect it.
+ * Active runs are kept incrementally: only the agent's known active runs and the run this event
+ * touched can change membership, so a long run history does not make every event O(runs).
+ * `rescan` falls back to scanning every run where membership cannot be known (registration).
+ */
+function refreshAgent(s: ControlState, agentId: string | null | undefined, ts: string, touchedRunId: string | null = null, rescan = false): ControlState {
+  if (!agentId || !s.agents[agentId]) return s;
+  const a = s.agents[agentId];
+  const candidates = touchedRunId && !a.activeRunIds.includes(touchedRunId) ? [...a.activeRunIds, touchedRunId] : a.activeRunIds;
+  const activeRunIds = rescan
+    ? scanActiveRunIds(s, agentId)
+    : candidates.filter((id) => {
+        const r = s.runs[id];
+        return r !== undefined && r.agentId === agentId && isActiveRun(r);
+      });
   const withRuns = { ...a, activeRunIds };
   const status = deriveAgentStatus(s, withRuns);
   const idle = status === 'idle' || status === 'failed' || status === 'paused' || status === 'limited';
@@ -115,7 +131,7 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
       const cur = s.agents[e.data.config.id];
       const fresh=newAgentState(e.data.config);
       s.agents = put(s.agents, e.data.config.id, cur ? { ...cur, config:e.data.config,auth:fresh.auth,billing:fresh.billing,binary:null,binaryCandidates:[],models:fresh.models,probedAt:null } : { ...fresh, idleSince: ts });
-      s = refreshAgent(s, e.data.config.id, ts);
+      s = refreshAgent(s, e.data.config.id, ts, null, true);
       break;
     }
     case 'design.system_saved':
@@ -237,12 +253,12 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
       const r = e.data.run;
       s.runs = put(s.runs, r.id, r);
       s.workItems = patchIn(s.workItems, r.workItemId, (w) => ({ ...w, runIds: [...w.runIds, r.id] }));
-      s = refreshAgent(s, r.agentId, ts);
+      s = refreshAgent(s, r.agentId, ts, r.id);
       break;
     }
     case 'run.started':
       s.runs = patchIn(s.runs, e.runId, (r) => ({ ...r, pid: e.data.pid, startedAt: r.startedAt ?? ts, state: r.state === 'queued' ? 'starting' : r.state, lastEventAt: ts }));
-      s = refreshAgent(s, e.agentId, ts);
+      s = refreshAgent(s, e.agentId, ts, e.runId);
       break;
     case 'run.session':
       s.runs = patchIn(s.runs, e.runId, (r) => ({ ...r, sessionId: e.data.sessionId ?? r.sessionId, resolvedModel: e.data.model ?? r.resolvedModel }));
@@ -259,7 +275,7 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
       break;
     case 'run.state':
       s.runs = patchIn(s.runs, e.runId, (r) => ({ ...r, state: e.data.state }));
-      s = refreshAgent(s, e.agentId, ts);
+      s = refreshAgent(s, e.agentId, ts, e.runId);
       break;
     case 'run.ended': {
       const failed = e.data.exit.kind !== 'completed';
@@ -275,7 +291,7 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
           s.approvals = put(s.approvals, ap.id, { ...ap, resolvedAt: ts, decision: 'expired', by: 'system', channel: 'run-ended' });
         }
       }
-      s = refreshAgent(s, e.agentId, ts);
+      s = refreshAgent(s, e.agentId, ts, e.runId);
       break;
     }
     case 'run.handoff':
@@ -302,7 +318,7 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
       const ap = e.data.approval;
       s.approvals = put(s.approvals, ap.id, ap);
       s.runs = patchIn(s.runs, ap.runId, (r) => (isActiveRun(r) ? { ...r, state: 'waiting-for-approval' } : r));
-      s = refreshAgent(s, ap.agentId, ts);
+      s = refreshAgent(s, ap.agentId, ts, ap.runId);
       break;
     }
     case 'approval.resolved': {
@@ -311,7 +327,7 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
         s.approvals = put(s.approvals, ap.id, { ...ap, resolvedAt: ts, decision: e.data.decision, by: e.data.by, channel: e.data.channel });
         const stillPending = Object.values(s.approvals).some((x) => x.runId === ap.runId && !x.resolvedAt);
         if (!stillPending) s.runs = patchIn(s.runs, ap.runId, (r) => (r.state === 'waiting-for-approval' ? { ...r, state: 'running' } : r));
-        s = refreshAgent(s, ap.agentId, ts);
+        s = refreshAgent(s, ap.agentId, ts, ap.runId);
       }
       break;
     }
@@ -428,7 +444,7 @@ export function applyEvent(state: ControlState, e: EventEnvelope): ControlState 
           return next;
         });
         const prev = state.runs[e.runId];
-        if (prev && prev.state !== s.runs[e.runId].state) s = refreshAgent(s, e.agentId ?? prev.agentId, ts);
+        if (prev && prev.state !== s.runs[e.runId].state) s = refreshAgent(s, e.agentId ?? prev.agentId, ts, e.runId);
       }
     }
   }

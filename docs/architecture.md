@@ -13,21 +13,65 @@
 ```
 packages/core     pure, shared by the daemon and the browser:
                   config schema, entities, lifecycle FSM, typed events, THE reducer,
-                  handoff parser, redactor, preflight, assignment template, model ranking
+                  handoff parser, redactor, preflight, assignment template, model ranking,
+                  adapter profiles (adapterProfiles.ts), text and canonical-JSON helpers (text.ts)
 packages/daemon   supervisor (`acc`):
+  daemon.ts       composition root + facade: builds every service, owns start/shutdown, implements kernel.ts
+  kernel.ts       the interfaces services depend on (Kernel, WorkCommands, AgentCommands, ConfigCommands)
+  workService.ts  issues, assignments, pre-flight, dispatch, queues, lifecycle transitions
+  agentService.ts agent builder saves, probes, model swaps
+  decisions.ts    human decisions; decisionExecutors.ts lists every action that binds its own decision
+  errors.ts       CommandError (never import it from daemon.ts)
+  util/hash.ts    sha256 / sha256Canonical
   store/          SQLite event log (UPDATE/DELETE blocked by triggers), outbox, snapshots, tail offsets
   runner/         detached per-run runner + supervisor (spawn, tail, reattach, kill)
   adapters/agents claude · codex · cursor · opencode (+bridge) · generic · relay  (one VendorAdapter interface)
   adapters/trackers local · github (gh) · linear (GraphQL) (one TrackerAdapter interface)
   adapters/vcs    worktrees, diff, hooks, watcher, merge-tree conflicts
   context/        Obsidian vault notes + graphify code graph
-  mcp/            the `acc` stdio MCP server every agent run gets
+  mcp/            the `acc` stdio MCP server every agent run gets; tools.ts names its tools
   rules.ts        auto-refill, stall, retry, usage limit, idle
-  server/         REST + WebSocket, local auth
+  server/         http.ts (security boundary + ROUTE_MODULES), auth.ts, eventSocket.ts, one <domain>Routes.ts per API area
   phone/          remote access gate + tunnel adapters, notifications, Brief & Reports
   benchmark/      context-quality benchmark (disposable corpus, `acc bench context`)
-packages/web      React UI: Mission Control, Agent Console, Work Board, Agents setup
+packages/web      React UI: App.tsx gates sign-in, then shell/Shell.tsx (local) or shell/PhoneApp.tsx (paired phone)
 ```
+
+## Code structure and extension points
+
+The daemon is layered so that a part can be replaced without touching the rest:
+
+1. **Core** (`packages/core`) is pure and shared with the browser. No Node APIs in its index.
+2. **Kernel** (`kernel.ts`). Services see the daemon only through these interfaces: the event log
+   and projected state, time, configuration, redaction, alerts and egress (`Kernel`), plus the command
+   groups they call. `Daemon implements` all of them, so the compiler keeps the two in sync.
+3. **Services.** Each declares what it needs as a type next to its class, for example
+   `ProjectDockerDeps = Kernel & { readonly decisions: Decisions }`. A new dependency therefore shows
+   up in the type (and in review), and a test can construct the service with a fake.
+4. **Composition root** (`daemon.ts`). Builds the services, registers decision executors and run-stop
+   hooks, starts and stops them (each shutdown step is isolated), and keeps facade methods
+   (`createIssue`, `dispatch`, …) that the HTTP layer, the CLI and tests call.
+5. **Delivery** (`server/`, `phone/gate.ts`, `cli.ts`). Talks to the facade. Each API area is one
+   module; `http.ts` only enforces Host/Origin/auth and lists the modules.
+
+Rules that keep it that way:
+
+- Services import `CommandError` from `errors.ts` and types with `import type`; nothing but the
+  delivery layer imports `daemon.ts` at runtime.
+- Hash with `util/hash.ts` and canonicalize with `canonicalJson` (core). Approval bindings depend on
+  both being identical everywhere.
+- Validate request bodies with zod via `parseBody` (`server/route.ts`); unknown fields are dropped.
+
+Recipes:
+
+| To add | Do this |
+|---|---|
+| An API area | Write `server/<area>Routes.ts` exporting `register<Area>Routes(app, d)`, add it to `ROUTE_MODULES` in `http.ts`. |
+| An action that needs the owner's approval | Bind it with `decisions.createBound(...)`, then add one entry to `decisionExecutors.ts` (the kv prefix it owns and how to resolve it). Plain answers are then refused and responses routed to it automatically. |
+| An agent runtime | One `ADAPTER_PROFILES` entry in `core/adapterProfiles.ts` (name, login argv, capabilities, `runsHere`) and one `VendorAdapter` in `adapters/agents/` that spreads that profile. The web reads the profile; no UI edits needed. |
+| An `acc` MCP tool | Register it in `mcp/server.ts`, add its name to `ACC_MCP_AUTO_APPROVED` or `ACC_MCP_PROMPTED` in `mcp/tools.ts` (a test fails otherwise), and handle it in `mcpBridge.ts`. |
+| Cleanup before a run stops | `runs.onBeforeStop(hook)` from the composition root. |
+| A service | A class taking `<Name>Deps`; construct it in `daemon.ts`; if it starts or stops, add it to `start()` and `shutdown()`. |
 
 ## Event flow
 
@@ -67,7 +111,7 @@ Starting an assignment works like this:
 
 ## Agents talk to the control center, not to each other
 
-Each run gets the `acc` MCP server, authenticated with a per-run token from a `0600` file (never in argv). Its tools:
+Each run gets the `acc` MCP server, authenticated with a per-run token from a `0600` file (never in argv). `mcp/tools.ts` lists every tool and whether a harness may call it without a prompt. Among them:
 
 - `get_assignment`
 - `post_handoff`
