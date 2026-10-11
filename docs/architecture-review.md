@@ -80,7 +80,8 @@ These are not changed here, most important first.
 - **O8. Flat daemon folder.** `daemon/src` has 41 files at its root. A domain layout is proposed below. Move the files in one mechanical commit, by script, once the in-flight branches have merged; moving them now would conflict with every open branch.
 - **O9. Startup is not declarative yet.** `start()` and `shutdown()` still list services by hand. Next step: a `Lifecycle` interface (`start` and `stop`) and an ordered list in `daemon.ts`, started in order and stopped in reverse.
 - **O10. The reducer is still one switch.** It is about 300 lines with 70 cases. `libraryReducer.ts` and `designStudio.ts` already show the slice pattern. A typed handler map per domain (agents, work items, runs, decisions, workflows) would let a feature own its events end to end.
-- **O11. Tests.** `opencode-harness` needs a real ripgrep. Put a stub `rg` on `PATH` in the test, or document `brew install ripgrep` in CONTRIBUTING. The daemon suite takes about 7 minutes; tag the e2e and process-spawning tests so `pnpm test:unit` runs in seconds.
+- **O11. A flaky web test.** `skills.test.tsx` ("refuses publish with stale hash…") failed once in about five full runs under load, then passed every time on its own. It is timing-sensitive; give its `waitFor` calls an explicit timeout.
+- **O11b. Test environment and speed.** `opencode-harness` needs a real ripgrep. Put a stub `rg` on `PATH` in the test, or document `brew install ripgrep` in CONTRIBUTING. The daemon suite takes about 7 minutes; tag the e2e and process-spawning tests so `pnpm test:unit` runs in seconds.
 - **O12. Dead CSS.** 31 selectors in `styles.css` have no users, including the Designer WIP: `brand`, `sep`, `sidebar-team`, `sidebar-status`, `workspace-next-step`, `connector-question`, `designer-layout`, `designer-page`, `designer-skills`, `token-grid`, `skill-grid`, `skill-tile`, `finding-spacer` and the `mock-*` rules (`mock-preview`, `mock-card`, `mock-stage` and the rest). Remove them after the theme work in flight lands; the pruning script is in this branch's history (`bfa816b`).
 - **O13. Wall-clock time inside the daemon.** `saveSnapshot`, `markDelivered`, the egress log and session times use `new Date()` instead of the injected clock, which limits deterministic tests.
 - **O14a. Run output "Back" link.** Inside the desktop drawer, the run view's Back link goes to `/phone` (it was written for the phone layout). Close the drawer instead when it is not a phone session.
@@ -113,7 +114,7 @@ These are not changed here, most important first.
 
 The branch is `refactor/solid-foundations` (worktree `../Interface-refactor`).
 
-1. **Untracked logs.** `main` still tracks the raw agent logs, so merging the hygiene commit removes them from `main`'s working tree too. To keep local copies, first run:
+1. **Untracked logs.** `main` still tracks the raw agent logs, so merging the hygiene commit **deletes them from `main`'s working tree**: `.gitignore` does not protect files a merge stops tracking (checked in a scratch repository). To keep local copies, first run:
    ```bash
    cp -R docs/verification/delegation ../delegation-backup
    ```
@@ -124,5 +125,13 @@ The branch is `refactor/solid-foundations` (worktree `../Interface-refactor`).
    - it moves the `designBinding` pre-flight line into `WorkService.preflight`.
 
    This was checked on a snapshot of the uncommitted work: the merged tree passes typecheck and the core, MCP tool, design document, designer and e2e suites.
-3. **The theme session in flight** (`styles.css`, `theme.ts`, `common.tsx` and others) merges without conflicts; `styles.css` was left untouched on this branch for that reason.
-4. **New code from in-flight branches** that still writes `constructor(d: Daemon)` keeps working, because `Daemon` satisfies every `<Name>Deps`. Narrow it to a `<Name>Deps` type when convenient.
+3. **The harness branch** (`claude/harness-setup-compliance`, at `8db63b4`) edits code this branch moved, so merging it stops on `daemon.ts`, `server/http.ts` and `AgentsSetup.tsx`. `python3 docs/handoff/resolve-harness-merge.py` re-applies its additions where that code now lives:
+   - the account watch in `daemon.ts`, with a step-isolated stop;
+   - the signature refresh in `AgentService.probe`;
+   - the account-terms and signature checks in `WorkService.preflight`;
+   - the account-terms routes in `agentRoutes.ts`;
+   - the key-age bookkeeping in `connectionRoutes.ts`.
+
+   Run it after this branch is on `main`. Checked against `8db63b4`: typecheck is clean, and core, web and the account-compliance, adapter, e2e, HTTP and lifecycle suites pass. If that branch changes before it lands, the script stops at the first anchor it cannot find.
+4. **The theme session in flight** (`styles.css`, `theme.ts`, `common.tsx` and others) merges without conflicts; `styles.css` was left untouched on this branch for that reason.
+5. **New code from in-flight branches** that still writes `constructor(d: Daemon)` keeps working, because `Daemon` satisfies every `<Name>Deps`. Narrow it to a `<Name>Deps` type when convenient.
