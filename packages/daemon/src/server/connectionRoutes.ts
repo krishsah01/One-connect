@@ -14,9 +14,9 @@ const secretName = (id: string): SecretName => {
 
 export function registerConnectionRoutes(app: FastifyInstance, d: Daemon): void {
   app.get('/api/connections', async () => {
-    const out: Record<string, { stored: boolean; usedBy: string[] }> = {};
+    const out: Record<string, { stored: boolean; usedBy: string[]; storedAt: string | null; ageDays: number | null; rotationDue: boolean }> = {};
     for (const name of SECRET_NAMES) {
-      out[name] = { stored: await hasSecret(name, d.baseEnv()), usedBy: d.config.agents.filter((a) => providerSecretFor(a)?.secret === name || (name === 'linear' && d.config.tracker.type === 'linear')).map((a) => a.id) };
+      out[name] = { stored: await hasSecret(name, d.baseEnv()), ...d.accounts.keyAge(name), usedBy: d.config.agents.filter((a) => providerSecretFor(a)?.secret === name || (name === 'linear' && d.config.tracker.type === 'linear')).map((a) => a.id) };
     }
     return { connections: out, egress: { allowed: d.egress.allowed, recent: d.egress.log.slice(-50) } };
   });
@@ -26,11 +26,14 @@ export function registerConnectionRoutes(app: FastifyInstance, d: Daemon): void 
     if (!key) throw new CommandError('key is required');
     await setSecret(name, key);
     d.addSecret(key);
+    d.accounts.keyStored(name);
     for (const a of d.config.agents) if (providerSecretFor(a)?.secret === name && a.enabled !== false) void d.probe(a.id).catch(() => undefined);
     return { stored: true };
   });
   app.delete('/api/connections/:id', async (req: Req) => {
-    await deleteSecret(secretName(req.params.id));
+    const name = secretName(req.params.id);
+    await deleteSecret(name);
+    d.accounts.keyRemoved(name);
     return { stored: false };
   });
 }

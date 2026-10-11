@@ -119,6 +119,11 @@ export interface ControlEventData {
   'agent.limited': { until: string | null; message: string };
   'agent.unlimited': { reason: string };
   'agent.subscription_confirmed': { binding: string; expiresAt: string; scope: 'daemon-session'; note: string };
+  /** Owner attests own-account, unshared, unmodified use under the vendor terms reviewed at `termsRevision`. */
+  'agent.terms_acknowledged': { adapter: string; termsRevision: string; account: string | null; statements: string[]; expiresAt: string };
+  'agent.terms_revoked': { adapter: string; reason: string };
+  /** API key stored, replaced or removed. Never carries the key. */
+  'connection.key_changed': { connection: string; action: 'stored' | 'removed' };
   'agent.paused': { reason: string };
   'agent.resumed': Record<string, never>;
   'agent.model_changed': { model: string };

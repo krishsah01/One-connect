@@ -18,10 +18,10 @@ export type AdapterType = z.infer<typeof AdapterTypeSchema>;
  * How an agent's harness reaches a model. `subscription` = the vendor CLI's own login (default).
  * API-key providers bill per token and need metered_opt_in; local providers run on this machine.
  */
-export const PROVIDERS = ['subscription', 'anthropic-api', 'openai-api', 'openrouter', 'ollama', 'ollama-cloud', 'lmstudio'] as const;
+export const PROVIDERS = ['subscription', 'anthropic-api', 'openai-api', 'cursor-api', 'openrouter', 'ollama', 'ollama-cloud', 'lmstudio'] as const;
 export const ProviderSchema = z.enum(PROVIDERS);
 export type Provider = z.infer<typeof ProviderSchema>;
-export const PAID_PROVIDERS: readonly Provider[] = ['anthropic-api', 'openai-api', 'openrouter'];
+export const PAID_PROVIDERS: readonly Provider[] = ['anthropic-api', 'openai-api', 'cursor-api', 'openrouter'];
 export const LOCAL_PROVIDERS: readonly Provider[] = ['ollama', 'lmstudio'];
 /**
  * Which harness each provider can run through. The FIRST entry is the default: OpenCode (MIT,
@@ -33,6 +33,8 @@ export const PROVIDER_HARNESS: Record<Provider, readonly string[]> = {
   subscription: ['claude-headless', 'codex-cli', 'cursor-agent-cli', 'generic-cli', 'relay'],
   'anthropic-api': ['opencode-server', 'claude-headless'],
   'openai-api': ['opencode-server', 'codex-cli'],
+  /** Cursor's own CLI with a Cursor API key (CURSOR_API_KEY); Cursor bills the key owner. */
+  'cursor-api': ['cursor-agent-cli'],
   openrouter: ['opencode-server', 'codex-cli'],
   ollama: ['opencode-server', 'codex-cli'],
   'ollama-cloud': ['opencode-server'],
@@ -209,6 +211,21 @@ export type TrackerConfig = z.infer<typeof TrackerConfigSchema>;
 export const RULE_NAMES = ['auto_refill', 'stall_detection', 'failure_retry', 'usage_limit', 'handoff_enforcement', 'infra_watch'] as const;
 export type RuleName = (typeof RULE_NAMES)[number];
 
+/**
+ * Whose accounts agents may use. `personal`: one person on their own Mac, signing in to the
+ * vendors' unmodified CLIs with their own subscription. `api-keys-only`: anything shared, hosted or
+ * run for other people; subscription logins are refused and each agent bills its own API key.
+ */
+export const ACCOUNT_MODES = ['personal', 'api-keys-only'] as const;
+export const AccountPolicySchema = z.object({
+  mode: z.enum(ACCOUNT_MODES).default('personal'),
+  /** The owner re-reads the vendor terms and re-confirms own-account use this often. */
+  terms_max_age_days: z.number().int().min(1).max(365).default(90),
+  /** Stored API keys older than this raise a rotation reminder (never blocks dispatch). */
+  api_key_rotation_days: z.number().int().min(1).max(730).default(90),
+});
+export type AccountPolicy = z.infer<typeof AccountPolicySchema>;
+
 export const PolicySchema = z.object({
   zero_extra_spend: z.boolean().default(true),
   newest_model_rule: z.boolean().default(true),
@@ -229,6 +246,7 @@ export const PolicySchema = z.object({
   rules: z.partialRecord(z.enum(RULE_NAMES), z.boolean()).default({}),
   quiet_hours: z.object({ start: z.string(), end: z.string() }).optional(),
   privacy: z.object({ strict_mcp: z.boolean().default(true) }).default({ strict_mcp: true }),
+  accounts: AccountPolicySchema.default(AccountPolicySchema.parse({})),
 });
 export type Policy = z.infer<typeof PolicySchema>;
 

@@ -2,7 +2,7 @@
 // Mac-first setup uses the vendor's installed official runtime and its own sign-in flow.
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import type { AgentState, BinaryInfo, BillingInfo, ControlState, Run } from '@acc/core';
+import type { AccountPolicy, AgentState, BinaryInfo, BillingInfo, ControlState, Run } from '@acc/core';
 import { isManualRelay, RULE_NAMES, ruleEnabled, sharedCapacity, shellJoin } from '@acc/core';
 import { Badge, BillingBadge, Copy, ErrorLine, Toggle, UsageMeter, useAction } from '../components/common';
 import { api, post } from '../lib/api';
@@ -10,6 +10,7 @@ import { ago } from '../lib/format';
 import { isDesktop, useActiveProject } from '../lib/desktop';
 import { useOnline } from '../lib/offline';
 import { JevSettings } from '../components/Jev';
+import { AccountTerms, HarnessPicker, type HarnessCatalogEntry } from '../components/HarnessSetup';
 import {
   agentNewerBinary,
   AUTH_LABEL,
@@ -30,6 +31,7 @@ interface Vendor {
   pinned: BinaryInfo | null;
   newer: BinaryInfo | null;
   configuredAgents: string[];
+  catalog: HarnessCatalogEntry | null;
 }
 
 function LoginAction({ adapter, binary, project, name, agentId, demo, blocked }: { adapter: string; binary?: string | null; project: string; name: string; agentId?: string; demo?: boolean; blocked?: string | null }) {
@@ -50,13 +52,14 @@ export function AgentsSetup({ state, tracker, demo = false }: { state: ControlSt
   const project = useActiveProject()?.project ?? state.project?.repo ?? '';
   const online = useOnline();
   const [vendors, setVendors] = useState<Vendor[] | null>(null);
+  const [accounts, setAccounts] = useState<AccountPolicy | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const { busy, error, run } = useAction();
   const scan = useCallback(async () => {
     setScanning(true);
     setScanError(null);
-    try { const result = await api<{ vendors: Vendor[] }>('/api/onboarding'); setVendors(result.vendors); }
+    try { const result = await api<{ vendors: Vendor[]; accounts?: AccountPolicy }>('/api/onboarding'); setVendors(result.vendors); setAccounts(result.accounts ?? null); }
     catch (e) { setScanError(e instanceof Error ? e.message : String(e)); }
     finally { setScanning(false); }
   }, []);
@@ -72,14 +75,16 @@ export function AgentsSetup({ state, tracker, demo = false }: { state: ControlSt
   return <div className="page col agents-setup">
     <div className="page-heading"><div><h1>Agents &amp; sign-in</h1><p>Connect the official tools on your Mac to {state.project?.name ?? 'this project'}. Use your own subscription login and keep your team's work in one place.</p></div><Link className="btn primary" to="/agents/new">Create agent</Link></div>
     <ol className="setup-steps" aria-label="Connect your project and agents">
-      <li><b>Choose your project</b><span>{state.project?.name ?? 'Choose a repository'} is the current workspace. Its work, agents and terminal sessions stay together.</span><Link to="/projects">Manage projects</Link></li>
-      <li><b>Configure an agent</b><span>{agents.length ? `${enabled.length} enabled, ${agents.length - enabled.length} saved drafts. Give each agent a role and a model source.` : 'Start with Codex, Claude Code or Cursor using an existing subscription. New drafts stay offline until enabled.'}</span><Link to="/agents/new">Create agent</Link></li>
-      <li><b>Sign in, then check</b><span>{signedIn.length ? `${signedIn.length} enabled subscription agent${signedIn.length === 1 ? ' has' : 's have'} a detected login. Review billing and usage before dispatch.` : 'Find the installed tool below, prepare its login in the integrated terminal, then re-check the enabled agent.'}</span><a href="#installed-tools">Find installed tools</a></li>
+      <li><b>Choose and install a harness</b><span>{vendors?.some(v => v.catalog && v.candidates.length) ? `Installed: ${vendors.filter(v => v.catalog && v.candidates.length).map(v => v.displayName).join(', ')}.` : 'Pick Claude Code, Codex, Cursor or OpenCode and run its vendor\'s own installer.'}</span><a href="#choose-harness">Choose a harness</a></li>
+      <li><b>Your account, your way</b><span>Sign in with your own plan through the vendor's login, or add an API key that bills you per token.</span><a href="#installed-tools">Sign in or add a key</a></li>
+      <li><b>Configure an agent</b><span>{agents.length ? `${enabled.length} enabled, ${agents.length - enabled.length} saved drafts. Give each agent a role and a model source.` : 'Give each agent a role and a model source. New drafts stay offline until enabled.'}</span><Link to="/agents/new">Create agent</Link></li>
+      <li><b>Confirm, then check</b><span>{signedIn.length ? `${signedIn.length} enabled subscription agent${signedIn.length === 1 ? ' has' : 's have'} a detected login. Confirm it is your own and review the vendor terms before dispatch.` : 'Confirm a subscription login is your own and unshared, review billing, then re-check the agent.'}</span><a href="#configured-agents">Review agents</a></li>
     </ol>
-    <div className="setup-explanation"><p>Subscription agents use their vendor's official runtime. The CLI handles your credentials and may open a vendor OAuth page in your browser; return to One Connect after signing in. Several agents can share one login and its included usage limits.</p><p className="small muted">A detected login does not prove that paid overage is off. Review your account's paid modes and the account confirmation below. API keys are optional and separate from subscription sign-in.</p></div>
+    <div className="setup-explanation"><p>Subscription agents use their vendor's official runtime. The CLI handles your credentials and may open a vendor OAuth page in your browser; return to One Connect after signing in. Several of your agents can share your one login and its included usage limits. One Connect never reads, copies or stores the CLI's login tokens.</p><p className="small muted">A detected login does not prove that paid overage is off. Review your account's paid modes and the account confirmation below. API keys are optional and separate from subscription sign-in.</p></div>
     <div className="row wrap setup-actions"><button className="btn" disabled={scanning || !online} onClick={() => void scan()}>{scanning ? 'Scanning installed tools…' : 'Scan installed tools'}</button><button className="btn" disabled={busy || !online || !enabled.length} onClick={() => void run(async () => { await Promise.all(enabled.map(a => post(`/api/agents/${encodeURIComponent(a.id)}/probe`))); await scan(); })}>{busy ? 'Checking connections…' : 'Re-check enabled agents'}</button><Link to="/workspace">Open project terminal</Link></div>
     <ErrorLine error={error} />
     <ErrorLine error={scanError} />
+    <HarnessPicker vendors={vendors} accounts={accounts} project={project} demo={demo} scanning={scanning} onScan={() => void scan()} />
     <section className="setup-team" aria-labelledby="configured-agents"><div className="row wrap"><h2 id="configured-agents">Your configured agents</h2><span className="small muted">Connection state comes from the last check.</span></div>
       {!agents.length && <div className="setup-empty"><h3>No agents configured yet</h3><p>Find an installed runtime below and sign in, then create an agent with its role and model policy.</p><Link className="btn primary" to="/agents/new">Create your first agent</Link></div>}
       <div className="agents">{agents.map(a => {
@@ -98,6 +103,7 @@ export function AgentsSetup({ state, tracker, demo = false }: { state: ControlSt
             {a.auth.state === 'not_installed' && vendor?.installUrl && <a className="small" href={vendor.installUrl} target="_blank" rel="noreferrer">Open official setup guide (browser)</a>}
             <UsageMeter usage={sharedCapacity(state.agents, a.id).usage} />
             <SubscriptionConfirmation agent={a} />
+            <AccountTerms agent={a} />
             <details className="setup-details"><summary>Connection details &amp; installed copies</summary><div className="kv">
               <span>Runtime</span><span>{vendor?.displayName ?? a.config.adapter}</span>
               <span>Model source</span><span>{a.config.provider}{a.config.ollama_route ? ` (${a.config.ollama_route})` : ''}</span>
@@ -129,7 +135,7 @@ export function AgentsSetup({ state, tracker, demo = false }: { state: ControlSt
         {v.installUrl && <a className="small" href={v.installUrl} target="_blank" rel="noreferrer">Official setup guide (browser)</a>}
       </div></div>)}
     </div></section>
-    <details className="setup-optional" id="api-connections"><summary>API keys &amp; optional services</summary><div className="col"><p className="muted">Official subscription sign-in needs no API key here. These connections are for explicitly configured API, cloud and advisory services.</p><Connections /><JevSettings /></div></details>
+    <details className="setup-optional" id="api-connections"><summary>API keys (pay per token) &amp; optional services</summary><div className="col"><p className="muted">Official subscription sign-in needs no API key here. These connections are for explicitly configured API, cloud and advisory services.</p><Connections /><JevSettings /></div></details>
     <details className="setup-optional"><summary>Runtime rule overrides</summary><div className="col"><p className="small muted">Existing per-project overrides. <Link to="/settings">Settings &amp; policies</Link> manages the saved project policy.</p><fieldset className="col" disabled={busy || !online} style={{ border: 0, padding: 0, margin: 0 }}>{RULE_NAMES.map(rule => <div key={rule} className="row"><Toggle on={state.rules[rule] ?? ruleEnabled(state.policies ?? undefined, rule)} label={rule.replace(/_/g, ' ')} onChange={enabled => void run(() => post(`/api/rules/${rule}`, { enabled }))} /><span>{rule.replace(/_/g, ' ')}</span></div>)}</fieldset></div></details>
     <section className="setup-next-links" aria-label="Continue in this project"><div><h2>Continue with your project</h2><p className="small muted">Assign work, review requests and open the original output in its existing view.</p></div><div className="workspace-shortcuts"><Link to="/board">Assign work</Link><Link to="/">Review approvals</Link><Link to="/decisions">Answer decisions</Link><Link to="/mocks">Mocks &amp; artifacts</Link><Link to="/settings">Settings &amp; policies</Link><Link to="/connectors">Manage connectors</Link></div>{tracker && <div className="row wrap small"><span>Tracker: {tracker.target}</span><Badge tone={tracker.live ? 'ok' : 'warn'}>{tracker.live ? 'Live' : 'Dry run · outbound writes off'}</Badge><button className="btn sm" disabled={busy || !online || !tracker.live} onClick={() => void run(() => post('/api/tracker/poll'))}>Sync tracker now</button></div>}</section>
   </div>;
@@ -173,6 +179,7 @@ function BillingLine({ b }: { b: BillingInfo }) {
 const CONNECTION_INFO: Record<string, { title: string; note: string }> = {
   'anthropic-api': { title: 'Anthropic Console API key', note: 'For an Anthropic API agent. Requests bill per token and require explicit cost approval when configuring the agent.' },
   'openai-api': { title: 'OpenAI API key', note: 'For an OpenAI API agent. This billing is separate from your ChatGPT subscription and requires explicit cost approval.' },
+  'cursor-api': { title: 'Cursor API key', note: 'For a Cursor agent that uses an API key instead of your Cursor login. Create it under API Keys in your Cursor dashboard; Cursor bills the key owner.' },
   openrouter: { title: 'OpenRouter API key', note: "For OpenRouter models through the configured API runtime. Review each model's pricing and set a credit limit on the key." },
   'ollama-cloud': { title: 'Ollama API key (cloud models)', note: 'Only for Ollama cloud agents that use the cloud API route. Cloud models through a signed-in local Ollama need no key here. Billed through your Ollama plan.' },
   jev: { title: 'Jev API key (TypeSafe System One)', note: 'Advisory recommendations on decisions. Jev stays off until you turn it on below and confirm each request.' },
@@ -181,7 +188,7 @@ const CONNECTION_INFO: Record<string, { title: string; note: string }> = {
 
 /** API keys live in the macOS Keychain; the UI can store or remove them but never reads them back. */
 function Connections() {
-  const [data, setData] = useState<{ connections: Record<string, { stored: boolean; usedBy: string[] }>; egress: { allowed: string[]; recent: { at: string; host: string; allowed: boolean; method: string }[] } } | null>(null);
+  const [data, setData] = useState<{ connections: Record<string, { stored: boolean; usedBy: string[]; storedAt?: string | null; ageDays?: number | null; rotationDue?: boolean }>; egress: { allowed: string[]; recent: { at: string; host: string; allowed: boolean; method: string }[] } } | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const online = useOnline();
@@ -213,6 +220,7 @@ function Connections() {
               <div className="card-b col small">
                 <span className="faint">{CONNECTION_INFO[name]?.note}</span>
                 <span className="faint">Used by: {c.usedBy.join(', ') || 'no agent yet'}</span>
+                {c.stored && typeof c.ageDays === 'number' && <span className={c.rotationDue ? '' : 'faint'}>{c.rotationDue ? <Badge tone="warn">Rotate this key</Badge> : null} Stored {c.ageDays === 0 ? 'today' : `${c.ageDays} day${c.ageDays === 1 ? '' : 's'} ago`}.{c.rotationDue ? ' Create a new key with the provider, replace it here, then revoke the old one.' : ''}</span>}
                 <form
                   className="row wrap"
                   onSubmit={(e) => {

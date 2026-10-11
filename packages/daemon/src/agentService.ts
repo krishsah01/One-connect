@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 import type { Actor, AgentConfig, AgentState, ControlCenterConfig, NewEvent } from '@acc/core';
 import { AgentConfigSchema, containsSecret, HUMAN, isManualRelay, parseConfig, resolveModel, subscriptionPeers } from '@acc/core';
 import { needsCostApproval, type AgentCosts } from './agentCosts.ts';
+import type { AccountCompliance } from './accountCompliance.ts';
 import type { AnswerOptions } from './decisions.ts';
 import { CommandError } from './errors.ts';
 import type { AgentCommands, ConfigurableKernel } from './kernel.ts';
@@ -18,6 +19,7 @@ import type { SkillLibrary } from './skills.ts';
 export type AgentServiceDeps = ConfigurableKernel & Pick<AgentCommands, 'probe'> & {
   readonly skillLib: SkillLibrary;
   readonly agentCosts: AgentCosts;
+  readonly accounts: AccountCompliance;
   readonly runs: RunManager;
   readonly rules: Rules;
 };
@@ -74,6 +76,7 @@ export class AgentService implements AgentCommands {
     const r = await probeAgent(agent, this.d.baseEnv(), this.d.runs.sessionIdsFor(agentId), this.d.egress.fetch);
     if(this.d.closed || JSON.stringify(this.d.state.agents[agentId]?.config)!==JSON.stringify(agent.config)) return;
     this.d.commit([{ type: 'agent.probed', agentId, data: r }]);
+    await this.d.accounts.refreshSignature(agentId).catch(() => undefined);
     const a = this.d.state.agents[agentId];
     const open = (k: string) => `${agentId}:${k}`;
     if (!isManualRelay(a.config) && (a.auth.state === 'expired' || a.auth.state === 'not_installed')) {

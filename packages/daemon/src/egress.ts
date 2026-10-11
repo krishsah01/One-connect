@@ -13,6 +13,8 @@ export class EgressDenied extends Error {}
 export const PROVIDER_HOSTS: Record<string, (base?: string) => string[]> = {
   'anthropic-api': () => ['api.anthropic.com'],
   'openai-api': () => ['api.openai.com'],
+  // The Cursor CLI talks to Cursor itself; the daemon never calls Cursor with the key.
+  'cursor-api': () => [],
   openrouter: () => ['openrouter.ai'],
   ollama: (base) => [hostOf(base ?? 'http://127.0.0.1:11434')],
   lmstudio: (base) => [hostOf(base ?? 'http://127.0.0.1:1234')],

@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added: harness setup and own-account compliance
+
+- Setup step 1, *Choose your harness*: Claude Code, Codex CLI, Cursor Agent CLI and OpenCode, with each vendor's official install commands. On the Mac they are prepared in the project terminal and run only when you press Return. Each harness offers *Use my own plan* or *Use an API key instead*.
+- Own-account confirmation for subscription logins, once per vendor login. It is audited, kept across restarts, and expires after `policies.accounts.terms_max_age_days`. It breaks when the linked vendor terms revision or the signed-in account changes. Dispatch is blocked without it.
+- `policies.accounts.mode: api-keys-only` for shared, hosted or team use. It refuses every subscription login.
+- macOS code-signature check of the Claude Code and Codex binaries. A foreign or broken signature blocks dispatch.
+- Background watch: expired logins, confirmations due within 14 days, and API keys older than `api_key_rotation_days`.
+- `cursor-api` provider: the Cursor CLI with a Cursor API key from the Keychain.
+- Account fingerprints: the daemon keeps only a hash and a masked label. Credential files are never read.
+
 ### Added: Mac app preview
 
 - Tauri 2 desktop shell with a bundled, checksummed Node runtime, private native API proxy, single-use WebSocket tickets and per-project durable state.

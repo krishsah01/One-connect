@@ -30,6 +30,7 @@ import type { RunManager } from './runManager.ts';
 import type { SkillLibrary } from './skills.ts';
 import type { OutboxOp } from './store/eventStore.ts';
 import type { SubscriptionSafety } from './subscriptionSafety.ts';
+import type { AccountCompliance } from './accountCompliance.ts';
 import { workflowPrompt } from './workflowOptions.ts';
 
 /** What this service needs from the daemon (see kernel.ts). */
@@ -41,6 +42,7 @@ export type WorkServiceDeps = Kernel & Pick<AgentCommands, 'probe' | 'spentToday
   readonly designer: Designer;
   readonly tracker: TrackerAdapter;
   readonly subscriptionSafety: SubscriptionSafety;
+  readonly accounts: AccountCompliance;
   readonly reviewMerge: ReviewMerge;
   readonly context: ContextSync;
   readonly connectors: Connectors;
@@ -232,6 +234,8 @@ export class WorkService implements WorkCommands {
       denylist: this.d.denylist(),
       spentTodayUsd: agent ? this.d.spentToday(agent.id) : 0,
       subscriptionConfirmation: agent ? this.d.subscriptionSafety.status(agent.id) : undefined,
+      accountTerms: agent ? this.d.accounts.check(agent.id) : undefined,
+      signature: agent ? this.d.accounts.signature(agent.id) : undefined,
     });
     if (record) this.d.commit([{ type: 'assignment.updated', assignmentId, agentId: a.agentId, workItemId: a.workItemId, data: { patch: { preflight: result } } }]);
     return result;

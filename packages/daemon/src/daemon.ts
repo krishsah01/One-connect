@@ -46,6 +46,7 @@ import { InfraHealth } from './infra/health.ts';
 import { ReleasePlans } from './release/plans.ts';
 import { ReleaseFindings } from './release/findings.ts';
 import { SubscriptionSafety } from './subscriptionSafety.ts';
+import { AccountCompliance } from './accountCompliance.ts';
 import { ReviewMerge } from './reviewMerge.ts';
 import { WorkflowEngine } from './workflows.ts';
 import { WorkflowLinks } from './workflowLinks.ts';
@@ -87,6 +88,8 @@ export interface DaemonOptions {
   /** Probe agents (auth, billing, models) on start. Default true. */
   probe?: boolean;
   rulesTickMs?: number;
+  /** Login / confirmation / key-age watch interval; 0 disables it (tests). */
+  accountWatchMs?: number;
   outboxTickMs?: number;
   supervisorPollMs?: number;
   /** Override where agent CLIs' env comes from (tests). */
@@ -122,6 +125,7 @@ export class Daemon implements Kernel, WorkCommands, AgentCommands, ConfigComman
   readonly settings: Settings;
   readonly jev: Jev;
   readonly subscriptionSafety: SubscriptionSafety;
+  readonly accounts: AccountCompliance;
   readonly reviewMerge: ReviewMerge;
   readonly workflows: WorkflowEngine;
   readonly workflowLinks: WorkflowLinks;
@@ -151,6 +155,8 @@ export class Daemon implements Kernel, WorkCommands, AgentCommands, ConfigComman
   private publishingEvents=false;
   private eventBatches:EventEnvelope[][]=[];
   closed = false;
+  /** The startup probe of every enabled agent (login, billing, models, binary signature). */
+  initialProbe: Promise<void> = Promise.resolve();
 
   constructor(opts: DaemonOptions) {
     this.opts = opts;
@@ -195,6 +201,7 @@ export class Daemon implements Kernel, WorkCommands, AgentCommands, ConfigComman
     this.settings = new Settings(this);
     this.jev = new Jev(this);
     this.subscriptionSafety = new SubscriptionSafety(this);
+    this.accounts = new AccountCompliance(this);
     this.reviewMerge = new ReviewMerge(this);
     this.workflows = new WorkflowEngine(this);
     this.workflowLinks = new WorkflowLinks(this);
@@ -261,13 +268,14 @@ export class Daemon implements Kernel, WorkCommands, AgentCommands, ConfigComman
     this.team.start();
     this.runs.supervisor.start();
     this.rules.start(this.opts.rulesTickMs ?? 15_000);
+    if (this.opts.accountWatchMs !== 0) this.accounts.start(this.opts.accountWatchMs ?? 15 * 60_000);
     this.outbox.start(this.opts.outboxTickMs ?? 1500);
     if (this.tracker.live) this.poller.start();
     this.context.start();
     this.designer.studio.start();
     this.remote.start();
     this.notifications.start();
-    if (this.opts.probe !== false) void this.probeAll();
+    if (this.opts.probe !== false) this.initialProbe = this.probeAll();
   }
 
   async shutdown(): Promise<void> {
@@ -287,6 +295,7 @@ export class Daemon implements Kernel, WorkCommands, AgentCommands, ConfigComman
     await step('designer studio', () => this.designer.studio.close());
     await step('review/merge', () => this.reviewMerge.stop());
     await step('rules', () => this.rules.stop());
+    await step('accounts', () => this.accounts.stop());
     await step('outbox', () => this.outbox.stop());
     await step('tracker poller', () => this.poller.stop());
     await step('run supervisor', () => this.runs.supervisor.stopPolling());
