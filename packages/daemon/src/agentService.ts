@@ -5,8 +5,8 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { Actor, AgentConfig, AgentState, ControlCenterConfig, NewEvent } from '@acc/core';
 import { AgentConfigSchema, containsSecret, HUMAN, isManualRelay, parseConfig, resolveModel, subscriptionPeers } from '@acc/core';
-import { needsCostApproval, type AgentCosts } from './agentCosts.ts';
 import type { AccountCompliance } from './accountCompliance.ts';
+import { needsCostApproval, type AgentCosts } from './agentCosts.ts';
 import type { AnswerOptions } from './decisions.ts';
 import { CommandError } from './errors.ts';
 import type { AgentCommands, ConfigurableKernel } from './kernel.ts';

@@ -17,6 +17,7 @@ import {
   SYSTEM,
   transitionPath,
 } from '@acc/core';
+import type { AccountCompliance } from './accountCompliance.ts';
 import type { TrackerAdapter } from './adapters/trackers/index.ts';
 import type { Connectors } from './connectors.ts';
 import type { ContextSync } from './context/sync.ts';
@@ -30,7 +31,6 @@ import type { RunManager } from './runManager.ts';
 import type { SkillLibrary } from './skills.ts';
 import type { OutboxOp } from './store/eventStore.ts';
 import type { SubscriptionSafety } from './subscriptionSafety.ts';
-import type { AccountCompliance } from './accountCompliance.ts';
 import { workflowPrompt } from './workflowOptions.ts';
 
 /** What this service needs from the daemon (see kernel.ts). */

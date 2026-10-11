@@ -9,6 +9,8 @@ Run from the repository root while `git merge refactor/solid-foundations` is sto
   tools go into mcp/tools.ts (a test fails if server.ts registers a tool missing there), and
   its design binding moves into WorkService.preflight (the commands left daemon.ts).
 - designer.ts: keep both imports.
+- core/index.ts, core/preflight.ts, web/styles.css (when merging unify/all-worktrees, which also
+  carries the harness setup work): both sides only add, so keep both.
 """
 import re
 import subprocess
@@ -38,6 +40,16 @@ anchor = "      subscriptionConfirmation: agent ? this.d.subscriptionSafety.stat
 edit('packages/daemon/src/workService.ts', lambda s: s.replace(
     anchor, anchor + "      designBinding: this.d.designer.documents.bindingCheck(a),\n", 1))
 
+# The harness/account-compliance merge and the Designer/brand work each only add here: exports,
+# pre-flight inputs and stylesheet rules. Keep both sides, ours first.
+UNION = ['packages/core/src/index.ts', 'packages/core/src/preflight.ts', 'packages/web/src/styles.css']
+for path in UNION:
+    src = open(path).read()
+    out = re.sub(r"<<<<<<< [^\n]*\n(.*?)=======\n(.*?)>>>>>>> [^\n]*\n", r"\1\2", src, flags=re.S)
+    if out != src:
+        open(path, 'w').write(out)
+
 subprocess.run(['git', 'add', 'packages/daemon/src/adapters/agents/claude.ts', 'packages/daemon/src/daemon.ts',
-                'packages/daemon/src/designer.ts', 'packages/daemon/src/mcp/tools.ts', 'packages/daemon/src/workService.ts'], check=True)
+                'packages/daemon/src/designer.ts', 'packages/daemon/src/mcp/tools.ts', 'packages/daemon/src/workService.ts',
+                *UNION], check=True)
 print('Resolved. Run `pnpm -r typecheck` and `pnpm test`, then commit the merge.')
