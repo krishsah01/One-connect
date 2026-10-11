@@ -2,7 +2,8 @@
 // Workflows, reviews, merges and decisions: the routes that move work through gates.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { reviewsForItem } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import type { FindingInput } from '../reviewMerge.ts';
 import type { Req } from './route.ts';
 

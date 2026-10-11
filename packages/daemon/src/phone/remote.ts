@@ -4,14 +4,18 @@
 // A phone pairs once with an expiring single-use token, receives a scoped, HttpOnly session
 // cookie bound to this one project, and can only call the routes its granted scopes allow.
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import type { Actor, RemoteConfig, RemoteScope } from '@acc/core';
+import type { Actor, RemoteConfig, RemoteScope, Decision } from '@acc/core';
 import { defaultRemoteConfig, HUMAN, newId, REMOTE_SCOPE_INFO, REMOTE_SCOPES, RemoteConfigSchema, SYSTEM } from '@acc/core';
-import type { Decision } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
 import { projectNamespace } from '../context/vault.ts';
 import { assertPrivatePlan, FixtureAdapter, TailscaleAdapter, type TunnelAdapter, type TunnelPlan, type TunnelState } from './tunnel.ts';
-import { phoneEvents, phoneMessages, phoneState } from './projection.ts';
+import { phoneEvents, phoneMessages, phoneState, type ProjectionDeps } from './projection.ts';
 import { sha256 } from '../util/hash.ts';
+import type { Kernel } from '../kernel.ts';
+import type { Decisions } from '../decisions.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type RemoteAccessDeps = Kernel & ProjectionDeps & { readonly decisions: Decisions };
 
 const DECISION_TTL_MS = 10 * 60_000;
 const PAIR_FAILS = { max: 5, windowMs: 10 * 60_000, lockMs: 15 * 60_000 };
@@ -26,7 +30,7 @@ export type RemotePrincipal = { session: SessionRecord; scopes: RemoteScope[]; c
 export type RemoteAuth = { ok: true; principal: RemotePrincipal } | { ok: false; status: number; error: string };
 
 export class RemoteAccess {
-  readonly d: Daemon;
+  readonly d: RemoteAccessDeps;
   private config: RemoteConfig;
   private readonly boot = randomBytes(24).toString('hex');
   private adapters = new Map<string, TunnelAdapter>();
@@ -48,7 +52,7 @@ export class RemoteAccess {
   private stopsInFlight = 0;
   readonly project: string;
 
-  constructor(d: Daemon) {
+  constructor(d: RemoteAccessDeps) {
     this.d = d;
     this.project = projectNamespace(d.config.project.repo);
     this.adapters.set('tailscale', new TailscaleAdapter());

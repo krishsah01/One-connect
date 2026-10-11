@@ -29,8 +29,15 @@ import {
 } from '@acc/core';
 import { git, mergeConflicts, removeWorktree, revParse } from './adapters/vcs/git.ts';
 import { runChecks } from './checks.ts';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
 import type { OutboxOp } from './store/eventStore.ts';
+import type { Kernel, WorkCommands } from './kernel.ts';
+import type { Decisions } from './decisions.ts';
+import type { OutboxWorker } from './outbox.ts';
+import type { RunManager } from './runManager.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ReviewMergeDeps = Kernel & Pick<WorkCommands, 'buildIssue' | 'createAssignment' | 'transition' | 'tryTransition'> & { readonly decisions: Decisions; readonly outbox: OutboxWorker; readonly runs: RunManager };
 
 export interface FindingInput {
   severity?: string;
@@ -53,13 +60,13 @@ const REJECT_OPTION = 'reject';
 const short = (s: string | null | undefined) => (s ? s.slice(0, 10) : 'unknown');
 
 export class ReviewMerge {
-  readonly d: Daemon;
+  readonly d: ReviewMergeDeps;
   /** Merges and recordings run one at a time so two answers can never race the same refs. */
   private chain: Promise<unknown> = Promise.resolve();
   private listening = false;
   private readonly onEvents = (events: EventEnvelope[]) => this.react(events);
 
-  constructor(d: Daemon) {
+  constructor(d: ReviewMergeDeps) {
     this.d = d;
   }
 

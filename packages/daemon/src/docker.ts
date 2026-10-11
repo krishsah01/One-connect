@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import { HUMAN, newId, type Decision } from '@acc/core';
 import { run, type ExecResult } from './exec.ts';
-import { CommandError, type Daemon } from './daemon.ts';
-import type { AnswerOptions } from './decisions.ts';
+import { CommandError } from './errors.ts';
+import type { AnswerOptions, Decisions } from './decisions.ts';
+import type { Kernel } from './kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ProjectDockerDeps = Kernel & { readonly decisions: Decisions };
 type DockerRun = (args: string[]) => Promise<ExecResult>;
 interface DockerApproval { id: string; action: string; project: string; namespace: string; expires: number; consumed: boolean }
 export class ProjectDocker {
-  readonly d: Daemon;
+  readonly d: ProjectDockerDeps;
   readonly execute: DockerRun;
-  constructor(d: Daemon, execute?: DockerRun) { this.d = d; this.execute = execute ?? (args => run('docker', args, { timeoutMs: 30000, maxBytes: 128000 })); }
+  constructor(d: ProjectDockerDeps, execute?: DockerRun) { this.d = d; this.execute = execute ?? (args => run('docker', args, { timeoutMs: 30000, maxBytes: 128000 })); }
   async list() {
     const project = this.d.config.project.docker_project ?? this.d.config.project.name;
     const r = await this.execute(['ps', '-a', '--filter', `label=com.docker.compose.project=${project}`, '--format', '{{json .}}']);

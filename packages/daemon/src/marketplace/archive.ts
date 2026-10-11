@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Read bounded codeload tarballs in memory; never extract paths or execute imported files.
 import { gunzipSync } from 'node:zlib';
-import { CommandError } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
 export const ARCHIVE_LIMITS = { compressedBytes: 8 * 1024 * 1024, expandedBytes: 32 * 1024 * 1024, files: 2048, fileBytes: 512 * 1024 } as const;
 function safePath(s: string): string {
   if (!s || s.length > 500 || s.startsWith('/') || s.includes('\\') || s.includes('\0') || s.split('/').some(p => !p || p === '.' || p === '..')) throw new CommandError('Archive contains an unsafe path');

@@ -11,13 +11,21 @@ import {
   type ControlCenterConfig,
   canonicalJson,
 } from '@acc/core';
-import { GitHubTracker, LinearTracker, type TrackerIssue } from './adapters/trackers/index.ts';
+import { GitHubTracker, LinearTracker, type TrackerIssue, type TrackerAdapter } from './adapters/trackers/index.ts';
 import { ConnectorToolActions, type ConnectorToolRequest } from './connectorToolActions.ts';
 import { EgressDenied } from './egress.ts';
 import { getSecret, hasSecret } from './secrets.ts';
-import { CommandError, type Daemon } from './daemon.ts';
-import type { AnswerOptions } from './decisions.ts';
+import { CommandError } from './errors.ts';
+import type { AnswerOptions, Decisions } from './decisions.ts';
 import { sha256 } from './util/hash.ts';
+import type { ConfigCommands, Kernel, WorkCommands } from './kernel.ts';
+import type { ProjectDocker } from './docker.ts';
+import type { CodeHosts } from './adapters/hosts/index.ts';
+import type { InfraHealth } from './infra/health.ts';
+import type { OutboxWorker } from './outbox.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ConnectorsDeps = Kernel & Pick<WorkCommands, 'buildIssue'> & Pick<ConfigCommands, 'connectKnowledge'> & { readonly decisions: Decisions; readonly docker: ProjectDocker; readonly hosts: CodeHosts; readonly infra: InfraHealth; readonly outbox: OutboxWorker; readonly tracker: TrackerAdapter };
 
 const DECISION_TTL_MS = 15 * 60_000;
 const PREVIEW_TTL_MS = 10 * 60_000;
@@ -42,7 +50,7 @@ function findBin(name: string, env: NodeJS.ProcessEnv): string | null {
 function isExecutable(p: string): boolean {
   try { const st = fs.statSync(p); if (!st.isFile()) return false; fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; }
 }
-const redactedIssueHash = (d: Daemon, i: TrackerIssue) => sha256(JSON.stringify([
+const redactedIssueHash = (d: ConnectorsDeps, i: TrackerIssue) => sha256(JSON.stringify([
   d.redactText(i.title), d.redactText(i.description), i.acceptance.map(a => d.redactText(a)), i.labels.map(l => d.redactText(l)),
   i.priority, i.parentKey, i.status.category, i.updatedAt,
 ]));
@@ -67,14 +75,14 @@ export interface ToolBindingCheck {
 }
 
 export class Connectors {
-  readonly d: Daemon;
+  readonly d: ConnectorsDeps;
   readonly toolActions: ConnectorToolActions;
   /** Overridable in tests with a fixture; defaults to the configured tracker's gh binary or PATH. */
   ghBinary: string | null = null;
   /** Test hook: awaited before and after each provider await during preview. */
   previewFetchGate: (() => Promise<void>) | null = null;
   private previews = new Map<string, PreviewSnapshot>();
-  constructor(d: Daemon) {
+  constructor(d: ConnectorsDeps) {
     this.d = d;
     this.toolActions = new ConnectorToolActions(this);
   }
@@ -308,7 +316,7 @@ export class Connectors {
   setDisabled(id: string, disabled: boolean) {
     const c = this.get(id);
     if (c.disabled !== disabled) {
-      const events: Parameters<Daemon['commit']>[0] = [{ type: 'connector.disabled', actor: HUMAN, data: { connectorId: id, disabled } }];
+      const events: Parameters<Kernel['commit']>[0] = [{ type: 'connector.disabled', actor: HUMAN, data: { connectorId: id, disabled } }];
       for (const p of Object.values(c.pending)) if (p && !this.d.state.decisions[p.decisionId]?.answeredAt) events.push({ type: 'decision.answered', actor: HUMAN, data: { decisionId: p.decisionId, answer: 'deny', channel: 'connection-disabled' } });
       this.d.commit(events);
     }

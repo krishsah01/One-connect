@@ -4,8 +4,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import type { EventEnvelope } from '@acc/core';
-import { KnowledgeConfigSchema,GraphifyConfigSchema } from '@acc/core';
-import type { Daemon } from '../daemon.ts';
+import { KnowledgeConfigSchema, GraphifyConfigSchema } from '@acc/core';
 import { expandHome } from '../paths.ts';
 import { GraphContext } from './graph.ts';
 import { briefNote, contractNote, decisionNote, handoffNote, issueNote, noteLinks, type NoteLinks } from './notes.ts';
@@ -14,9 +13,14 @@ import { AskDocs } from './docs.ts';
 import { Dictionary } from './dictionary.ts';
 import { PacketBuilder } from './packet.ts';
 import { designMarkdown } from '@acc/core';
+import type { Kernel } from '../kernel.ts';
+import type { DesignMocks } from '../mocks.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ContextSyncDeps = Kernel & { readonly mocks: DesignMocks };
 
 export class ContextSync {
-  readonly d: Daemon;
+  readonly d: ContextSyncDeps;
   readonly vault: Vault | null;
   readonly graph: GraphContext | null;
   readonly links: NoteLinks | null;
@@ -34,7 +38,7 @@ export class ContextSync {
   private contractDirty = false;
   private onEvents = (events: EventEnvelope[]) => this.mark(events);
 
-  constructor(d: Daemon) {
+  constructor(d: ContextSyncDeps) {
     this.d = d;
     this.privateVault=!d.config.knowledge;
     const privateRoot=path.join(d.paths.root,'context','vault');

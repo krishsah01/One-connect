@@ -14,12 +14,16 @@
 // Everything is redacted; retrieved text is labelled untrusted data. Intake and source blobs are cached; packets are assembled from fresh state so policy,
 // evidence, source edits and other agents cannot be hidden by an old packet cache.
 import { outOfScope, ellipsize } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
 import { redactMetadata } from './redaction.ts';
 import { evidence as supportEvidence } from './retrieval.ts';
 import { changedFiles,git } from '../adapters/vcs/git.ts';
 import type { ContextSync } from './sync.ts';
 import { sha256 } from '../util/hash.ts';
+import type { Kernel } from '../kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ContextPacketDeps = Kernel;
 
 
 export interface PacketOptions { runId?:string|null; workItemId?:string|null; budget?:number; query?:string; }
@@ -39,8 +43,8 @@ export interface ContextPacket {
 }
 
 export class PacketBuilder {
-  readonly d:Daemon;readonly ctx:ContextSync;
-  constructor(d:Daemon,ctx:ContextSync){this.d=d;this.ctx=ctx;}
+  readonly d:ContextPacketDeps;readonly ctx:ContextSync;
+  constructor(d:ContextPacketDeps,ctx:ContextSync){this.d=d;this.ctx=ctx;}
 
   async build(o:PacketOptions={}):Promise<ContextPacket> {
     const budget=o.budget??9000;

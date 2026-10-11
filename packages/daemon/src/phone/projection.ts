@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Phone status projections never grant management/configuration or credential access.
 import { emptyState, remoteDecisionAccess, type ControlState, type Decision, type EventEnvelope, type RemoteScope, type ReportEvent } from '@acc/core';
-import type { Daemon } from '../daemon.ts';
+import type { Kernel } from '../kernel.ts';
+import type { Notifications } from './notifications.ts';
+import type { RemoteAccess } from './remote.ts';
+
+/** What phone projections read: state, redaction and which decisions remote/notification actions own. */
+export type ProjectionDeps = Pick<Kernel, 'state' | 'redactText'> & { readonly notifications: Notifications; readonly remote: RemoteAccess };
 
 const keep = <T extends object>(value: T, keys: readonly string[]): T => Object.fromEntries(Object.entries(value ?? {}).filter(([key]) => keys.includes(key))) as T;
-const scrub = <T>(d: Daemon, value: T): T => JSON.parse(d.redactText(JSON.stringify(value))) as T;
-export function phoneDecisionVisible(d: Daemon, decision: Decision, scopes: readonly RemoteScope[]): boolean {
+const scrub = <T>(d: ProjectionDeps, value: T): T => JSON.parse(d.redactText(JSON.stringify(value))) as T;
+export function phoneDecisionVisible(d: ProjectionDeps, decision: Decision, scopes: readonly RemoteScope[]): boolean {
   const target = d.remote.isRemoteDecision(decision.id) ? { kind: 'remote' as const } : d.notifications.isEndpointDecision(decision.id) ? { kind: 'notification' as const } : decision;
   return remoteDecisionAccess(target, scopes, d.notifications.isDeliveryDecision(decision.id)).allow;
 }
-export function phoneState(d: Daemon, scopes: readonly RemoteScope[]): ControlState {
+export function phoneState(d: ProjectionDeps, scopes: readonly RemoteScope[]): ControlState {
   const s = structuredClone(d.state), out = emptyState();
   out.seq = s.seq; out.startedAt = s.startedAt;
   out.project = s.project ? { ...keep(s.project, ['name', 'integration_branch', 'protected_branches']), repo: '', checks: {} } : null;
@@ -41,7 +46,7 @@ export function phoneState(d: Daemon, scopes: readonly RemoteScope[]): ControlSt
 }
 
 /** Decision audit and transcript batches only. General control updates use projected snapshots. */
-export function phoneEvents(d: Daemon, events: readonly EventEnvelope[], scopes: readonly RemoteScope[]): EventEnvelope[] {
+export function phoneEvents(d: ProjectionDeps, events: readonly EventEnvelope[], scopes: readonly RemoteScope[]): EventEnvelope[] {
   return events.flatMap(e => {
     if (e.kind === 'transcript') return scopes.includes('transcript') ? [scrub(d, e)] : [];
     if (['notification.emitted', 'notification.delivered', 'notification.acked'].includes(e.type)) return scopes.includes('read') ? [scrub(d, e)] : [];
@@ -54,7 +59,7 @@ export function phoneEvents(d: Daemon, events: readonly EventEnvelope[], scopes:
 }
 
 /** Preserve transcript and browser-inbox events without replaying configuration into the phone. */
-export function phoneMessages(d: Daemon, message: unknown, scopes: readonly RemoteScope[]): unknown[] {
+export function phoneMessages(d: ProjectionDeps, message: unknown, scopes: readonly RemoteScope[]): unknown[] {
   if (!message || typeof message !== 'object') return [];
   const m = message as { type: string; events?: EventEnvelope[]; [key: string]: unknown };
   const snapshot = () => ({ type: 'snapshot', seq: d.state.seq, state: phoneState(d, scopes) });
@@ -70,17 +75,17 @@ export function phoneMessages(d: Daemon, message: unknown, scopes: readonly Remo
 }
 
 /** Explicit fields: future executor/configuration additions do not become phone state. */
-export function phoneDecision(d: Daemon, dec: Decision): Decision {
+export function phoneDecision(d: ProjectionDeps, dec: Decision): Decision {
   return scrub(d, keep(dec, ['id', 'question', 'options', 'recommendation', 'evidenceLinks', 'urgency', 'irreversible', 'answer', 'answeredAt', 'channel', 'createdAt', 'kind', 'workItemId', 'risk', 'action', 'evidence', 'confirmOptions', 'recommendedBy', 'rationale', 'answeredBy', 'confirmedAt', 'consumedAt', 'outcome', 'expiresAt', 'advisory']));
 }
 
 /** Keep a harmless cursor for hidden history rows so paging cannot stop early or repeat page 1. */
-export function phoneHistory(d: Daemon, events: readonly EventEnvelope[], scopes: readonly RemoteScope[]): EventEnvelope[] {
+export function phoneHistory(d: ProjectionDeps, events: readonly EventEnvelope[], scopes: readonly RemoteScope[]): EventEnvelope[] {
   return events.map(e => phoneEvents(d, [e], scopes)[0] ?? ({ seq: e.seq, id: e.id, ts: e.ts, type: 'phone.cursor', kind: 'control', actor: { type: 'system', id: 'phone' }, agentId: null, runId: null, workItemId: null, assignmentId: null, data: {} } as unknown as EventEnvelope));
 }
 
 /** Reports share the phone projection, never the Mac's unrestricted state or event log. */
-export function phoneReportEvents(d: Daemon, events: readonly ReportEvent[], scopes: readonly RemoteScope[]): ReportEvent[] {
+export function phoneReportEvents(d: ProjectionDeps, events: readonly ReportEvent[], scopes: readonly RemoteScope[]): ReportEvent[] {
   const state = phoneState(d, scopes), transcript = scopes.includes('transcript');
   return events.flatMap(e => {
     const x = (e.data ?? {}) as Record<string, any>;

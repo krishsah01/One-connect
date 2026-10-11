@@ -3,7 +3,8 @@
 // only the security boundary, the socket and the static UI.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 
 /** Registers one domain's routes; awaited in order, its return value is ignored. */
 export type RouteModule = (app: FastifyInstance, d: Daemon) => unknown;

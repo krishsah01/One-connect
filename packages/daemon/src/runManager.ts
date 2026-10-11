@@ -18,10 +18,21 @@ import { adapterFor } from './adapters/agents/index.ts';
 import type { LaunchContext, Parsed, StreamParser } from './adapters/agents/types.ts';
 import { changedFiles, commitOnBranch, commitsSince, createWorktree, ensureBranch, ensureExcluded, gitCommonDir, headSha, installWorktreeHooks, isTracked } from './adapters/vcs/git.ts';
 import { runChecks } from './checks.ts';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import type { DaemonOptions } from './daemon.ts';
 import { Supervisor, type ExitInfo, type TailOffsets } from './runner/supervisor.ts';
 import { MAX_LIST, type OutboxOp } from './store/eventStore.ts';
 import { writePrivate } from './paths.ts';
+import type { AgentCommands, Kernel, WorkCommands } from './kernel.ts';
+import type { OutboxWorker } from './outbox.ts';
+import type { ReviewMerge } from './reviewMerge.ts';
+import type { Rules } from './rules.ts';
+import type { SkillLibrary } from './skills.ts';
+import type { Team } from './team.ts';
+import type { WorktreeWatcher } from './adapters/vcs/watcher.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type RunManagerDeps = Kernel & Pick<WorkCommands, 'agentFree' | 'assignmentText' | 'preflight' | 'safeTransition' | 'transition'> & Pick<AgentCommands, 'resolveModelFor' | 'spentToday'> & { readonly outbox: OutboxWorker; readonly reviewMerge: ReviewMerge; readonly rules: Rules; readonly skillLib: SkillLibrary; readonly team: Team; readonly watcher: WorktreeWatcher } & { readonly opts: Pick<DaemonOptions, 'supervisorPollMs'> };
 
 export const MCP_SERVER_PATH = fileURLToPath(new URL('./mcp/server.ts', import.meta.url));
 const IGNORED_PATHS = [CURSOR_MCP_FILE];
@@ -49,7 +60,7 @@ interface RunCtx {
 const FAILURE_WEIGHT: Record<string, number> = { billing_violation: 6, auth_expired: 5, usage_limit: 5, model_unsupported: 4, network: 3, sandbox_denied: 2, crash: 1 };
 
 export class RunManager {
-  readonly d: Daemon;
+  readonly d: RunManagerDeps;
   readonly supervisor: Supervisor;
   private ctx = new Map<string, RunCtx>();
   private tokens = new Map<string, string>();
@@ -62,7 +73,7 @@ export class RunManager {
     return p;
   }
 
-  constructor(d: Daemon) {
+  constructor(d: RunManagerDeps) {
     this.d = d;
     this.supervisor = new Supervisor(
       d.paths.runs,
@@ -448,7 +459,7 @@ export class RunManager {
     const events: NewEvent[] = [];
     // A reviewer's run never moves the issue; its typed review record does (see ReviewMerge).
     const reviewRun = asg.kind === 'review';
-    const transition: Daemon['safeTransition'] = (...args) => (reviewRun ? { events: [], outbox: [] } : d.safeTransition(...args));
+    const transition: RunManagerDeps['safeTransition'] = (...args) => (reviewRun ? { events: [], outbox: [] } : d.safeTransition(...args));
 
     // Commits made in this worktree since the base, recorded as verified evidence.
     let commits: { sha: string; subject: string; body: string }[] = [];

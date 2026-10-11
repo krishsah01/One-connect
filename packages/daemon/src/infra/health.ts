@@ -7,10 +7,15 @@ import { run } from '../exec.ts';
 import { liveOrigin } from '../adapters/hosts/index.ts';
 import { ProviderRefused, fixtureUrl, liveUrl, readJson } from '../adapters/hosts/http.ts';
 import { getSecret } from '../secrets.ts';
-import type { Daemon } from '../daemon.ts';
 import { compareMigrations, listRepoMigrationFiles, MIGRATION_QUERIES, parseMigrationRows, psqlReadArgv } from './migrations.ts';
 import { readVercel } from './vercel.ts';
 import { readCapability } from '../adapters/hosts/github.ts';
+import type { Kernel } from '../kernel.ts';
+import type { Connectors } from '../connectors.ts';
+import type { ProjectEnvironment } from '../environment/workbench.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type InfraHealthDeps = Kernel & { readonly connectors: Connectors; readonly environment: ProjectEnvironment };
 
 type ServiceLike = {
   name: string;
@@ -22,10 +27,10 @@ type ServiceLike = {
 };
 
 export class InfraHealth {
-  readonly d: Daemon;
+  readonly d: InfraHealthDeps;
   exec: (argv: string[]) => Promise<Pick<ExecResult, 'code' | 'stdout' | 'stderr' | 'error'>>;
 
-  constructor(d: Daemon) {
+  constructor(d: InfraHealthDeps) {
     this.d = d;
     this.exec = (argv) => run(argv[0] ?? 'docker', argv.slice(1), { timeoutMs: 15_000, maxBytes: 64_000 });
   }

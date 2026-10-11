@@ -16,7 +16,8 @@ import {
   type MockFinding, type MockOrigin, type MockReview, type MockRevision,
 } from '@acc/core';
 import { headSha } from './adapters/vcs/git.ts';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import type { Daemon } from './daemon.ts';
 import { sha256 } from './util/hash.ts';
 
 const TEXT_KINDS = new Set(['html', 'css', 'js', 'svg', 'json', 'md']);

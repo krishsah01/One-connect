@@ -6,8 +6,15 @@
 import type { Actor, Assignment, EventEnvelope, NewEvent, Run, Workflow, WorkflowDefinition, WorkflowIssue, WorkflowTaskDef, WorkflowTaskState } from '@acc/core';
 import { checksAt, checkRuntimeKey, deriveWorkflowStatus, emptyTaskState, HUMAN, isActiveRun, newId, normalizeWorkflow, readyTaskIds, requiredCheckNames, SYSTEM, topoOrder, validateWorkflow } from '@acc/core';
 import { revParse } from './adapters/vcs/git.ts';
-import { CommandError, type Daemon } from './daemon.ts';
-import { applyWorkflowOptions, terminateWithPickup } from './workflowOptions.ts';
+import { CommandError } from './errors.ts';
+import { applyWorkflowOptions, terminateWithPickup, type WorkflowOptionsDeps } from './workflowOptions.ts';
+import type { Kernel, WorkCommands } from './kernel.ts';
+import type { Designer } from './designer.ts';
+import type { ReviewMerge } from './reviewMerge.ts';
+import type { RunManager } from './runManager.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type WorkflowEngineDeps = Kernel & Pick<WorkCommands, 'cancelAssignment' | 'createAssignment' | 'dispatch'> & { readonly designer: Designer; readonly reviewMerge: ReviewMerge; readonly runs: RunManager } & WorkflowOptionsDeps;
 
 const AFTER_HANDOFF = new Set(['handoff_received', 'in_review', 'approved', 'changes_requested', 'merged', 'release_candidate', 'deployed', 'verified']);
 const TRIGGERS = new Set(['run.created', 'run.started', 'run.ended', 'run.handoff', 'work_item.transitioned', 'work_item.evidence_added', 'assignment.positioned', 'review.recorded', 'review.invalidated', 'merge.completed']);
@@ -15,7 +22,7 @@ const short = (s: string | null | undefined) => (s ? s.slice(0, 10) : 'none');
 type TaskPatch = Partial<Omit<WorkflowTaskState, 'updatedAt'>>;
 
 export class WorkflowEngine {
-  readonly d: Daemon;
+  readonly d: WorkflowEngineDeps;
   private chain: Promise<unknown> = Promise.resolve();
   private pending = new Set<string>();
   private scheduled = false;
@@ -24,7 +31,7 @@ export class WorkflowEngine {
   private rechecked = new Set<string>();
   private readonly onEvents = (events: EventEnvelope[]) => this.react(events);
 
-  constructor(d: Daemon) {
+  constructor(d: WorkflowEngineDeps) {
     this.d = d;
   }
 

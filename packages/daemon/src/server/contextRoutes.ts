@@ -2,7 +2,8 @@
 // Shared context: the markdown vault, document questions, the code graph and context search.
 import type { FastifyInstance } from 'fastify';
 import { HUMAN } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import type { Req } from './route.ts';
 
 export function registerContextRoutes(app: FastifyInstance, d: Daemon): void {

@@ -4,7 +4,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { HUMAN, RULE_NAMES, type RuleName } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import type { SettingsDraft } from '../settings.ts';
 import type { SendTeamMessage } from '../team.ts';
 import { parseBody, type Req } from './route.ts';

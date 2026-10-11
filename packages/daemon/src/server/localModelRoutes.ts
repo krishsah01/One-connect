@@ -3,7 +3,8 @@
 // Available only when the desktop app passes its models folder; nothing is downloaded.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { containsSecret } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import { LocalModels, localModelsDir } from '../localModels.ts';
 
 type R<B = unknown> = FastifyRequest<{ Body: B }>;

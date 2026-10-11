@@ -2,13 +2,19 @@
 // Durable local alerts. JSON gateway/chat deliveries each need a human Decision for the exact
 // payload, URL and configuration. Endpoint reviews never authorize messages or add egress hosts.
 import { randomBytes } from 'node:crypto';
-import type { Actor, Decision, EventEnvelope, NotificationCandidate, NotificationChannel, NotificationConfig, NotificationRecord } from '@acc/core';
-import { candidatesFromEvents, candidatesFromTick, defaultNotificationConfig, HUMAN, infraFailuresRecovered, inQuietHours, isInfraFailureFingerprint, newId, NOTIFICATION_CHANNEL_LABEL, NotificationConfigSchema, SYSTEM, validTimezone, type InfraHealthReport } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import type { InfraHealthReport, Actor, Decision, EventEnvelope, NotificationCandidate, NotificationChannel, NotificationConfig, NotificationRecord } from '@acc/core';
+import { candidatesFromEvents, candidatesFromTick, defaultNotificationConfig, HUMAN, infraFailuresRecovered, inQuietHours, isInfraFailureFingerprint, newId, NOTIFICATION_CHANNEL_LABEL, NotificationConfigSchema, SYSTEM, validTimezone } from '@acc/core';
+import { CommandError } from '../errors.ts';
 import { projectNamespace } from '../context/vault.ts';
 import { run } from '../exec.ts';
 import { MAX_LIST } from '../store/eventStore.ts';
 import { sha256 } from '../util/hash.ts';
+import type { Kernel } from '../kernel.ts';
+import type { Decisions } from '../decisions.ts';
+import type { Egress } from '../egress.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type NotificationsDeps = Kernel & { readonly decisions: Decisions };
 
 const DECISION_TTL_MS = 10 * 60_000;
 const MAX_SUPPRESSION_KEYS = 2000;
@@ -37,16 +43,16 @@ export class NativeAdapter implements NotificationAdapter {
 /** A JSON POST, not native encrypted Web Push. No endpoint is read again after approval. */
 export class JsonEndpointAdapter implements NotificationAdapter {
   readonly id: OutboundChannel;
-  private d: Daemon;
-  constructor(d: Daemon, id: OutboundChannel) { this.d = d; this.id = id; }
+  private readonly deps: { readonly egress: Egress; readonly permits: Pick<Notifications, 'issueEgressPermit'> };
+  constructor(deps: JsonEndpointAdapter['deps'], id: OutboundChannel) { this.deps = deps; this.id = id; }
   async deliver(p: ExternalPayload, context?: DeliveryContext): Promise<DeliveryResult> {
     if (!context || context.body !== JSON.stringify(p)) return { ok: false, detail: 'An exact single-message approval is required.' };
     try {
       const init = { method: 'POST', headers: { 'content-type': 'application/json' }, body: context.body, redirect: 'error' as const, signal: AbortSignal.timeout(8000) };
-      const notificationPermit = this.d.notifications.issueEgressPermit(context.decisionId, this.id, context.endpoint, init);
+      const notificationPermit = this.deps.permits.issueEgressPermit(context.decisionId, this.id, context.endpoint, init);
       // Shared egress can redeem this exact one-use permit instead of granting an entire host.
       // Until that wiring is present, unconfigured hosts remain denied by the existing guard.
-      const r = await this.d.egress.fetch(context.endpoint, { ...init, notificationPermit } as RequestInit);
+      const r = await this.deps.egress.fetch(context.endpoint, { ...init, notificationPermit } as RequestInit);
       await r.body?.cancel().catch(() => undefined);
       return r.ok ? { ok: true, detail: `Endpoint accepted the payload (HTTP ${r.status}); receipt by a person is unverified.` } : { ok: false, detail: `Endpoint rejected the payload (HTTP ${r.status}).` };
     } catch {
@@ -86,7 +92,7 @@ function endpointHost(url: string): { host: string; loopback: boolean } {
 }
 
 export class Notifications {
-  readonly d: Daemon;
+  readonly d: NotificationsDeps;
   private config: NotificationConfig;
   private revision: number;
   private readonly boot = randomBytes(24).toString('hex');
@@ -99,7 +105,7 @@ export class Notifications {
   private last: Partial<Record<NotificationChannel, { at: string; ok: boolean; detail: string }>> = {};
   private onEvents = (events: EventEnvelope[]) => this.fromEvents(events);
 
-  constructor(d: Daemon) {
+  constructor(d: NotificationsDeps) {
     this.d = d;
     this.config = this.read('notify:config', x => NotificationConfigSchema.parse(x)) ?? defaultNotificationConfig();
     this.revision = this.read('notify:revision', x => typeof x === 'number' && Number.isSafeInteger(x) ? x : 0) ?? 0;
@@ -115,7 +121,7 @@ export class Notifications {
     this.pruneSuppression();
     this.d.store.kvSet('notify:seen', JSON.stringify(this.seen));
     this.d.store.kvSet('notify:acked', JSON.stringify(this.acked));
-    this.adapters = { native: new NativeAdapter(), webpush: new JsonEndpointAdapter(d, 'webpush'), chat: new JsonEndpointAdapter(d, 'chat') };
+    this.adapters = { native: new NativeAdapter(), webpush: new JsonEndpointAdapter({ egress: d.egress, permits: this }, 'webpush'), chat: new JsonEndpointAdapter({ egress: d.egress, permits: this }, 'chat') };
   }
   private projectScope(): string {
     const repo = this.d.state.project?.repo ?? this.d.config.project.repo ?? '';

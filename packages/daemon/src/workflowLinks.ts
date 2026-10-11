@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import type { Actor, EventEnvelope, NewEvent, WorkflowLink } from '@acc/core';
 import { containsSecret, HUMAN, newId, SYSTEM, WorkflowLinkInputSchema } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
-import type { AnswerOptions } from './decisions.ts';
-import { JEV_ACTOR } from './jev.ts';
+import { CommandError } from './errors.ts';
+import type { AnswerOptions, Decisions } from './decisions.ts';
+import { JEV_ACTOR, type Jev } from './jev.ts';
+import type { Kernel } from './kernel.ts';
+import type { WorkflowEngine } from './workflows.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type WorkflowLinksDeps = Kernel & { readonly decisions: Decisions; readonly jev: Jev; readonly workflows: WorkflowEngine };
 
 export class WorkflowLinks {
   private chain: Promise<unknown> = Promise.resolve();
@@ -15,8 +20,8 @@ export class WorkflowLinks {
       for (const link of this.list()) if (!['started', 'canceled'].includes(link.status)) this.schedule(link.id);
     }
   };
-  readonly d: Daemon;
-  constructor(d: Daemon) { this.d = d; }
+  readonly d: WorkflowLinksDeps;
+  constructor(d: WorkflowLinksDeps) { this.d = d; }
   start() { if (this.listening) return; this.listening = true; this.d.bus.on('events', this.changed); for (const link of this.list()) this.schedule(link.id); }
   stop() { this.listening = false; this.d.bus.off('events', this.changed); this.pending.clear(); }
   async idle() { for (let i = 0; i < 100 && (this.pending.size || this.scheduled); i++) { await new Promise(r => setImmediate(r)); await this.chain; } await this.chain; }

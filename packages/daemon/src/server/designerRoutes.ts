@@ -4,7 +4,8 @@
 // its Host/Origin checks and session/install-token authentication; remote sessions are deny-by-default.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { HUMAN, REVIEW_CHECKLIST } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import { SKILL_PURPOSE, SKILL_SETS } from '../designer.ts';
 
 type R<P = Record<string, string>, B = unknown, Q = Record<string, string | undefined>> = FastifyRequest<{ Params: P; Body: B; Querystring: Q }>;

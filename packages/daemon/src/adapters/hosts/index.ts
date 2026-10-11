@@ -8,7 +8,11 @@ import { ProviderRefused } from './http.ts';
 import { readGitHub } from './github.ts';
 import { readGitLab } from './gitlab.ts';
 import { clampPollSeconds, verifyWebhookDelivery } from './webhook.ts';
-import type { Daemon } from '../../daemon.ts';
+import type { Kernel } from '../../kernel.ts';
+import type { Connectors } from '../../connectors.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type CodeHostsDeps = Kernel & { readonly connectors: Connectors };
 
 export function liveOrigin(provider: 'github' | 'gitlab' | 'vercel' | 'supabase', host: string): string {
   if (provider === 'github') return host === 'api.github.com' ? 'https://api.github.com' : `https://${host}/api/v3`;
@@ -23,9 +27,9 @@ export function activationOf(cfg: { activated?: boolean; host?: string; scopes?:
 }
 
 export class CodeHosts {
-  readonly d: Daemon;
+  readonly d: CodeHostsDeps;
 
-  constructor(d: Daemon) {
+  constructor(d: CodeHostsDeps) {
     this.d = d;
   }
 
@@ -132,7 +136,7 @@ export class CodeHosts {
     }
   }
 
-  private async readLive(access: NonNullable<ReturnType<Daemon['connectors']['releaseAccess']>>, branch: string): Promise<CodeHostSnapshot> {
+  private async readLive(access: NonNullable<ReturnType<Connectors['releaseAccess']>>, branch: string): Promise<CodeHostSnapshot> {
     const cfg = access.config;
     if (cfg.kind !== 'github' && cfg.kind !== 'gitlab') return this.empty('refused', 'Not a code host.', 'Not a code host.');
     if (!this.d.egress.allowed.includes(cfg.host)) {

@@ -3,7 +3,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 
 const MAX_LOG_BYTES = 16 * 1024 * 1024;
 export function phoneLog(d: Daemon, runId: string, stream: string | undefined): Buffer {

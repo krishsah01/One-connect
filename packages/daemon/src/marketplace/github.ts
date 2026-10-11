@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 import YAML from 'yaml';
 import { containsSecret, SKILL_REFERENCE_RE, type SkillDraft } from '@acc/core';
-import { CommandError } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
 import { previewSkillImport } from '../skillImport.ts';
 import { ARCHIVE_LIMITS, readTarGzip } from './archive.ts';
 import { jsonResponse, readBounded, shaPattern, type MarketplaceFetch } from './transport.ts';

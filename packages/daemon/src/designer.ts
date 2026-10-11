@@ -9,7 +9,8 @@ import {
   DESIGN_RUNTIME_LIMITS, DesignSystemSchema, HUMAN, isActiveRun, isLegacyDesign, reviewPrompt, upgradeDesignInput,
   type Assignment, type DesignRevision, type DesignSkill, type WorkItem,
 } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import type { Daemon } from './daemon.ts';
 import { DesignStudio } from './designStudio.ts';
 import { sha256 } from './util/hash.ts';
 

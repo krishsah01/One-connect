@@ -12,13 +12,16 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { HUMAN, newId, type Decision } from '@acc/core';
 import { run, type ExecOptions, type ExecResult } from '../exec.ts';
-import type { Daemon } from '../daemon.ts';
-import type { AnswerOptions } from '../decisions.ts';
+import type { AnswerOptions, Decisions } from '../decisions.ts';
 import { writePrivate } from '../paths.ts';
 import { dockerIgnore, privateBuildPath, readBounded, readScopedBytes, scopedPath, findComposeFile, normalizeComposeProject, parseCompose, type ComposeFile, type ComposeService } from './compose.ts';
 import { DatabaseFiles, DatabaseSpecError, parseDatabaseSpec, postgresImage, volumeName, type DatabaseRecord, type PostgresSpec } from './database.ts';
 import { RuntimeInputs } from './runtime-inputs.ts';
 import { sha256 } from '../util/hash.ts';
+import type { Kernel } from '../kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ProjectEnvironmentDeps = Kernel & { readonly decisions: Decisions };
 
 export type DockerExec = (args: string[], o?: Pick<ExecOptions, 'timeoutMs' | 'maxBytes' | 'signal'>) => Promise<ExecResult>;
 export type ComposeAction = 'up' | 'stop' | 'restart' | 'build' | 'pull' | 'down';
@@ -80,7 +83,7 @@ function publishedPorts(line: { Names?: string; Ports?: string; Labels?: string 
 }
 
 export class ProjectEnvironment {
-  readonly d: Daemon;
+  readonly d: ProjectEnvironmentDeps;
   readonly exec: DockerExec;
   readonly portProbe: (port: number) => Promise<boolean>;
   readonly files: DatabaseFiles;
@@ -92,7 +95,7 @@ export class ProjectEnvironment {
   private closing = false;
   private availabilityCache: { at: number; value: DockerAvailability } | null = null;
 
-  constructor(d: Daemon, o: { exec?: DockerExec; portProbe?: (port: number) => Promise<boolean>; now?: () => number } = {}) {
+  constructor(d: ProjectEnvironmentDeps, o: { exec?: DockerExec; portProbe?: (port: number) => Promise<boolean>; now?: () => number } = {}) {
     this.d = d;
     this.exec = o.exec ?? ((args, x) => {
       // Compose must not discover override files, implicit .env files, profiles or inherited values.

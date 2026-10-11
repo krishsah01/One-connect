@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import type { FastifyInstance } from 'fastify';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import type { Req } from './route.ts';
 
 const LOG_PAGE_BYTES = 128 * 1024;

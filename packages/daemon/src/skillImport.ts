@@ -8,7 +8,7 @@ import {
   stripGeneratedReferencesFooter, type SkillAttribution, type SkillBundle, type SkillDraft, type SkillImportPreview,
 } from '@acc/core';
 import { fileSha256, filesHash } from '@acc/core/skillHash';
-import { CommandError } from './daemon.ts';
+import { CommandError } from './errors.ts';
 
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
 const ALLOWED_FRONTMATTER = new Set(['name', 'description']);

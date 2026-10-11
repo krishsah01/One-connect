@@ -7,7 +7,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { EffortSchema, HUMAN } from '@acc/core';
 import { changedFiles, diffPatch } from '../adapters/vcs/git.ts';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import { parseBody, type Req } from './route.ts';
 
 const strings = z.array(z.string());

@@ -19,14 +19,20 @@ import {
   shellQuote,
 } from '@acc/core';
 import type { OutboxOp } from '../store/eventStore.ts';
-import { CommandError, type Daemon } from '../daemon.ts';
-import type { AnswerOptions } from '../decisions.ts';
+import { CommandError } from '../errors.ts';
+import type { AnswerOptions, Decisions } from '../decisions.ts';
 import { runChecks } from '../checks.ts';
 import { run } from '../exec.ts';
 import { safeGitEnv } from '../adapters/vcs/git-policy.ts';
 import { getSecret } from '../secrets.ts';
 import { allowlistedPr, allowlistedPush, configuredCommand, executeReleaseStep, verifyReleaseStep, reviewedHost, isProtectedBranch, type ProjectCommandResult, type ReleaseCommandContext, type ReleaseExec, type StepRunResult, type VerificationRequest, type ReleaseProof } from './runner.ts';
 import { sha256 } from '../util/hash.ts';
+import type { Kernel } from '../kernel.ts';
+import type { Connectors } from '../connectors.ts';
+import type { OutboxWorker } from '../outbox.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ReleasePlansDeps = Kernel & { readonly connectors: Connectors; readonly decisions: Decisions; readonly outbox: OutboxWorker };
 
 const KINDS = new Set<string>(RELEASE_STEP_KINDS);
 
@@ -47,12 +53,12 @@ type Phase = 'run' | 'rollback' | 'inspect';
 const restores = (step: ReleaseStep, phase: Phase) => phase === 'rollback' || phase === 'inspect' && step.recoveryPhase === 'rollback';
 
 export class ReleasePlans {
-  readonly d: Daemon;
+  readonly d: ReleasePlansDeps;
   projectCommand: (command: string, sha: string | null, verification?: VerificationRequest, context?: ReleaseCommandContext) => Promise<ProjectCommandResult>;
   exec: ReleaseExec;
   private busy = new Set<string>();
 
-  constructor(d: Daemon) {
+  constructor(d: ReleasePlansDeps) {
     this.d = d;
     this.projectCommand = (command, sha, verification) => this.runProject(command, sha, verification);
     this.exec = async (bin, args, opts) => {
@@ -406,7 +412,7 @@ export class ReleasePlans {
       if (this.get(plan.id).steps.find(s => s.id === step.id)?.status !== 'running') throw new CommandError('The action is no longer reserved.', 409);
     };
     return { step, plan, config, command, mode, guard, wasDispatched: () => dispatched,
-      authorizeRead: (capability: Parameters<NonNullable<ReturnType<Daemon['connectors']['releaseAccess']>>['authorize']>[0]) => {
+      authorizeRead: (capability: Parameters<NonNullable<ReturnType<Connectors['releaseAccess']>>['authorize']>[0]) => {
         const h = reviewedHost(config);
         const access = h ? this.d.connectors.releaseAccess(h.provider) : null;
         if (!access) throw new CommandError('The approved release read connection is unavailable.', 409);
@@ -624,7 +630,7 @@ export class ReleasePlans {
   }
 }
 
-function latestMerge(d: Daemon, workItemId: string): IntegrationMerge | null {
+function latestMerge(d: ReleasePlansDeps, workItemId: string): IntegrationMerge | null {
   const rows = Object.values(d.state.merges ?? {}).filter((m) => m.workItemId === workItemId);
   return rows.sort((a, b) => b.at.localeCompare(a.at))[0] ?? null;
 }

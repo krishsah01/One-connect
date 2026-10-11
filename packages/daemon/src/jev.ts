@@ -15,9 +15,15 @@
 // contract; this build has made no live or paid TypeSafe request.
 import type { Actor, Decision, DecisionAction, JevAdvisory } from '@acc/core';
 import { HUMAN, ellipsize, canonicalJson } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
 import { getSecret, hasSecret } from './secrets.ts';
 import { sha256 } from './util/hash.ts';
+import type { Kernel } from './kernel.ts';
+import type { WorkflowLinks } from './workflowLinks.ts';
+import type { WorkflowEngine } from './workflows.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type JevDeps = Kernel & { readonly workflowLinks: WorkflowLinks; readonly workflows: WorkflowEngine };
 
 export const JEV_DEFAULT_ENDPOINT = 'https://api.typesafe.ai';
 export const JEV_PATH = '/v1/systemone';
@@ -116,9 +122,9 @@ function actionEvidence(action: DecisionAction | null | undefined, r: (s: string
 }
 
 export class Jev {
-  readonly d: Daemon;
+  readonly d: JevDeps;
   private inFlight = new Set<string>();
-  constructor(d: Daemon) {
+  constructor(d: JevDeps) {
     this.d = d;
     d.bus.on('events', (events: { type: string }[]) => {
       if (events.some((e) => e.type !== 'decision.advisory' && e.type !== 'decision.advisory_invalidated')) queueMicrotask(() => this.invalidateStale());

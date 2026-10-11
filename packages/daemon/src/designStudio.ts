@@ -11,18 +11,25 @@ import {
   type Actor, type Assignment, type CaptureAttempt, type DesignJob, type DesignStudioEvent, type EventEnvelope, type MockRevision,
 } from '@acc/core';
 import { adapterFor } from './adapters/agents/index.ts';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import type { Kernel, WorkCommands } from './kernel.ts';
+import type { Designer } from './designer.ts';
+import type { DesignMocks } from './mocks.ts';
+import type { RunManager } from './runManager.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type DesignStudioDeps = Kernel & Pick<WorkCommands, 'agentFree' | 'cancelAssignment' | 'createAssignment' | 'createIssue' | 'preflight' | 'updateAssignment'> & { readonly designer: Designer; readonly mocks: DesignMocks; readonly runs: RunManager };
 
 const REFINE_MAX = 4000;
 
 export class DesignStudio {
-  readonly d: Daemon;
+  readonly d: DesignStudioDeps;
   /** Runs whose completion already triggered an automatic capture attempt in this process. */
   private readonly autoCaptured = new Set<string>();
   private readonly captures=new Set<Promise<void>>();
   private stopped=false;
   private readonly eventListener=(events:EventEnvelope[])=>this.onEvents(events);
-  constructor(d: Daemon) {
+  constructor(d: DesignStudioDeps) {
     this.d = d;
     d.bus.on('events',this.eventListener);
   }

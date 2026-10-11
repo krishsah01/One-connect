@@ -12,12 +12,16 @@ import {
   SkillDraftSchema, skillAdvice, skillMarkdown, SKILL_ID_RE, stripGeneratedReferencesFooter,
   type AdapterType, type Assignment, type ProjectSkill, type SkillBundle, type SkillDraft, type SkillImportPreview, type SkillRef, type SkillVersion,
 } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
-import { builtinSkill, builtinSkillFile } from './designer.ts';
+import { CommandError } from './errors.ts';
+import { builtinSkill, builtinSkillFile, type Designer } from './designer.ts';
 import { ensureExcluded } from './adapters/vcs/git.ts';
 import { draftHash, filesHash } from '@acc/core/skillHash';
 import { buildSkillBundle, previewSkillImport, type ImportFilesInput } from './skillImport.ts';
 import { sha256 } from './util/hash.ts';
+import type { Kernel } from './kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type SkillLibraryDeps = Kernel & { readonly designer: Designer };
 
 const exec = promisify(execFile);
 
@@ -46,8 +50,8 @@ function frontmatterName(text: string): string | null {
 }
 
 export class SkillLibrary {
-  readonly d: Daemon;
-  constructor(d: Daemon) { this.d = d; }
+  readonly d: SkillLibraryDeps;
+  constructor(d: SkillLibraryDeps) { this.d = d; }
 
   private skillsState(): Record<string, ProjectSkill> { return this.d.state.skills ?? {}; }
 

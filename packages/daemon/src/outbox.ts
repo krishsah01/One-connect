@@ -5,16 +5,20 @@
 import type { LifecycleState, NewEvent, TrackerCategory, WorkItem } from '@acc/core';
 import { DEFAULT_TRACKER_CATEGORY, newId } from '@acc/core';
 import { TrackerNotLiveError, type TrackerIssue } from './adapters/trackers/types.ts';
-import type { Daemon } from './daemon.ts';
 import type { OutboxRow } from './store/eventStore.ts';
+import type { Kernel } from './kernel.ts';
+import type { TrackerAdapter } from './adapters/trackers/index.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type OutboxDeps = Kernel & { readonly tracker: TrackerAdapter };
 
 export class OutboxWorker {
-  readonly d: Daemon;
+  readonly d: OutboxDeps;
   private timer: NodeJS.Timeout | null = null;
   private running = false;
   private again = false;
 
-  constructor(d: Daemon) {
+  constructor(d: OutboxDeps) {
     this.d = d;
   }
 
@@ -110,11 +114,11 @@ export class OutboxWorker {
 const STATE_FOR_NEW: Partial<Record<TrackerCategory, LifecycleState>> = { backlog: 'backlog', todo: 'selected', in_progress: 'selected', in_review: 'selected' };
 
 export class TrackerPoller {
-  readonly d: Daemon;
+  readonly d: OutboxDeps;
   private timer: NodeJS.Timeout | null = null;
   private busy = false;
 
-  constructor(d: Daemon) {
+  constructor(d: OutboxDeps) {
     this.d = d;
   }
 

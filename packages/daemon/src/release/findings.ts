@@ -2,16 +2,21 @@
 // Failing CI, an unprotected branch, and migration drift become tracker issues through the
 // existing outbox. The work item stays unsynced until that outbox delivers.
 import { HUMAN, productionBranchOf, type WorkItem } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
 import { sha256 } from '../util/hash.ts';
+import type { Kernel, WorkCommands } from '../kernel.ts';
+import type { Connectors } from '../connectors.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ReleaseFindingsDeps = Kernel & Pick<WorkCommands, 'buildIssue'> & { readonly connectors: Connectors };
 
 export const FINDING_KINDS = ['ci', 'unprotected_branch', 'migration_drift'] as const;
 export type FindingKind = (typeof FINDING_KINDS)[number];
 
 export class ReleaseFindings {
-  readonly d: Daemon;
+  readonly d: ReleaseFindingsDeps;
 
-  constructor(d: Daemon) {
+  constructor(d: ReleaseFindingsDeps) {
     this.d = d;
   }
 
@@ -57,7 +62,7 @@ export class ReleaseFindings {
   }
 }
 
-function findingCopy(kind: FindingKind, d: Daemon): { title: string; description: string } {
+function findingCopy(kind: FindingKind, d: ReleaseFindingsDeps): { title: string; description: string } {
   if (kind === 'unprotected_branch') {
     const branch = d.state.codeHost?.productionBranch ?? 'the production branch';
     return { title: `Unprotected branch ${branch}`, description: d.state.codeHost?.protectionDetail || `${branch} is not protected.` };

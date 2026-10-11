@@ -4,15 +4,19 @@
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import { HUMAN, type Actor, type AgentState, isManualRelay } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
 import { sha256 } from './util/hash.ts';
+import type { Kernel } from './kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type SubscriptionSafetyDeps = Kernel;
 
 interface Confirmation { binding: string; session: string; at: string; expiresAt: string }
 const TTL_MS = 12 * 60 * 60_000;
 export class SubscriptionSafety {
   private readonly session = randomBytes(24).toString('hex');
-  private readonly d: Daemon;
-  constructor(d: Daemon) { this.d = d; }
+  private readonly d: SubscriptionSafetyDeps;
+  constructor(d: SubscriptionSafetyDeps) { this.d = d; }
 
   private binding(a: AgentState): string {
     let binary: unknown = null;

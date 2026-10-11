@@ -2,7 +2,8 @@
 // Connections (API keys in the Keychain) and egress transparency: which hosts the daemon may
 // reach and the most recent outbound requests.
 import type { FastifyInstance } from 'fastify';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import { deleteSecret, hasSecret, providerSecretFor, SECRET_NAMES, setSecret, type SecretName } from '../secrets.ts';
 import type { Req } from './route.ts';
 

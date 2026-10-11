@@ -7,12 +7,19 @@ import type { EventEnvelope, Run } from '@acc/core';
 import { isActiveRun, subscriptionPeers, SYSTEM, isManualRelay } from '@acc/core';
 import { adapterFor } from './adapters/agents/index.ts';
 import { clampPollSeconds } from './adapters/hosts/webhook.ts';
-import type { Daemon } from './daemon.ts';
+import type { AgentCommands, Kernel, WorkCommands } from './kernel.ts';
+import type { ReleaseFindings } from './release/findings.ts';
+import type { CodeHosts } from './adapters/hosts/index.ts';
+import type { InfraHealth } from './infra/health.ts';
+import type { RunManager } from './runManager.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type RulesDeps = Kernel & Pick<WorkCommands, 'agentFree' | 'preflight' | 'tryTransition'> & Pick<AgentCommands, 'probe' | 'ruleOn'> & { readonly findings: ReleaseFindings; readonly hosts: CodeHosts; readonly infra: InfraHealth; readonly runs: RunManager };
 
 const minutes = (n: number) => n * 60_000;
 
 export class Rules {
-  readonly d: Daemon;
+  readonly d: RulesDeps;
   private timer: NodeJS.Timeout | null = null;
   private refilling = new Set<string>();
   /** Injected in tests; real check is a DNS lookup of the vendor's API host. */
@@ -26,7 +33,7 @@ export class Rules {
   };
   retryDelayMs = 3000;
 
-  constructor(d: Daemon) {
+  constructor(d: RulesDeps) {
     this.d = d;
   }
 

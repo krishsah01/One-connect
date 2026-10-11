@@ -2,7 +2,8 @@
 // HTTP routes for phone access, notifications, Brief & Reports and the context benchmark.
 // Registered on the main app, so Host/Origin/auth checks (local or remote gate) run first.
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { CommandError, type Daemon } from '../daemon.ts';
+import { CommandError } from '../errors.ts';
+import type { Daemon } from '../daemon.ts';
 import { buildBrief, buildMorningReport, buildTimeline, renderStandupMarkdown } from '@acc/core';
 import { phoneLog, phoneLogPage } from './logs.ts';
 import { phoneDecision, phoneHistory, phoneReportEvents } from './projection.ts';

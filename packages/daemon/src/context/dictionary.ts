@@ -9,9 +9,8 @@
 // them match. Jobs coalesce, can be cancelled, and resume after a restart.
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import type { DocAnswer,DocSearchResult,DictionaryChanges,DictionaryJob,DictionaryStage,DictionaryStageName,DictionaryStatus } from '@acc/core';
+import type { DocAnswer, DocSearchResult, DictionaryChanges, DictionaryJob, DictionaryStage, DictionaryStageName, DictionaryStatus } from '@acc/core';
 import { newId } from '@acc/core';
-import type { Daemon } from '../daemon.ts';
 import { DEFAULT_LIMITS,decodeBlob,eligible,intakePriority,languageOf,listTree,manifestsOf,projectCommit,readBlobs,type ExtractLimits,type TreeEntry } from './extract-project.ts';
 import type { AskDocs } from './docs.ts';
 import type { GraphContext } from './graph.ts';
@@ -21,6 +20,10 @@ import { AnswerManifest,PIPELINE_VERSION,pathKey,type BlobRow,type Generation,ty
 import { analyzeStructure } from './structure.ts';
 import { mentions,type Expansion,type Ranked } from './retrieval.ts';
 import { sha256 } from '../util/hash.ts';
+import type { Kernel } from '../kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type DictionaryDeps = Kernel;
 
 const literal=(s:string)=>s.replace(/[\\`*_{}\[\]()#+.!|<>]/g,'\\$&');
 const fence=(s:string)=>'~'.repeat(Math.max(3,...[...s.matchAll(/~+/g)].map(m=>m[0].length+1)));
@@ -44,7 +47,7 @@ class Cancelled extends Error {}
 type Reason=DictionaryJob['reason'];
 
 export class Dictionary {
-  readonly d:Daemon;readonly vault:Vault;readonly docs:AskDocs;readonly graph:GraphContext|null;readonly manifest:AnswerManifest;
+  readonly d:DictionaryDeps;readonly vault:Vault;readonly docs:AskDocs;readonly graph:GraphContext|null;readonly manifest:AnswerManifest;
   readonly limits:ExtractLimits;
   status:DictionaryStatus;
   private running:Promise<void>|null=null;
@@ -59,7 +62,7 @@ export class Dictionary {
   private sources:Record<string,Source>={};
   private boostMemo:{query:string;paths:Set<string>}|null=null;
 
-  constructor(d:Daemon,vault:Vault,docs:AskDocs,graph:GraphContext|null,o:{limits?:Partial<ExtractLimits>}={}) {
+  constructor(d:DictionaryDeps,vault:Vault,docs:AskDocs,graph:GraphContext|null,o:{limits?:Partial<ExtractLimits>}={}) {
     this.d=d;this.vault=vault;this.docs=docs;this.graph=graph;this.limits={...DEFAULT_LIMITS,...o.limits};
     this.manifest=new AnswerManifest(path.join(d.paths.root,'context','dictionary.sqlite'));
     const saved=d.store.kvGet('answer:status');

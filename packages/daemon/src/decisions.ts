@@ -4,9 +4,14 @@
 import { randomBytes } from 'node:crypto';
 import type { Actor, Decision, EventEnvelope, NewEvent } from '@acc/core';
 import { HUMAN, newId } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
 import { MAX_LIST } from './store/eventStore.ts';
 import { sha256 } from './util/hash.ts';
+import type { Kernel } from './kernel.ts';
+import type { ReviewMerge } from './reviewMerge.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type DecisionsDeps = Kernel & { readonly reviewMerge: ReviewMerge };
 
 const CONFIRM_TTL_MS = 2 * 60_000;
 export interface AnswerOptions { nonce?: string | null; channel?: string }
@@ -33,10 +38,10 @@ const HISTORY_TYPES = ['decision.created', 'decision.recommended', 'decision.con
 const BOUND_KINDS: readonly string[] = ['settings', 'cost', 'connector', 'environment', 'docker', 'remote', 'notification', 'release'];
 
 export class Decisions {
-  readonly d: Daemon;
+  readonly d: DecisionsDeps;
   private readonly executors: DecisionExecutor[] = [];
 
-  constructor(d: Daemon) {
+  constructor(d: DecisionsDeps) {
     this.d = d;
   }
 
@@ -148,7 +153,7 @@ export class Decisions {
    * The exact action's authorization and its human answer commit in the same transaction.
    * `outbox` is the tracker's ordered comment queue (release steps record the outcome there).
    */
-  answerAtomic(id: string, answer: string, o: AnswerOptions = {}, actor: Actor = HUMAN, events: Parameters<Daemon['commit']>[0] = [], transaction?: () => void, outbox: Parameters<Daemon['commit']>[1] = []): Decision {
+  answerAtomic(id: string, answer: string, o: AnswerOptions = {}, actor: Actor = HUMAN, events: Parameters<Kernel['commit']>[0] = [], transaction?: () => void, outbox: Parameters<Kernel['commit']>[1] = []): Decision {
     const { decision: dec, confirmed: confirm } = this.validateAnswer(id, answer, o, actor);
     this.d.commit([{ type: 'decision.answered', actor, workItemId: dec.workItemId ?? null, data: { decisionId: id, answer, channel: o.channel ?? 'web', confirmed: confirm } }, ...events], outbox, () => {
       if (confirm) this.d.store.kvDelete(`decision-confirm:${id}`);

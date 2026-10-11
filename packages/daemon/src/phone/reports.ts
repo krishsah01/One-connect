@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Commons-Clause-1.0
 // Brief & Reports and Timeline over this project's own event log. No model call: pure derivation
 // from recorded events and the live state (see packages/core/src/reports.ts).
-import type { ReportFilter } from '@acc/core';
-import { buildBrief, buildMorningReport, buildTimeline, isReleaseLike, renderStandupMarkdown, type ReportEvent } from '@acc/core';
-import { CommandError, type Daemon } from '../daemon.ts';
+import type { ReportEvent, ReportFilter } from '@acc/core';
+import { buildBrief, buildMorningReport, buildTimeline, isReleaseLike, renderStandupMarkdown } from '@acc/core';
+import { CommandError } from '../errors.ts';
+import type { Kernel } from '../kernel.ts';
+
+/** What this service needs from the daemon (see kernel.ts). */
+export type ReportsDeps = Kernel;
 
 const TYPES = [
   'daemon.started', 'work_item.created', 'work_item.transitioned', 'work_item.evidence_added', 'run.created', 'run.ended', 'run.handoff', 'run.tests',
@@ -16,10 +20,10 @@ const MAX_EVENTS = 30_000;
 interface Row { seq: number; id: string; ts: string; type: string; actor: string; agent_id: string | null; run_id: string | null; work_item_id: string | null; assignment_id: string | null; data: string }
 
 export class Reports {
-  readonly d: Daemon;
+  readonly d: ReportsDeps;
   private cache: ReportEvent[] = [];
   private lastSeq = 0;
-  constructor(d: Daemon) { this.d = d; }
+  constructor(d: ReportsDeps) { this.d = d; }
 
   /** Incrementally loaded, bounded view of the report-relevant events. */
   events(): ReportEvent[] {

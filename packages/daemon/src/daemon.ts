@@ -48,10 +48,10 @@ import { ProjectEnvironment } from './environment/workbench.ts';
 import { IssueImports } from './imports.ts';
 import { Team } from './team.ts';
 import { Designer } from './designer.ts';
+import type { AnswerOptions } from './decisions.ts';
 import { Decisions } from './decisions.ts';
 import { decisionExecutors } from './decisionExecutors.ts';
 import { AgentCosts, needsCostApproval } from './agentCosts.ts';
-import type { AnswerOptions } from './decisions.ts';
 import { Settings, settingsConfig, type SettingsDraft } from './settings.ts';
 import { Jev } from './jev.ts';
 import { CodeHosts } from './adapters/hosts/index.ts';
@@ -80,8 +80,15 @@ import { probeAgent } from './probe.ts';
 import { Rules } from './rules.ts';
 import { RunManager } from './runManager.ts';
 import { EventStore, type OutboxOp } from './store/eventStore.ts';
+import { CommandError } from './errors.ts';
+import { VERSION } from './version.ts';
+import type { AgentCommands, AssignmentInput, ConfigCommands, IssueInput, Kernel, WorkCommands } from './kernel.ts';
 
-export const VERSION = '0.1.0';
+export { VERSION } from './version.ts';
+
+// Kept here so existing `from './daemon.ts'` imports keep working; new code imports the source.
+export { CommandError } from './errors.ts';
+export type { AssignmentInput, IssueInput } from './kernel.ts';
 
 export interface DaemonOptions {
   config: ControlCenterConfig;
@@ -101,36 +108,7 @@ export interface DaemonOptions {
   fetch?: (url: string, init?: RequestInit) => Promise<Response>;
 }
 
-export interface IssueInput { title: string; description?: string; acceptance?: string[]; labels?: string[]; priority?: number; requiresProductionVerification?: boolean; parentKey?: string | null }
-
-export interface AssignmentInput {
-  workItemId: string;
-  agentId: string;
-  allowedPaths?: string[];
-  scope?: string;
-  requiredChecks?: string[];
-  askHumanIf?: string[];
-  model?: string | null;
-  /** Commit or branch the worktree starts from (default: the integration branch). */
-  baseRef?: string;
-  kind?: Assignment['kind'];
-  review?: Assignment['review'];
-  workflowId?: string | null;
-  taskId?: string | null;
-}
-
-export class CommandError extends Error {
-  status: number;
-  /** Structured validation problems (e.g. workflow issues), returned to the client as-is. */
-  issues?: unknown[];
-  constructor(message: string, status = 400, issues?: unknown[]) {
-    super(message);
-    this.status = status;
-    if (issues) this.issues = issues;
-  }
-}
-
-export class Daemon {
+export class Daemon implements Kernel, WorkCommands, AgentCommands, ConfigCommands {
   readonly opts: DaemonOptions;
   readonly paths: DataPaths;
   readonly store: EventStore;

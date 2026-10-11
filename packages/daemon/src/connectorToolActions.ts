@@ -9,9 +9,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { ListRootsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { containsSecret, HUMAN, isActiveRun, newId, type Actor, type Connector, type EventEnvelope, canonicalJson } from '@acc/core';
-import { CommandError, type Daemon } from './daemon.ts';
+import { CommandError } from './errors.ts';
+import type { ConnectorsDeps, Connectors } from './connectors.ts';
 import type { AnswerOptions } from './decisions.ts';
-import type { Connectors } from './connectors.ts';
 import { sha256 } from './util/hash.ts';
 
 const utf8Bytes = (s: string) => Buffer.byteLength(s, 'utf8');
@@ -104,7 +104,7 @@ export class ConnectorToolActions {
     this.d.bus.on('events', this.onEvents);
   }
 
-  private get d(): Daemon {
+  private get d(): ConnectorsDeps {
     return this.connectors.d;
   }
 
