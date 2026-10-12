@@ -10,18 +10,6 @@
       "port": 5173
     },
     {
-      "name": "site",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "8787",
-        "-d",
-        "site"
-      ],
-      "port": 8787
-    },
-    {
       "name": "web-designer",
       "runtimeExecutable": "env",
       "runtimeArgs": [
