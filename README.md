@@ -6,7 +6,7 @@
 
 A local-first control center that runs a team of AI coding agents from different vendors through the development cycle, on the subscriptions **you already pay for**. Every agent gets a live console. Issues, assignments, runs, branches, handoffs and your decisions are connected in one event log.
 
-**[Website](https://krishsah01.github.io/One-connect/)** · **[Download for Mac](https://github.com/krishsah01/One-connect/releases/latest)** (Apple silicon, development preview) · [Docs](docs/) · [Design system](design/README.md)
+**[Website](https://oneconnect.dev/)** · **[Download for Mac](https://github.com/krishsah01/One-connect/releases/latest)** (Apple silicon, development preview) · **[Docs](https://oneconnect.dev/docs/)** · [Engineering notes](docs/) · [Design system](design/README.md)
 
 Install it like any Mac app: open the DMG and drag One Connect into Applications. Installed copies update themselves after you confirm a restart. Until the app is signed and notarized, macOS blocks the first launch; open System Settings → Privacy & Security and choose **Open Anyway** once. Nothing is installed on your behalf: the app's setup flow asks before preparing any vendor download, and you run each command yourself in the built-in terminal. Maintainers: see [docs/release.md](docs/release.md).
 
